@@ -1,0 +1,14 @@
+{
+    "dataType": "source",
+    "dbType": "scriptdata",
+    "script": {
+        "path": "sourceProcessing/img/processing.py",
+        "function": "build",
+        "args": [
+            "{PATH, DOWNLOAD, img.csv}"
+        ],
+        "outputs": [
+            "{PATH, DOWNLOAD, img.csv}"
+        ]
+    }
+}
