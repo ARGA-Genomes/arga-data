@@ -1,0 +1,30 @@
+{
+    "ncbi": {
+        "genbankSummary": {
+            "updateType": "weekly",
+            "updateValue": "sunday",
+            "repeatInterval": 1,
+            "time": 9,
+            "method": "full"
+        },
+        "nucMammalian": {
+            "updateType": "daily",
+            "repeatInterval": 3,
+            "time": 9,
+            "method": "partial",
+            "script": {
+                "path": "",
+                "function": ""
+            }
+        }
+    },
+    "tsi": {
+        "compiled": {
+            "updateType": "monthly",
+            "updateValue": 1,
+            "repeatInterval": 1,
+            "time": 9,
+            "method": "full"
+        }
+    }
+}
