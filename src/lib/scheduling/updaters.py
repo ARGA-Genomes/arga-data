@@ -26,15 +26,15 @@ class Updater:
         self.location = location
         self.name = name
         self.properties = properties
-
         self._loadProperties()
 
     def __repr__(self) -> str:
         return f"{self.location}-{self.name}:\n  Properties: {self.properties}"
     
-    def getInterval(self) -> int:
-        interval = self._calcInterval().total_seconds()
-        return interval if interval > 0 else 0
+    def getTimeTilUpdate(self) -> int:
+        updateTime = datetime.combine(self._getNextUpdate(), self.time)
+        interval = (updateTime - datetime.now()).total_seconds()
+        return int(interval) if interval > 0 else 0
 
     def _getProperty(self, property: Property, acceptedValues: list = []) -> (str | int):
         value = self.properties.get(property.value, None)
@@ -67,19 +67,16 @@ class Updater:
         
         return datetime.fromisoformat(lastDownloaded)
 
-    def _calcInterval(self) -> timedelta:
+    def _getNextUpdate(self) -> date:
         raise NotImplementedError
 
 class DailyUpdater(Updater):
-    def _calcInterval(self) -> timedelta:
+    def _getNextUpdate(self) -> date:
         lastUpdate = self._getLastUpdate()
         if lastUpdate is None:
-            return timedelta()
+            return datetime.today().date()
 
-        daysFromUpdate = lastUpdate.date() + timedelta(days=self.repeatInterval)
-        nextUpdate = datetime.combine(daysFromUpdate, self.time)
-
-        return nextUpdate - datetime.now()
+        return lastUpdate.date() + timedelta(days=self.repeatInterval)
 
 class WeeklyUpdater(Updater):
     days = [
@@ -101,19 +98,18 @@ class WeeklyUpdater(Updater):
         except ValueError:
             raise Exception(f"Invalid day: {day}")
 
-    def _calcInterval(self) -> timedelta:
+    def _getNextUpdate(self) -> date:
         lastUpdate = self._getLastUpdate()
         if lastUpdate is None:
-            return timedelta()
+            return datetime.today().date()
         
         today = datetime.today()
-        daysFromUpdate = (self.updateValue - today.weekday()) % 7
+        interval = 7 * self.repeatInterval
+        daysFromUpdate = (self.updateValue - today.weekday()) % interval
         if daysFromUpdate == 0 and lastUpdate.date() == today:
-            daysFromUpdate = 7
+            daysFromUpdate = interval
 
-        nextUpdate = (today + timedelta(days=daysFromUpdate)).date()
-        update = datetime.combine(nextUpdate, self.time)
-        return update - datetime.now()
+        return (today + timedelta(days=daysFromUpdate)).date()
 
 class MonthlyUpdater(Updater):
     def _loadProperties(self) -> None:
@@ -121,23 +117,20 @@ class MonthlyUpdater(Updater):
 
         self.updateValue = self._getProperty(Property.UPDATE_VALUE)
 
-    def _calcInterval(self) -> timedelta:
+    def _getNextUpdate(self) -> date:
         lastUpdate = self._getLastUpdate()
         if lastUpdate is None:
-            return timedelta()
+            return datetime.today().date()
         
         today = datetime.today()
 
         dayOffset = self.updateValue - today.day
         if dayOffset > 0:
-            nextUpdate = today + timedelta(days=dayOffset)
-        else:
-            nextMonth = (today.month + 1) % 12
-            nextYear = today.year if nextMonth > 0 else today.year + 1
-            nextUpdate = date(year=nextYear, month=nextMonth, day=self.updateValue)
-        
-        update = datetime.combine(nextUpdate, self.time)
-        return update - datetime.now()
+            self.repeatInterval -= 1
+
+        nextMonth = (today.month + self.repeatInterval) % 12
+        nextYear = today.year + 1 if nextMonth < today.month else today.year
+        return date(year=nextYear, month=nextMonth, day=self.updateValue)
 
 def createUpdater(location: str, name: str, properties: dict) -> Updater:
     updaters: dict[UpdateType, Updater] = {
