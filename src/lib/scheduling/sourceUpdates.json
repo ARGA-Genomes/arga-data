@@ -1,9 +1,333 @@
 {
+    "42bp": {
+        "genomeArk": {
+            "updateType": "weekly",
+            "updateValue": "sunday",
+            "repeatInterval": 2,
+            "time": 9,
+            "method": "full"
+        }
+    },
+    "ala": {
+        "avh": {
+            "updateType": "weekly",
+            "updateValue": "sunday",
+            "repeatInterval": 2,
+            "time": 9,
+            "method": "full"
+        },
+        "profiles": {
+            "updateType": "weekly",
+            "updateValue": "sunday",
+            "repeatInterval": 2,
+            "time": 9,
+            "method": "full"
+        }
+    },
+    "algaeBase": {
+        "api": {
+            "updateType": "weekly",
+            "updateValue": "sunday",
+            "repeatInterval": 2,
+            "time": 9,
+            "method": "full"
+        }
+    },
+    "anemone": {
+        "db": {
+            "updateType": "weekly",
+            "updateValue": "sunday",
+            "repeatInterval": 2,
+            "time": 9,
+            "method": "full"
+        }
+    },
+    "bold": {
+        "austsv": {
+            "updateType": "weekly",
+            "updateValue": "sunday",
+            "repeatInterval": 2,
+            "time": 9,
+            "method": "full"
+        },
+        "ausxml": {
+            "updateType": "weekly",
+            "updateValue": "sunday",
+            "repeatInterval": 2,
+            "time": 9,
+            "method": "full"
+        },
+        "datapackage": {
+            "updateType": "weekly",
+            "updateValue": "sunday",
+            "repeatInterval": 2,
+            "time": 9,
+            "method": "full"
+        }
+    },
+    "bpa": {
+        "portal": {
+            "updateType": "weekly",
+            "updateValue": "sunday",
+            "repeatInterval": 2,
+            "time": 9,
+            "method": "full"
+        }
+    },
+    "bvbrc": {
+        "db": {
+            "updateType": "weekly",
+            "updateValue": "sunday",
+            "repeatInterval": 2,
+            "time": 9,
+            "method": "full"
+        }
+    },
+    "csiro": {
+        "dap": {
+            "updateType": "weekly",
+            "updateValue": "sunday",
+            "repeatInterval": 2,
+            "time": 9,
+            "method": "full"
+        },
+        "datasets": {
+            "updateType": "weekly",
+            "updateValue": "sunday",
+            "repeatInterval": 2,
+            "time": 9,
+            "method": "full"
+        },
+        "genomes": {
+            "updateType": "weekly",
+            "updateValue": "sunday",
+            "repeatInterval": 2,
+            "time": 9,
+            "method": "full"
+        }
+    },
+    "dnazoo": {
+        "db": {
+            "updateType": "weekly",
+            "updateValue": "sunday",
+            "repeatInterval": 2,
+            "time": 9,
+            "method": "full"
+        }
+    },
+    "ena": {
+        "assembly": {
+            "updateType": "weekly",
+            "updateValue": "sunday",
+            "repeatInterval": 2,
+            "time": 9,
+            "method": "full"
+        },
+        "genome": {
+            "updateType": "weekly",
+            "updateValue": "sunday",
+            "repeatInterval": 2,
+            "time": 9,
+            "method": "full"
+        },
+        "taxonomy": {
+            "updateType": "weekly",
+            "updateValue": "sunday",
+            "repeatInterval": 2,
+            "time": 9,
+            "method": "full"
+        },
+        "variant": {
+            "updateType": "weekly",
+            "updateValue": "sunday",
+            "repeatInterval": 2,
+            "time": 9,
+            "method": "full"
+        }
+    },
+    "ensembl": {
+        "rapidrelease": {
+            "updateType": "weekly",
+            "updateValue": "sunday",
+            "repeatInterval": 2,
+            "time": 9,
+            "method": "full"
+        },
+        "species": {
+            "updateType": "weekly",
+            "updateValue": "sunday",
+            "repeatInterval": 2,
+            "time": 9,
+            "method": "full"
+        }
+    },
+    "esa178": {
+        "birds": {
+            "updateType": "weekly",
+            "updateValue": "sunday",
+            "repeatInterval": 2,
+            "time": 9,
+            "method": "full"
+        },
+        "mammals": {
+            "updateType": "weekly",
+            "updateValue": "sunday",
+            "repeatInterval": 2,
+            "time": 9,
+            "method": "full"
+        }
+    },
+    "goat": {
+        "db": {
+            "updateType": "weekly",
+            "updateValue": "sunday",
+            "repeatInterval": 2,
+            "time": 9,
+            "method": "full"
+        }
+    },
+    "gold": {
+        "allData": {
+            "updateType": "weekly",
+            "updateValue": "sunday",
+            "repeatInterval": 2,
+            "time": 9,
+            "method": "full"
+        },
+        "cvs": {
+            "updateType": "weekly",
+            "updateValue": "sunday",
+            "repeatInterval": 2,
+            "time": 9,
+            "method": "full"
+        },
+        "ecoClassification": {
+            "updateType": "weekly",
+            "updateValue": "sunday",
+            "repeatInterval": 2,
+            "time": 9,
+            "method": "full"
+        },
+        "sra": {
+            "updateType": "weekly",
+            "updateValue": "sunday",
+            "repeatInterval": 2,
+            "time": 9,
+            "method": "full"
+        }
+    },
+    "gsa": {
+        "db": {
+            "updateType": "weekly",
+            "updateValue": "sunday",
+            "repeatInterval": 2,
+            "time": 9,
+            "method": "full"
+        }
+    },
     "ncbi": {
+        "biocollections": {
+            "updateType": "weekly",
+            "updateValue": "sunday",
+            "repeatInterval": 2,
+            "time": 9,
+            "method": "full"
+        },
+        "bioproject": {
+            "updateType": "weekly",
+            "updateValue": "sunday",
+            "repeatInterval": 2,
+            "time": 9,
+            "method": "full"
+        },
+        "biosample": {
+            "updateType": "weekly",
+            "updateValue": "sunday",
+            "repeatInterval": 2,
+            "time": 9,
+            "method": "full"
+        },
+        "gcaStats": {
+            "updateType": "weekly",
+            "updateValue": "sunday",
+            "repeatInterval": 2,
+            "time": 9,
+            "method": "full"
+        },
+        "gcfStats": {
+            "updateType": "weekly",
+            "updateValue": "sunday",
+            "repeatInterval": 2,
+            "time": 9,
+            "method": "full"
+        },
         "genbankSummary": {
             "updateType": "weekly",
             "updateValue": "sunday",
             "repeatInterval": 1,
+            "time": 9,
+            "method": "full"
+        },
+        "gene": {
+            "updateType": "weekly",
+            "updateValue": "sunday",
+            "repeatInterval": 2,
+            "time": 9,
+            "method": "full"
+        },
+        "nucBacteria": {
+            "updateType": "weekly",
+            "updateValue": "sunday",
+            "repeatInterval": 2,
+            "time": 9,
+            "method": "full"
+        },
+        "nucConstructed": {
+            "updateType": "weekly",
+            "updateValue": "sunday",
+            "repeatInterval": 2,
+            "time": 9,
+            "method": "full"
+        },
+        "nucEnvironmental": {
+            "updateType": "weekly",
+            "updateValue": "sunday",
+            "repeatInterval": 2,
+            "time": 9,
+            "method": "full"
+        },
+        "nucExpressedSeq": {
+            "updateType": "weekly",
+            "updateValue": "sunday",
+            "repeatInterval": 2,
+            "time": 9,
+            "method": "full"
+        },
+        "nucGenomeSurvey": {
+            "updateType": "weekly",
+            "updateValue": "sunday",
+            "repeatInterval": 2,
+            "time": 9,
+            "method": "full"
+        },
+        "nucHighCDNA": {
+            "updateType": "weekly",
+            "updateValue": "sunday",
+            "repeatInterval": 2,
+            "time": 9,
+            "method": "full"
+        },
+        "nucHighGenomic": {
+            "updateType": "weekly",
+            "updateValue": "sunday",
+            "repeatInterval": 2,
+            "time": 9,
+            "method": "full"
+        },
+        "nucInvertebrate": {
+            "updateType": "weekly",
+            "updateValue": "sunday",
+            "repeatInterval": 2,
             "time": 9,
             "method": "full"
         },
@@ -16,6 +340,138 @@
                 "path": "",
                 "function": ""
             }
+        },
+        "nucOtherVertibrate": {
+            "updateType": "weekly",
+            "updateValue": "sunday",
+            "repeatInterval": 2,
+            "time": 9,
+            "method": "full"
+        },
+        "nucPatent": {
+            "updateType": "weekly",
+            "updateValue": "sunday",
+            "repeatInterval": 2,
+            "time": 9,
+            "method": "full"
+        },
+        "nucPhage": {
+            "updateType": "weekly",
+            "updateValue": "sunday",
+            "repeatInterval": 2,
+            "time": 9,
+            "method": "full"
+        },
+        "nucPlant": {
+            "updateType": "weekly",
+            "updateValue": "sunday",
+            "repeatInterval": 2,
+            "time": 9,
+            "method": "full"
+        },
+        "nucPrimate": {
+            "updateType": "weekly",
+            "updateValue": "sunday",
+            "repeatInterval": 2,
+            "time": 9,
+            "method": "full"
+        },
+        "nucRodent": {
+            "updateType": "weekly",
+            "updateValue": "sunday",
+            "repeatInterval": 2,
+            "time": 9,
+            "method": "full"
+        },
+        "nucSequenceTagged": {
+            "updateType": "weekly",
+            "updateValue": "sunday",
+            "repeatInterval": 2,
+            "time": 9,
+            "method": "full"
+        },
+        "nucSynthetic": {
+            "updateType": "weekly",
+            "updateValue": "sunday",
+            "repeatInterval": 2,
+            "time": 9,
+            "method": "full"
+        },
+        "nucTranscriptome": {
+            "updateType": "weekly",
+            "updateValue": "sunday",
+            "repeatInterval": 2,
+            "time": 9,
+            "method": "full"
+        },
+        "nucViral": {
+            "updateType": "weekly",
+            "updateValue": "sunday",
+            "repeatInterval": 2,
+            "time": 9,
+            "method": "full"
+        },
+        "nucleotide": {
+            "updateType": "weekly",
+            "updateValue": "sunday",
+            "repeatInterval": 2,
+            "time": 9,
+            "method": "full"
+        },
+        "refseqSummary": {
+            "updateType": "weekly",
+            "updateValue": "sunday",
+            "repeatInterval": 2,
+            "time": 9,
+            "method": "full"
+        },
+        "sra": {
+            "updateType": "weekly",
+            "updateValue": "sunday",
+            "repeatInterval": 2,
+            "time": 9,
+            "method": "full"
+        },
+        "taxonomy": {
+            "updateType": "weekly",
+            "updateValue": "sunday",
+            "repeatInterval": 2,
+            "time": 9,
+            "method": "full"
+        },
+        "tpa": {
+            "updateType": "weekly",
+            "updateValue": "sunday",
+            "repeatInterval": 2,
+            "time": 9,
+            "method": "full"
+        }
+    },
+    "reefGenomics": {
+        "db": {
+            "updateType": "weekly",
+            "updateValue": "sunday",
+            "repeatInterval": 2,
+            "time": 9,
+            "method": "full"
+        }
+    },
+    "silva": {
+        "metadata": {
+            "updateType": "weekly",
+            "updateValue": "sunday",
+            "repeatInterval": 2,
+            "time": 9,
+            "method": "full"
+        }
+    },
+    "tern": {
+        "portal": {
+            "updateType": "weekly",
+            "updateValue": "sunday",
+            "repeatInterval": 2,
+            "time": 9,
+            "method": "full"
         }
     },
     "tsi": {
@@ -23,6 +479,52 @@
             "updateType": "monthly",
             "updateValue": 1,
             "repeatInterval": 1,
+            "time": 9,
+            "method": "full"
+        },
+        "koala": {
+            "updateType": "weekly",
+            "updateValue": "sunday",
+            "repeatInterval": 2,
+            "time": 9,
+            "method": "full"
+        },
+        "mouse": {
+            "updateType": "weekly",
+            "updateValue": "sunday",
+            "repeatInterval": 2,
+            "time": 9,
+            "method": "full"
+        }
+    },
+    "vicMuseum": {
+        "species": {
+            "updateType": "weekly",
+            "updateValue": "sunday",
+            "repeatInterval": 2,
+            "time": 9,
+            "method": "full"
+        },
+        "specimens": {
+            "updateType": "weekly",
+            "updateValue": "sunday",
+            "repeatInterval": 2,
+            "time": 9,
+            "method": "full"
+        }
+    },
+    "wilderlab": {
+        "records": {
+            "updateType": "weekly",
+            "updateValue": "sunday",
+            "repeatInterval": 2,
+            "time": 9,
+            "method": "full"
+        },
+        "samples": {
+            "updateType": "weekly",
+            "updateValue": "sunday",
+            "repeatInterval": 2,
             "time": 9,
             "method": "full"
         }
