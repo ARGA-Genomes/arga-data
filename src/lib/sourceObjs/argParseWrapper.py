@@ -24,7 +24,7 @@ class SourceArgParser:
 
     def parse_args(self, *args, **kwargs) -> tuple[list[Database], list[int], int, dict]:
         parsedArgs = self.parser.parse_args(*args, **kwargs)
-        sources = self.manager.getDB(parsedArgs.sources)
+        sources = self.manager.getMultipleDBs(parsedArgs.sources)
         overwrite = parsedArgs.overwrite
 
         delattrs = ["sources", "overwrite"] # Remove source name stored in original parsed args

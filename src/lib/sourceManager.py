@@ -39,16 +39,14 @@ class SourceManager:
     def getLocations(self) -> dict[str, SourceLocation]:
         return self.locations
 
-    def getDB(self, sources: list[str]) -> list[Database]:
-        locations = []
+    def getDB(self, source: str) -> Database:
+        location, database = self._unpackDB(source)
+        location = self.locations.get(location, None)
 
-        for source in sources:
-            location, database = self._unpackDB(source)
-            location = self.locations.get(location, None)
+        if location is None:
+            raise Exception(f"Invalid location: {location}")
 
-            if location is None:
-                raise Exception(f"Invalid location: {location}")
+        return location.loadDB(database)
 
-            locations.append(location.loadDB(database))
-
-        return locations
+    def getMultipleDBs(self, sources: list[str]) -> list[Database]:
+        return [self.getDB(source) for source in sources]
