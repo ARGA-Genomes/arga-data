@@ -1,6 +1,6 @@
 from pathlib import Path
 from lib.processing.stageFile import StageFileStep, StageFile
-from lib.processing.stageScript import StageDownloadScript, StageScript, StageDWCConversion
+from lib.processing.stageScript import StageDownloadScript, StageScript, StageDWCConversion, StageUpdateScript
 from lib.processing.parser import SelectorParser
 from lib.processing.dwcProcessing import DWCProcessor
 import concurrent.futures
@@ -114,3 +114,7 @@ class SystemManager:
             dwcOutput = conversionScript.getOutput()
             convertedFile = StageFile(dwcOutput, {}, conversionScript, StageFileStep.DWC)
             self.stageFiles[StageFileStep.DWC].append(convertedFile)
+
+    def runUpdateScript(self, properties: dict) -> bool:
+        script = StageUpdateScript(properties, self.parser)
+        return script.run()

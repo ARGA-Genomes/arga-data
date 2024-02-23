@@ -25,6 +25,7 @@ class Database:
         self.perFileProcessing = properties.pop("perFileProcessing", [])
         self.finalProcessing = properties.pop("finalProcessing", [])
         self.dwcProperties = properties.pop("dwcProperties", {})
+        self.updateScript = properties.pop("updating", {})
 
         self.locationDir = cfg.Folders.dataSources / location
         self.databaseDir = self.locationDir / database
@@ -91,6 +92,18 @@ class Database:
     
     def getDWCFiles(self, selectIndexes: list[int] = []) -> list[StageFile]:
         return self._selectFiles(StageFileStep.DWC, selectIndexes)
+    
+    def update(self) -> None:
+        if self.updateScript:
+            success = self.systemManager.runUpdateScript(self.updateScript)
+            print(f"Success: {success}")
+            return
+        
+        self.prepareStage(StageFileStep.DWC)
+        
+        for stage in (StageFileStep.DOWNLOADED, StageFileStep.PRE_DWC, StageFileStep.DWC):
+            print(f"Creating stage: {stage.name}")
+            self.createStage(stage, overwrite=10)
 
     def _selectFiles(self, stage: StageFileStep, indexes: list[int]) -> list[StageFile]:
         fileList = self.systemManager.getFiles(stage)
