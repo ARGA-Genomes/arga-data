@@ -28,5 +28,12 @@
                 "{PATH, PREDWC, nucMammalian.csv}"
             ]
         }
-    ]
+    ],
+    "updating": {
+        "path": "sourceProcessing/ncbi.py",
+        "function": "updateNucleotide",
+        "args": [
+            "{PATH, ROOT}"
+        ]
+    }
 }

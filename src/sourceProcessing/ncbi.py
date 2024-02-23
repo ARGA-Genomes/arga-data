@@ -139,3 +139,7 @@ def compileNucleotide(folderPath: Path, outputFilePath: Path) -> None:
     writer = BigFileWriter(outputFilePath, "seqChunks", "chunk")
     writer.populateFromFolder(folderPath)
     writer.oneFile(False)
+
+def updateNucleotide(basePath: Path) -> bool:
+    localFile = "nucVersion.txt"
+    print(basePath)
