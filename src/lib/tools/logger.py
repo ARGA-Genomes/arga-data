@@ -9,7 +9,7 @@ class SystemLogger(logging.Logger):
         super().__init__("processing", logging.DEBUG)
 
         # Log file information
-        logFolder: Path = cfg.folders.logs
+        logFolder: Path = cfg.Folders.logs
         logFileName = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
         logFilePath = logFolder / f"{logFileName}.log"
 
