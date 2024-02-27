@@ -155,7 +155,6 @@ class StageUpdateScript:
         for parameter in self.processingStep:
             Logger.debug(f"Unknown step parameter: {parameter}")
 
-
     def run(self, verbose: bool = False):
         processFunction = pFuncs.importFunction(self.path, self.function)
 
@@ -169,5 +168,4 @@ class StageUpdateScript:
                 msg += f" with kwargs {self.kwargs}"
             print(msg)
 
-        success = processFunction(*self.args, **self.kwargs)
-        return success if success is not None else False
+        return processFunction(*self.args, **self.kwargs)

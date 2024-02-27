@@ -6,6 +6,7 @@ from lib.sourceObjs.timeManager import TimeManager
 from lib.processing.stageFile import StageFile, StageFileStep
 from lib.tools.crawler import Crawler
 from lib.tools.logger import Logger
+import pandas as pd
 
 class DBType(Enum):
     UNKNOWN    = -1
@@ -68,7 +69,9 @@ class Database:
     def createStage(self, stage: StageFileStep, fileNumbers: list[int] = [], overwrite: int = 0, **kwargs: dict) -> None:
         success = self.systemManager.create(stage, fileNumbers, overwrite, **kwargs)
         if success:
-            self.timeManager.update(stage)
+            Logger.info(f"Successfully created stage: {stage}")
+        else:
+            Logger.warning(f"Failed to create stage: {stage}")
 
     def createDirectory(self) -> None:
         Logger.info(f"Creating directory for data: {str(self.databaseDir)}")
@@ -95,8 +98,14 @@ class Database:
     
     def update(self) -> None:
         if self.updateScript:
-            success = self.systemManager.runUpdateScript(self.updateScript)
-            print(f"Success: {success}")
+            updatedDwC = self.systemManager.runUpdateScript(self.updateScript)
+            if not isinstance(updatedDwC, Path):
+                Logger.warning(f"Update script did not return a file path, unable to count records")
+                self.timeManager.update(0)
+                return
+            
+            records = self._countRecords(updatedDwC)
+            self.timeManager.update(records)
             return
         
         self.prepareStage(StageFileStep.DWC)
@@ -104,6 +113,10 @@ class Database:
         for stage in (StageFileStep.DOWNLOADED, StageFileStep.PRE_DWC, StageFileStep.DWC):
             print(f"Creating stage: {stage.name}")
             self.createStage(stage, overwrite=10)
+
+        dwcFile = self._selectFiles(StageFileStep.DWC, [])[0] # Select first DwC because there should only be one
+        records = self._countRecords(dwcFile.filePath)
+        self.timeManager.update(records)
 
     def _selectFiles(self, stage: StageFileStep, indexes: list[int]) -> list[StageFile]:
         fileList = self.systemManager.getFiles(stage)
@@ -121,6 +134,14 @@ class Database:
 
         Logger.error(f"Invalid {stage.name} files selected: {invalidIndexes}")
         return selectedFiles
+    
+    def _countRecords(self, filePath: Path) -> int:
+        rowCount = 0
+        firstFile = next(filePath.iterdir()) # Take the first file in the dwc folder
+        for chunk in pd.read_csv(firstFile, chunksize=1024*1024*8):
+            rowCount += len(chunk.index)
+        
+        return rowCount
 
 class SpecificDB(Database):
 
