@@ -98,16 +98,23 @@ class Database:
     
     def update(self) -> None:
         if self.updateScript:
-            updatedDwC = self.systemManager.runUpdateScript(self.updateScript)
-            if not isinstance(updatedDwC, Path):
-                Logger.warning(f"Update script did not return a file path, unable to count records")
-                self.timeManager.update(0)
+            Logger.info("Running update via update script")
+            success, updatedDwC = self.systemManager.runUpdateScript(self.updateScript)
+            if success:
+                if isinstance(updatedDwC, Path):
+                    records = self._countRecords(updatedDwC)
+                    self.timeManager.update(records)
+                    return
+
+                Logger.warning(f"Update script did not return a file path, no update required")
+                _, lastRecords = self.timeManager.getLastUpdate()
+                self.timeManager.update(lastRecords)
                 return
             
-            records = self._countRecords(updatedDwC)
-            self.timeManager.update(records)
-            return
-        
+            Logger.warning("Update script failed")
+            return # Temporary
+
+        Logger.info("Running update via full refresh")
         self.prepareStage(StageFileStep.DWC)
         
         for stage in (StageFileStep.DOWNLOADED, StageFileStep.PRE_DWC, StageFileStep.DWC):

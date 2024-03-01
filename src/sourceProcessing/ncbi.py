@@ -7,7 +7,6 @@ import concurrent.futures
 from sourceProcessing.ncbiFlatfileParser import FlatFileParser
 from lib.tools.extractor import Extractor
 from io import StringIO
-import json
 
 def splitLine(line: str, endingDivider: bool = True) -> list[str]:
     cleanLine = line.rstrip('\n').rstrip()
@@ -135,11 +134,7 @@ def parseNucleotide(filePath: Path, outputFilePath: Path, verbose: bool = True) 
 
     extractedFile.unlink()
 
-def compileNucleotide(folderPath: Path, outputFilePath: Path) -> None:
+def compileNucleotide(folderPath: Path, outputFilePath: Path) -> tuple[bool, Path]:
     writer = BigFileWriter(outputFilePath, "seqChunks", "chunk")
     writer.populateFromFolder(folderPath)
     writer.oneFile(False)
-
-def updateNucleotide(basePath: Path) -> bool:
-    localFile = "nucVersion.txt"
-    print(basePath)

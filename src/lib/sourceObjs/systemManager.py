@@ -115,6 +115,6 @@ class SystemManager:
             convertedFile = StageFile(dwcOutput, {}, conversionScript, StageFileStep.DWC)
             self.stageFiles[StageFileStep.DWC].append(convertedFile)
 
-    def runUpdateScript(self, properties: dict) -> any:
+    def runUpdateScript(self, properties: dict) -> tuple[bool, Path]:
         script = StageUpdateScript(properties, self.parser)
         return script.run()
