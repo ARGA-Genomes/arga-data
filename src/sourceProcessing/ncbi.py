@@ -4,7 +4,7 @@ import lib.dataframeFuncs as dff
 from pathlib import Path
 from lib.tools.bigFileWriter import BigFileWriter
 import concurrent.futures
-from sourceProcessing.ncbiFlatfileParser import FlatFileParser
+import sourceProcessing.ncbiFlatfileParser as ffp
 from lib.tools.extractor import Extractor
 from io import StringIO
 import json
@@ -114,7 +114,6 @@ def compileAssemblyStats(inputFolder: Path, outputFilePath: Path) -> None:
 
 def parseNucleotide(filePath: Path, outputFilePath: Path, verbose: bool = True) -> None:
     extractor = Extractor(outputFilePath.parent)
-    flatfileParser = FlatFileParser()
 
     records = []
     if verbose:
@@ -129,8 +128,7 @@ def parseNucleotide(filePath: Path, outputFilePath: Path, verbose: bool = True) 
     if verbose:
         print(f"Parsing file {extractedFile}")
 
-    records = flatfileParser.parse(extractedFile, verbose)
-    df = pd.DataFrame.from_records(records)
+    df = ffp.parseFlatfile(extractedFile, verbose)
     df.to_parquet(outputFilePath, index=False)
 
     extractedFile.unlink()
