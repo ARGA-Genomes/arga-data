@@ -41,10 +41,21 @@ def parseFlatfile(filePath: Path, verbose: bool = False) -> pd.DataFrame:
             entryData["fasta_url"] = f"{_genbankBaseURL}{version}{_fastaSuffix}"
 
         # Add specimen field
-        for value in (entryData.get("specimen_voucher", None), entryData.get("isolate", None), f"NCBI_{entryData['accession']}_specimen"):
+        specimenOptions = [
+            "specimen_voucher"
+            "isolate"
+            "accession"
+        ]
+
+        for idx, option in enumerate(specimenOptions, start=1):
+            value = entryData.get(option, None)
             if value is not None:
+                if idx == len(specimenOptions):
+                    value = f"NCBI_{value}_specimen"
                 entryData["specimen"] = value
                 break
+        else: # No specimen set
+            entryData["specimen"] = None
 
         records.append(entryData)
 
