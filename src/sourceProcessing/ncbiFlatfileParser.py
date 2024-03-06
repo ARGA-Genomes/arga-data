@@ -177,19 +177,31 @@ def _parseFeatures(heading: str, data: str, entryData: dict) -> None:
         propertyList = _flattenBlock(sectionData, "//").split("///")
         properties = {"bp_range": propertyList[0]}
         for property in propertyList[1:]: # base pair range is first property in list
-            splitProperty = property.split("=")
+            splitProperty = property.replace("//", "").split("=")
             if len(splitProperty) == 2:
                 key, value = splitProperty
             else:
                 key = splitProperty[0]
                 value = key
 
-            properties[key] = value.strip('"')
+            properties[key.strip('"')] = value.strip('"')
 
-        if sectionHeader == "source":
-            value = properties.pop("organism", None)
-            if value is not None:
-                properties["features_organism"] = value
+        if sectionHeader == "source": # Break out source section into separate columns
+            organism = properties.pop("organism", None)
+            if organism is not None:
+                properties["features_organism"] = organism
+
+            pcrPrimers = properties.pop("PCR_primers", None)
+            if pcrPrimers is not None:
+                pcrSections = pcrPrimers.split(",")
+
+                for section in pcrSections:
+                    if "_" not in section:
+                        properties["PCR_primers"] = section
+                        break
+
+                    key, value = section.split(":")
+                    properties[key.strip()] = value.strip()
 
             entryData |= properties
 
