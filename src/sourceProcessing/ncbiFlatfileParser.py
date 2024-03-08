@@ -3,12 +3,19 @@ from enum import Enum
 import pandas as pd
 
 class Section(Enum):
-    INFO = "INFO"
-    REFERENCE = "REFERENCE"
+    LOCUS = "LOCUS"
+    DEFINITION = "DEFINITION"
+    ACCESSION = "ACCESSION"
+    VERSION = "VERSION"
     COMMENT = "COMMENT"
+    DBLINK = "DBLINK"
+    KEYWORDS = "KEYWORDS"
+    SOURCE = "SOURCE"
+    REFERENCE = "REFERENCE"
     FEATURES = "FEATURES"
     ORIGIN = "ORIGIN"
-
+    CONTIG = "CONTIG"
+    
 _seqBaseURL = "https://ftp.ncbi.nlm.nih.gov/genbank/"
 _genbankBaseURL = "https://www.ncbi.nlm.nih.gov/nuccore/"
 _fastaSuffix = "?report=fasta&format=text"
@@ -65,45 +72,46 @@ def parseFlatfile(filePath: Path, verbose: bool = False) -> pd.DataFrame:
     return pd.DataFrame.from_records(records)
     
 def _parseEntry(entryBlock: str) -> dict:
-    sections = _getSections(entryBlock, allowDigits=False)
-
-    subParsers = {
-        "LOCUS": _parseLocus,
-        "DEFINITION": _parseText,
-        "ACCESSION": _parseText,
-        "VERSION": _parseText,
-        "COMMENT": _parseText,
-        "DBLINK": _parseDBs,
-        "KEYWORDS": _parseKeywords,
-        "SOURCE": _parseSource,
-        "REFERENCE": _parseReferences,
-        "FEATURES": _parseFeatures,
-        "ORIGIN": _parseOrigin,
-        "CONTIG": _parseOrigin
-    }
+    splitSections = _getSections(entryBlock, allowDigits=False)
 
     entryData = {}
-    for section in sections:
-        heading, data = section.split(" ", 1)
-        # headings = ["LOCUS", "DEFINITION", "ACCESSION", "VERSION", "DBLINK", "KEYWORDS", "SOURCE", "ORGANISM"]
-        
-        subParser = subParsers.get(heading, None)
-        if subParser is None:
+    for sectionBlock in splitSections:
+        heading, data = sectionBlock.split(" ", 1)
+
+        if heading not in Section._value2member_map_:
             print(f"Unhandled heading: {heading}")
             continue
 
-        subParser(heading, data, entryData)
+        section = Section(heading)
+        if section == Section.LOCUS:
+            _parseLocus(data, entryData)
+        elif section in (Section.DEFINITION, Section.ACCESSION, Section.VERSION, Section.COMMENT):
+            _parseText(heading, data, entryData)
+        elif section == Section.DBLINK:
+            _parseDBs(data, entryData)
+        elif section == Section.KEYWORDS:
+            _parseKeywords(data, entryData)
+        elif section == Section.SOURCE:
+            _parseSource(data, entryData)
+        elif section == Section.REFERENCE:
+            _parseReferences(data, entryData)
+        elif section == Section.FEATURES:
+            _parseFeatures(data, entryData)
+        elif section == Section.ORIGIN:
+            _parseOrigin(data, entryData)
+        elif section == Section.CONTIG:
+            pass
     
     return entryData
 
-def _parseLocus(heading: str, data: str, entryData: dict) -> None:
+def _parseLocus(data: str, entryData: dict) -> None:
         parameters = ["locus", "basepairs", "", "type", "shape", "seq_type", "date"]
         entryData |= {param: value.strip() for param, value in zip(parameters, data.split()) if param}
 
 def _parseText(heading: str, data: str, entryData: dict) -> None:        
     entryData[heading.lower()] = _flattenBlock(data)
 
-def _parseDBs(heading: str, data: str, entryData: dict) -> None:
+def _parseDBs(data: str, entryData: dict) -> None:
     dbs = {}
     key = "unknown_db"
 
@@ -123,13 +131,13 @@ def _parseDBs(heading: str, data: str, entryData: dict) -> None:
 
     entryData |= dbs
 
-def _parseKeywords(heading: str, data: str, entryData: dict) -> None:
+def _parseKeywords(data: str, entryData: dict) -> None:
     if data.strip() == ".":
         entryData["keywords"] = ""
     else:
         entryData["keywords"] = _flattenBlock(data)
 
-def _parseSource(heqading: str, data: str, entryData: dict) -> None: 
+def _parseSource(data: str, entryData: dict) -> None: 
     source, leftover = _getSections(data, 2)
     organism, higherClassification = leftover.split("\n", 1)
 
@@ -137,7 +145,7 @@ def _parseSource(heqading: str, data: str, entryData: dict) -> None:
     entryData["organism"] = organism.split(" ", 1)[1].strip()
     entryData["higher_classification"] = _flattenBlock(higherClassification)
 
-def _parseReferences(heading: str, data: str, entryData: dict) -> None:
+def _parseReferences(data: str, entryData: dict) -> None:
     reference = {}
     refInfo = _getSections(data, 2)
     basesInfo = refInfo.pop(0)
@@ -177,7 +185,7 @@ def _parseReferences(heading: str, data: str, entryData: dict) -> None:
 
     entryData["references"].append(reference)
 
-def _parseFeatures(heading: str, data: str, entryData: dict) -> None:
+def _parseFeatures(data: str, entryData: dict) -> None:
     featureBlocks = _getSections(data, 5)
     genes = {}
     otherProperties = {}
@@ -241,7 +249,7 @@ def _parseFeatures(heading: str, data: str, entryData: dict) -> None:
     if otherProperties:
         entryData["other_properties"] = otherProperties
 
-def _parseOrigin(header: str, data: str, entryData: dict) -> None:
+def _parseOrigin(data: str, entryData: dict) -> None:
     pass
 
 def _getSections(textBlock: str, whitespace: int = 0, allowDigits=True) -> list[str]:
