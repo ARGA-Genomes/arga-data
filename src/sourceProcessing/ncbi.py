@@ -112,28 +112,28 @@ def compileAssemblyStats(inputFolder: Path, outputFilePath: Path) -> None:
     print()
     writer.oneFile()
 
-def parseNucleotide(filePath: Path, outputFilePath: Path, verbose: bool = True) -> None:
-    extractor = Extractor(outputFilePath.parent)
-
-    records = []
-    if verbose:
-        print(f"Extracting file {filePath}")
-    
-    extractedFile = extractor.run(filePath)
-
-    if extractedFile is None:
-        print("Failed to extract file, skipping")
-        return
-
-    if verbose:
-        print(f"Parsing file {extractedFile}")
-
-    df = ffp.parseFlatfile(extractedFile, verbose)
-    df.to_parquet(outputFilePath, index=False)
-
-    extractedFile.unlink()
-
-def compileNucleotide(folderPath: Path, outputFilePath: Path) -> None:
+def parseNucleotide(rawFilesPath: Path, outputFilePath: Path, verbose: bool = False) -> None:
     writer = BigFileWriter(outputFilePath, "seqChunks", "chunk")
-    writer.populateFromFolder(folderPath)
-    writer.oneFile(False)
+    extractor = Extractor(outputFilePath.parent, overwrite=True)
+
+    for idx, file in enumerate(rawFilesPath.iterdir(), start=1):
+        if verbose:
+            print(f"Extracting file {file.name}")
+        else:
+            print(f"Processing file: {idx}", end="\r")
+    
+        extractedFile = extractor.run(file)
+
+        if extractedFile is None:
+            print(f"Failed to extract file {file.name}, skipping")
+            continue
+
+        if verbose:
+            print(f"Parsing file {extractedFile}")
+
+        df = ffp.parseFlatfile(extractedFile, verbose)
+        writer.writeDF(df)
+
+        extractedFile.unlink()
+
+    writer.oneFile()

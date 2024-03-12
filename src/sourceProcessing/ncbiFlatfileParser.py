@@ -84,34 +84,42 @@ def _parseEntry(entryBlock: str) -> dict:
 
         section = Section(heading)
         if section == Section.LOCUS:
-            _parseLocus(data, entryData)
+            entryData |= _parseLocus(data)
+
         elif section in (Section.DEFINITION, Section.ACCESSION, Section.VERSION, Section.COMMENT):
-            _parseText(heading, data, entryData)
+            entryData |= _parseText(heading, data)
+
         elif section == Section.DBLINK:
-            _parseDBs(data, entryData)
+            entryData |= _parseDBs(data)
+
         elif section == Section.KEYWORDS:
-            _parseKeywords(data, entryData)
+            entryData |= _parseKeywords(data)
+
         elif section == Section.SOURCE:
-            _parseSource(data, entryData)
+            entryData |= _parseSource(data)
+
         elif section == Section.REFERENCE:
-            _parseReferences(data, entryData)
+            entryData |= _parseReferences(data)
+
         elif section == Section.FEATURES:
-            _parseFeatures(data, entryData)
+            entryData |= _parseFeatures(data)
+
         elif section == Section.ORIGIN:
-            _parseOrigin(data, entryData)
+            pass
+
         elif section == Section.CONTIG:
             pass
     
     return entryData
 
-def _parseLocus(data: str, entryData: dict) -> None:
+def _parseLocus(data: str) -> dict[str, str]:
         parameters = ["locus", "basepairs", "", "type", "shape", "seq_type", "date"]
-        entryData |= {param: value.strip() for param, value in zip(parameters, data.split()) if param}
+        return {param: value.strip() for param, value in zip(parameters, data.split()) if param}
 
-def _parseText(heading: str, data: str, entryData: dict) -> None:        
-    entryData[heading.lower()] = _flattenBlock(data)
+def _parseText(heading: str, data: str) -> dict[str, str]:  
+    return {heading.lower(): _flattenBlock(data)}
 
-def _parseDBs(data: str, entryData: dict) -> None:
+def _parseDBs(data: str) -> dict[str, str]:
     dbs = {}
     key = "unknown_db"
 
@@ -129,23 +137,17 @@ def _parseDBs(data: str, entryData: dict) -> None:
             
         dbs[key].extend([element.strip() for element in line.split(",")])
 
-    entryData |= dbs
+    return dbs
 
-def _parseKeywords(data: str, entryData: dict) -> None:
-    if data.strip() == ".":
-        entryData["keywords"] = ""
-    else:
-        entryData["keywords"] = _flattenBlock(data)
+def _parseKeywords(data: str) -> dict[str, str]:
+    return {"keywords": "" if data.strip() == "." else _flattenBlock(data)}
 
-def _parseSource(data: str, entryData: dict) -> None: 
+def _parseSource(data: str) -> dict[str, str]: 
     source, leftover = _getSections(data, 2)
     organism, higherClassification = leftover.split("\n", 1)
+    return {"source": source.strip(), "organism": organism.split(" ", 1)[1].strip(), "higher_classification": _flattenBlock(higherClassification)}
 
-    entryData["source"] = source.strip()
-    entryData["organism"] = organism.split(" ", 1)[1].strip()
-    entryData["higher_classification"] = _flattenBlock(higherClassification)
-
-def _parseReferences(data: str, entryData: dict) -> None:
+def _parseReferences(data: str) -> dict[str, str]:
     reference = {}
     refInfo = _getSections(data, 2)
     basesInfo = refInfo.pop(0)
@@ -180,23 +182,21 @@ def _parseReferences(data: str, entryData: dict) -> None:
 
         reference[sectionName.lower()] = _flattenBlock(sectionData)
 
-    if "references" not in entryData:
-        entryData["references"] = []
+    return {"referenes": reference}
 
-    entryData["references"].append(reference)
-
-def _parseFeatures(data: str, entryData: dict) -> None:
+def _parseFeatures(data: str) -> dict[str, str]:
     featureBlocks = _getSections(data, 5)
     genes = {}
     otherProperties = {}
 
+    features = {}
     for block in featureBlocks[1:]:
         sectionHeader, sectionData = block.lstrip().split(" ", 1)
 
-        propertyList = _flattenBlock(sectionData, "//").split("///")
+        propertyList = _flattenBlock(sectionData, "//").split("///") # Single slashes exist in data, convert newlines to 2 slashes and then split on 3
         properties = {"bp_range": propertyList[0]}
         for property in propertyList[1:]: # base pair range is first property in list
-            splitProperty = property.replace("//", "").split("=")
+            splitProperty = property.replace("//", " ").split("=")
             if len(splitProperty) == 2:
                 key, value = splitProperty
             else:
@@ -222,9 +222,9 @@ def _parseFeatures(data: str, entryData: dict) -> None:
                     key, value = section.split(":")
                     properties[key.strip()] = value.strip()
 
-            entryData |= properties
+            features |= properties
 
-        else:
+        else: # Every other block that isn't source
             gene = properties.get("gene", None)
             if gene is not None:  # If section is associated with a gene
                 properties.pop("gene")
@@ -244,13 +244,12 @@ def _parseFeatures(data: str, entryData: dict) -> None:
     
     # Only write genes and other properties if exists
     if genes:
-        entryData["genes"] = genes
+        features["genes"] = genes
 
     if otherProperties:
-        entryData["other_properties"] = otherProperties
+        features["other_properties"] = otherProperties
 
-def _parseOrigin(data: str, entryData: dict) -> None:
-    pass
+    return features
 
 def _getSections(textBlock: str, whitespace: int = 0, allowDigits=True) -> list[str]:
     sections = []

@@ -3,25 +3,12 @@
     "dataLocation": "https://ftp.ncbi.nlm.nih.gov/genbank/",
     "subDirectoryDepth": 0,
     "regexMatch": "gbmam\\d+\\.seq\\.gz",
-    "perFileProcessing": [
+    "finalProcessing": [
         {
             "path": "sourceProcessing/ncbi.py",
             "function": "parseNucleotide",
             "args": [
-                "{INPUT, 0, FILEPATH}",
-                "{INPUTPATH, PROCESSING, 0, FILEPATH_STEM_STEM, .parquet}"
-            ],
-            "outputs": [
-                "{INPUTPATH, PROCESSING, 0, FILEPATH_STEM_STEM, .parquet}"
-            ]
-        }
-    ],
-    "finalProcessing": [
-        {
-            "path": "sourceProcessing/ncbi.py",
-            "function": "compileNucleotide",
-            "args": [
-                "{PATH, PROCESSING}",
+                "{PATH, DOWNLOAD}",
                 "{PATH, PREDWC, nucMammalian.csv}"
             ],
             "outputs": [
