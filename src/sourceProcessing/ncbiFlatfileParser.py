@@ -182,7 +182,7 @@ def _parseReferences(data: str) -> dict[str, str]:
 
         reference[sectionName.lower()] = _flattenBlock(sectionData)
 
-    return {"referenes": reference}
+    return {"references": reference}
 
 def _parseFeatures(data: str) -> dict[str, str]:
     featureBlocks = _getSections(data, 5)
