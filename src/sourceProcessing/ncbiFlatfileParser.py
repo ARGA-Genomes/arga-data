@@ -99,7 +99,24 @@ def _parseEntry(entryBlock: str) -> dict:
             entryData |= _parseSource(data)
 
         elif section == Section.REFERENCE:
-            entryData |= _parseReferences(data)
+            extract = {
+                "pubmed": "",
+                "title": "",
+                "authors": [],
+                "journal": "",
+                "bases": [],
+                "remark": ""
+            }
+
+            if "references" not in entryData:
+                entryData["references"] = []
+                for key in extract:
+                    entryData[key] = []
+
+            reference, extracted = _parseReference(data, extract)
+            entryData["references"].append(reference)
+            for key, value in extracted.items():
+                entryData[key].append(value)
 
         elif section == Section.FEATURES:
             entryData |= _parseFeatures(data)
@@ -109,7 +126,12 @@ def _parseEntry(entryBlock: str) -> dict:
 
         elif section == Section.CONTIG:
             pass
-    
+
+    # Stringify columns so they can be saved as parqet/csv
+    stringColumns = ["authors", "bases"]
+    for column in stringColumns:
+        entryData[column] = str(entryData[column])
+
     return entryData
 
 def _parseLocus(data: str) -> dict[str, str]:
@@ -147,15 +169,14 @@ def _parseSource(data: str) -> dict[str, str]:
     organism, higherClassification = leftover.split("\n", 1)
     return {"source": source.strip(), "organism": organism.split(" ", 1)[1].strip(), "higher_classification": _flattenBlock(higherClassification)}
 
-def _parseReferences(data: str) -> dict[str, str]:
+def _parseReference(data: str, extract: dict) -> tuple[dict[str, str], dict[str, str | list]]:
     reference = {}
     refInfo = _getSections(data, 2)
     basesInfo = refInfo.pop(0)
     basesInfo = basesInfo.strip(" \n").split(" ", 1)
+    # reference["id"] = int(basesInfo[1].strip())
 
-    if len(basesInfo) == 1: # Only reference number
-        reference["bases"] = []
-    elif "bases" not in basesInfo[1]: # Bases not specified
+    if len(basesInfo) == 1 or "bases" not in basesInfo[1]: # Only reference number or bases not specified
         reference["bases"] = []
     else:
         baseRanges = basesInfo[1].strip().lstrip("(bases").rstrip(")")
@@ -182,7 +203,12 @@ def _parseReferences(data: str) -> dict[str, str]:
 
         reference[sectionName.lower()] = _flattenBlock(sectionData)
 
-    return {"references": reference}
+    # Split reference after logic
+    extracted = {}
+    for key, default in extract.items():
+        extracted[key] = reference.get(key, default)
+
+    return reference, extracted
 
 def _parseFeatures(data: str) -> dict[str, str]:
     featureBlocks = _getSections(data, 5)

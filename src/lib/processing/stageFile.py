@@ -44,7 +44,7 @@ class StageFile:
     def loadDataFrame(self) -> pd.DataFrame:
         return pd.read_csv(self.filePath, sep=self.separator, header=self.firstRow, encoding=self.encoding)
     
-    def loadDataFrameIterator(self, chunkSize: int = 1024 * 1024) ->  Iterator[pd.DataFrame]:
+    def loadDataFrameIterator(self, chunkSize: int = 1024) -> Iterator[pd.DataFrame]:
         return cmn.chunkGenerator(self.filePath, chunkSize, self.separator, self.firstRow, self.encoding)
 
     def getColumns(self) -> list[str]:
