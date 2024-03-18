@@ -128,7 +128,7 @@ def _parseEntry(entryBlock: str) -> dict:
             pass
 
     # Stringify columns so they can be saved as parqet/csv
-    stringColumns = ["authors", "bases"]
+    stringColumns = ["authors", "bases", "references"]
     for column in stringColumns:
         entryData[column] = str(entryData[column])
 
@@ -167,7 +167,7 @@ def _parseKeywords(data: str) -> dict[str, str]:
 def _parseSource(data: str) -> dict[str, str]: 
     source, leftover = _getSections(data, 2)
     organism, higherClassification = leftover.split("\n", 1)
-    return {"source": source.strip(), "organism": organism.split(" ", 1)[1].strip(), "higher_classification": _flattenBlock(higherClassification)}
+    return {"source": source.strip(), "organism": organism.strip().split(" ", 1)[1].strip(), "higher_classification": _flattenBlock(higherClassification)}
 
 def _parseReference(data: str, extract: dict) -> tuple[dict[str, str], dict[str, str | list]]:
     reference = {}
