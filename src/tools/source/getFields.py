@@ -1,15 +1,13 @@
 import pandas as pd
-import numpy as np
 import json
-from pathlib import Path
 from lib.sourceObjs.argParseWrapper import SourceArgParser
 from lib.processing.stageFile import StageFile, StageFileStep
 from lib.processing.mapping import Remapper, MapManager
 import random
 from lib.tools.logger import Logger
 
-def _collectFields(stageFile: StageFile, entryLimit: int, chunkSize: int, seed: int) -> dict[str, pd.Series]:
-    for idx, chunk in enumerate(stageFile.loadDataFrameIterator(chunkSize), start=1):
+def _collectFields(stageFile: StageFile, entryLimit: int, chunkSize: int, seed: int, offset: int = 0, rows: int = None) -> dict[str, pd.Series]:
+    for idx, chunk in enumerate(stageFile.loadDataFrameIterator(chunkSize, offset, rows), start=1):
         print(f"Scanning chunk: {idx}", end='\r')
         sample = chunk.apply(lambda x: x.dropna().drop_duplicates())
 
@@ -22,8 +20,8 @@ def _collectFields(stageFile: StageFile, entryLimit: int, chunkSize: int, seed: 
 
     return {column: df[column].dropna().tolist() for column in df.columns}
 
-def _collectRecords(stageFile: StageFile, entryLimit: int, chunkSize: int, seed: int) -> dict[str, pd.Series]:
-    for idx, chunk in enumerate(stageFile.loadDataFrameIterator(chunkSize), start=1):
+def _collectRecords(stageFile: StageFile, entryLimit: int, chunkSize: int, seed: int, offset: int = 0, rows: int = None) -> dict[str, pd.Series]:
+    for idx, chunk in enumerate(stageFile.loadDataFrameIterator(chunkSize, offset, rows), start=1):
         print(f"Scanning chunk: {idx}", end='\r')
         sample = chunk.sample(n=entryLimit, random_state=seed)
 
@@ -45,6 +43,8 @@ if __name__ == '__main__':
     parser.add_argument('-u', '--uniques', action="store_true", help="Find unique values only, ignoring record")
     parser.add_argument('-c', '--chunksize', type=int, default=128, help="File chunk size to read at a time")
     parser.add_argument('-s', '--seed', type=int, default=-1, help="Specify seed to run")
+    parser.add_argument('-f', '--firstrow', type=int, default=0, help="First row offset for reading data")
+    parser.add_argument('-r', '--rows', type=int, help="Maximum amount of rows to read from file")
 
     sources, selectedFiles, overwrite, args = parser.parse_args()
     entryLimit = args.entries
@@ -80,7 +80,11 @@ if __name__ == '__main__':
         valueType = "fields" if args.uniques else "records"
         Logger.info(f"Collecting {valueType}...")
 
-        values = _collectFields(stageFile, args.entries, args.chunksize, seed) if args.uniques else _collectRecords(stageFile, args.entries, args.chunksize, seed)
+        if args.uniques:
+            values = _collectFields(stageFile, args.entries, args.chunksize, seed, args.firstrow, args.rows)
+        else:
+            values = _collectRecords(stageFile, args.entries, args.chunksize, seed, args.firstrow, args.rows)
+
         output = outputDir / f"{valueType}_{args.chunksize}_{seed}.{extension}"
         data = {column: {"Maps to": [{"Event": mappedColumn.event.value, "Column": mappedColumn.colName} for mappedColumn in translationTable.getTranslation(column)], "Values": values[column]} for column in columns}
 
