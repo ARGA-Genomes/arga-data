@@ -270,10 +270,10 @@ def _parseFeatures(data: str) -> dict[str, str]:
     
     # Only write genes and other properties if exists
     if genes:
-        features["genes"] = genes
+        features["genes"] = str(genes)
 
     if otherProperties:
-        features["other_properties"] = otherProperties
+        features["other_properties"] = str(otherProperties)
 
     return features
 
