@@ -3,25 +3,12 @@
     "dataLocation": "https://ftp.ncbi.nlm.nih.gov/genbank/",
     "subDirectoryDepth": 0,
     "regexMatch": "gbrod\\d+\\.seq\\.gz",
-    "perFileProcessing": [
+    "finalProcessing": [
         {
             "path": "sourceProcessing/ncbi.py",
             "function": "parseNucleotide",
             "args": [
-                "{INPUT, 0, FILEPATH}",
-                "{INPUTPATH, PROCESSING, 0, FILEPATH_STEM_STEM, .parquet}"
-            ],
-            "outputs": [
-                "{INPUTPATH, PROCESSING, 0, FILEPATH_STEM_STEM, .parquet}"
-            ]
-        }
-    ],
-    "finalProcessing": [
-        {
-            "path": "sourceProcessing/ncbi.py",
-            "function": "compileNucleotide",
-            "args": [
-                "{PATH, PROCESSING}",
+                "{PATH, DOWNLOAD}",
                 "{PATH, PREDWC, nucRodent.csv}"
             ],
             "outputs": [
@@ -30,6 +17,7 @@
         }
     ],
     "dwcProperties": {
-        "mapID": 1182330400
+        "mapID": 1182330400,
+        "chunkSize": 512
     }
 }
