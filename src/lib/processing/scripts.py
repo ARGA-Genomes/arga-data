@@ -5,14 +5,16 @@ import lib.processing.processingFuncs as pFuncs
 from enum import Enum
 
 class Key(Enum):
-    INPUT_PATH = "INPATH"
-    INPUT_STEM = "INSTEM"
-    INPUT_DIR = "INDIR"
-    OUTPUT_DIR = "OUTDIR"
+    INPUT_FILE  = "INFILE"
+    INPUT_PATH  = "INPATH"
+    INPUT_STEM  = "INSTEM"
+    INPUT_DIR   = "INDIR"
+    OUTPUT_FILE = "OUTFILE"
+    OUTPUT_DIR  = "OUTDIR"
     OUTPUT_PATH = "OUTPATH"
 
 class Script:
-    def __init__(self, baseDir: Path, outputDir: Path, scriptInfo: dict, inputs: list[Path]):
+    def __init__(self, baseDir: Path, outputDir: Path, scriptInfo: dict, inputs: list[File]):
         self.baseDir = baseDir
         self.outputDir = outputDir
         self.inputs = inputs
@@ -99,6 +101,9 @@ class Script:
             return arg
         
         # Parsing key
+        if key == Key.OUTPUT_FILE:
+            return self.output
+            
         if key == Key.OUTPUT_DIR:
             return self.outputDir
         
@@ -114,9 +119,9 @@ class Script:
                 Logger.warning("No inputs to get directory from")
                 return None
             
-            return self.inputs[0].parent
+            return self.inputs[0].filePath.parent
         
-        if key in (Key.INPUT_PATH, Key.INPUT_STEM):
+        if key in (Key.INPUT_FILE, Key.INPUT_PATH, Key.INPUT_STEM):
             if not self.inputs:
                 Logger.warning("No inputs to get path from")
                 return None
@@ -125,9 +130,13 @@ class Script:
                 Logger.warning("Too many inputs to get path from")
                 return None
             
-            if key == Key.INPUT_PATH:
+            if key == Key.INPUT_FILE:
                 return self.inputs[0]
-            return self.inputs[0].stem
+
+            if key == Key.INPUT_PATH:
+                return self.inputs[0].filePath
+            
+            return self.inputs[0].filePath.stem
 
     def _parsePath(self, arg: str) -> Path | str:
         if arg.startswith("./"):

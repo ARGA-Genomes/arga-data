@@ -48,7 +48,7 @@ class ProcessingManager:
         self.processingDir = processingDir
         self.chains: list[ProcessingChain] = []
 
-    def _createLink(self, step: dict, inputs: list[Path]) -> _Link:
+    def _createLink(self, step: dict, inputs: list[File]) -> _Link:
         script = Script(self.baseDir, self.processingDir, step, inputs)
         outputNode = _Node(script.output)
         return _Link(script, outputNode)
@@ -87,7 +87,7 @@ class ProcessingManager:
             return
         
         # First step of final processing should combine all chains to a single file
-        inputs = [node.file.filePath for node in [chain.lowestNode for chain in self.chains]]
+        inputs = [node.file for node in [chain.lowestNode for chain in self.chains]]
         link = self._createLink(processingSteps[0], inputs)
 
         for chain in self.chains:
