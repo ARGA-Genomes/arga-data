@@ -1,12 +1,20 @@
+import requests
+import time
 import pandas as pd
+import concurrent.futures
+from pathlib import Path
+from io import StringIO
+from threading import Thread
+from queue import Queue
 import lib.commonFuncs as cmn
 import lib.dataframeFuncs as dff
-from pathlib import Path
-from lib.tools.bigFileWriter import BigFileWriter
-import concurrent.futures
 import sourceProcessing.ncbiFlatfileParser as ffp
+from lib.processing.stages import File
+from lib.tools.bigFileWriter import BigFileWriter
 from lib.tools.zipping import RepeatExtractor
-from io import StringIO
+from lib.tools.progressBar import ProgressBar
+from lib.tools.logger import Logger
+from typing import Generator
 import json
 
 def splitLine(line: str, endingDivider: bool = True) -> list[str]:
@@ -91,7 +99,7 @@ def compileAssemblyStats(inputFolder: Path, outputFilePath: Path) -> None:
             if not result:
                 continue
 
-            records.append(future.result())
+            records.append(result)
 
             if len(records) >= 100000:
                 writer.writeDF(pd.DataFrame.from_records(records))
@@ -124,3 +132,220 @@ def parseNucleotide(folderPath: Path, outputFilePath: Path, verbose: bool = True
         extractedFile.unlink()
 
     writer.oneFile()
+
+def enrichStats(summaryFile: File, outputPath: Path, apiKeyPath: Path = None):
+    if apiKeyPath is not None and apiKeyPath.exists():
+        Logger.info("Found API key")
+        with open(apiKeyPath) as fp:
+            apiKey = fp.read().rstrip("\n")
+        maxRequests = 10
+    else:
+        Logger.info("No API key found, limiting requests to 3/second")
+        apiKey = ""
+        maxRequests = 3
+
+    accessionCol = "#assembly_accession"
+    df = summaryFile.loadDataFrame(dtype=object)
+
+    summaryFields = {
+        "assembly_name": "asm_name",
+        "pa_accession": "gbrs_paired_asm",
+        "total_number_of_chromosomes": "replicon_count",
+        "number_of_scaffolds": "scaffold_count",
+        "number_of_component_sequences": "contig_count",
+        "provider": "annotation_provider",
+        "name": "annotation_name",
+        "assembly_type": "assembly_type",
+        "gc_percent": "gc_percent",
+        "total_gene_count": "total_gene_count",
+        "protein_coding_gene_count": "protein_coding_gene_count",
+        "non_coding_gene_count": "non_coding_gene_count"
+    }
+
+    progress = ProgressBar(50)
+    totalRecords = len(df)
+
+    queue = Queue()
+    workerRecordCount = (totalRecords / maxRequests).__ceil__()
+    workers: dict[int, Thread] = {}
+    for i in range(maxRequests):
+        accessions = (accession for accession in df[accessionCol][i*workerRecordCount:(i+1)*workerRecordCount])
+        worker = Thread(target=apiWorker, args=(i, accessions, apiKey, set(summaryFields), queue), daemon=True)
+        worker.start()
+        workers[i] = worker
+        time.sleep(1 / maxRequests)
+
+    recordData = []
+    failedAccessions = []
+    while workers:
+        value = queue.get()
+        if isinstance(value, tuple): # Worker done idx and failed entries
+            idx, failed = value
+            worker = workers.pop(idx)
+            worker.join()
+            failedAccessions.extend(failed)
+        else: # Record
+            recordData.append(value)
+            progress.render(len(recordData) / totalRecords)
+
+    print(f"Failed: {failedAccessions}")
+    df.merge(pd.DataFrame.from_records(recordData), how="inner", left_on="#assembly_accession", right_on="current_accession").to_csv(outputPath, index=False)
+
+def apiWorker(idx: int, accessions: Generator[str, None, None], apiKey: str, dropKeys: set, queue: Queue) -> list[dict]:
+    failed = []
+    for accession in accessions:
+        try:
+            record = retrieveAPI(accession, apiKey)
+        except: # Failed to retrieve, skip
+            failed.append(accession)
+            continue
+
+        lastRetrieve = time.time()
+        record = {key: value for key, value in record.items() if key not in dropKeys} # Drop duplicate keys with summary
+        queue.put(record)
+        time.sleep(1.05 - (time.time() - lastRetrieve))
+
+    queue.put((idx, failed))
+
+def retrieveAPI(accession: str, apiKey: str) -> dict:
+    def _extractKeys(d: dict, keys: list[str], prefix: str = "", suffix: str = "") -> dict:
+        retVal = {}
+        if not isinstance(d, dict):
+            print(d)
+
+        for key, value in d.items():
+            if key not in keys:
+                continue
+
+            if prefix and not key.startswith(prefix):
+                key = f"{prefix}_{key}"
+
+            if suffix and not key.endswith(suffix):
+                key = f"{key}_{suffix}"
+
+            retVal |= {key: value}
+
+        return retVal
+
+    baseURL = "https://api.ncbi.nlm.nih.gov/datasets/v2alpha/"
+    url = baseURL + f"/genome/accession/{accession}/dataset_report"
+
+    headers = {
+        "accept": "application/json",
+        "api-key": apiKey
+    }
+
+    response = requests.get(url, headers=headers)
+    data = response.json()
+    reports = data.get("reports", [])
+    if not reports:
+        return {}
+    
+    info = reports[0] # Use first report
+
+    # Annotation info
+    annotationInfo = info.get("annotation_info", {})
+    annotationFields = [
+        "busco", # - busco
+        "method", # - method
+        "name", # - name
+        "pipeline", # - pipeline
+        "provider", # - provider
+        "release_date", # - releaseDate
+        "release_version", # - releaseVersion ?
+        "software_version", # - softwareVersion
+        "stats", # - stats
+        "status" # - status
+    ]
+
+    annotationSubFields = {
+        "busco": [ # - busco
+            "busco_lineage", #   - buscoLineage
+            "busco_ver", #   - buscoVer
+            "complete" #   - complete
+        ],
+        "stats": { # - stats
+            "gene_counts": [ #   - geneCounts
+                "non_coding", #   - nonCoding
+                "other", #   - other
+                "protein_coding", #   - proteinCoding
+                "pseudogene", #   - pseudogene
+                "total" #   - total
+            ]
+        }
+    }
+
+    annotationInfo = _extractKeys(annotationInfo, annotationFields)
+    annotationInfo |= _extractKeys(annotationInfo.pop("busco", {}), annotationSubFields["busco"], "busco")
+    annotationInfo |= _extractKeys(annotationInfo.pop("stats", {}).get("gene_counts", {}), annotationSubFields["stats"]["gene_counts"], suffix="gene_count")
+
+    # Assembly info
+    assemblyInfo = info.get("assembly_info", {})
+    assemblyFields = [
+        "assembly_name", # - assemblyName
+        "assembly_status", # - assemblyStatus
+        "assembly_type", # - assemblyType
+        "description", # - description ?
+        "synonym", # - synonym ?
+        "paired_assembly", # - pairedAssembly
+        "linked_assemblies", # - linkedAssemblies repeated ?
+        "diploid_role", # - diploidRole ?
+        "atypical", # - atypical ?
+        "genome_notes", # - genomeNotes repeated
+        "sequencing_tech", # - sequencingTech
+        "assembly_method", # - assemblyMethod
+        "comments", # - comments
+        "suppression_reason" # - suppressionReason ?
+    ]
+
+    assemblySubFields = {
+        "paired_assembly": [ # - pairedAssembly
+            "accession", #   - accession
+            "only_genbank", #   - onlyGenbank
+            "only_refseq", #   - onlyRefseq ?
+            "changed", #   - Changed ?
+            "manual_diff", #   - manualDiff ?
+            "status", #   - status
+        ],
+        "linked_assemblies": [ # - linkedAssemblies repeated ?
+            "linked_assembly", #   - linkedAssembly ?
+            "assembly_type" #   - assemblyType ?
+        ],
+        "atypical": [ # - atypical ?
+            "is_atypical", #   - isAtypical ?
+            "warnings" #   - warnings repeated ?
+        ]
+    }
+
+    assemblyInfo = _extractKeys(assemblyInfo, assemblyFields)
+    assemblyInfo |= _extractKeys(assemblyInfo.pop("paired_assembly", {}), assemblySubFields["paired_assembly"], "pa")
+    assemblyInfo |= _extractKeys(assemblyInfo.pop("linked_assemblies", {}), assemblySubFields["linked_assemblies"], "la")
+    assemblyInfo |= _extractKeys(assemblyInfo.pop("atypical", {}), assemblySubFields["atypical"], "at")
+
+    assemblyStats = info.get("assembly_stats", {}) # Unpack normally
+
+    currentAccession = {"current_accession": info.get("current_accession", "")} # Should always exist
+
+    # May not exist
+    organelleInfo = info.get("organelle_info", []) # - organelleInfo ?
+    organelleInfoFields = [
+        "description", #   - description ?
+        "submitter", #    - submitter ?
+        "total_seq_length", #    - totalSeqLength ?
+        "bioproject" #    - Bioproject related
+    ]
+
+    organelleData = {}
+    for info in organelleInfo:
+        info = _extractKeys(info, organelleInfoFields, "organelle")
+        organelleData[info.pop("description", "Unknown")] = info
+
+    typeMaterial = info.get("type_material", {}) # - typeMaterial ?
+    typeMaterialFields = [
+        "type_label", #   - typeLabel
+        "type_display_text", #   - typeDisplayText
+    ]
+
+    typeMaterial = _extractKeys(typeMaterial, typeMaterialFields)
+
+    return annotationInfo | assemblyInfo | assemblyStats | currentAccession | organelleData | typeMaterial

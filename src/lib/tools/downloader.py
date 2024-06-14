@@ -3,20 +3,14 @@ from pathlib import Path
 from requests.auth import HTTPBasicAuth
 from requests.exceptions import HTTPError
 from lib.tools.logger import Logger
+from lib.tools.progressBar import ProgressBar
 
 class Downloader:
-    def __init__(self, defaultChunksize: int = 1024*1024, username: str = "", password: str = "", barLength: int = 40):
+    def __init__(self, defaultChunksize: int = 1024*1024, username: str = "", password: str = ""):
         self.defaultChunksize = defaultChunksize
         self.auth = HTTPBasicAuth(username, password) if username else None
-        self.barLength = barLength
 
-        self._loading = "-\\|/"
-        self._pos = 0
-
-    def _renderProgress(self, completion: float) -> None:
-        length = int(completion * self.barLength)
-        print(f"Downloading ({self._loading[self._pos]}): [{length * '='}{(self.barLength - length) * '-'}]", end="\r")
-        self._pos = (self._pos + 1) % 4
+        self.progressBar = ProgressBar(50, "Downloading")
 
     def download(self, url: str, filePath: Path, customChunksize: int = -1, verbose: bool = False) -> bool:
         if verbose:
@@ -37,9 +31,8 @@ class Downloader:
                     fp.write(chunk)
 
                     if fileSize > 0: # File size known, can render completion %
-                        self._renderProgress((idx * chunksize) / fileSize)
+                        self.progressBar.render((idx * chunksize) / fileSize)
                     else:
                         print(f"Downloaded chunk: {idx}", end="\r")
 
-        print()
         return True
