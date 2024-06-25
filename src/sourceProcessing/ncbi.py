@@ -192,27 +192,38 @@ def enrichStats(summaryFile: File, outputPath: Path, apiKeyPath: Path = None):
     df.merge(pd.DataFrame.from_records(recordData), how="inner", left_on="#assembly_accession", right_on="current_accession").to_csv(outputPath, index=False)
 
 def apiWorker(idx: int, accessions: Generator[str, None, None], apiKey: str, dropKeys: set, queue: Queue) -> list[dict]:
+    session = requests.Session()
     failed = []
     for accession in accessions:
+        url = f"https://api.ncbi.nlm.nih.gov/datasets/v2alpha/genome/accession/{accession}/dataset_report"
+        headers = {
+            "accept": "application/json",
+            "api-key": apiKey
+        }
+
         try:
-            record = retrieveAPI(accession, apiKey)
+            response = session.get(url, headers=headers)
+            data = response.json()
+            reports = data.get("reports", [])
+
         except: # Failed to retrieve, skip
+            reports = []
+
+        lastRetrieve = time.time()
+        if not reports:
             failed.append(accession)
             continue
 
-        lastRetrieve = time.time()
+        record = parseRecord(reports[0])
         record = {key: value for key, value in record.items() if key not in dropKeys} # Drop duplicate keys with summary
         queue.put(record)
         time.sleep(1.05 - (time.time() - lastRetrieve))
 
     queue.put((idx, failed))
 
-def retrieveAPI(accession: str, apiKey: str) -> dict:
+def parseRecord(record: dict) -> dict:
     def _extractKeys(d: dict, keys: list[str], prefix: str = "", suffix: str = "") -> dict:
         retVal = {}
-        if not isinstance(d, dict):
-            print(d)
-
         for key, value in d.items():
             if key not in keys:
                 continue
@@ -226,25 +237,23 @@ def retrieveAPI(accession: str, apiKey: str) -> dict:
             retVal |= {key: value}
 
         return retVal
-
-    baseURL = "https://api.ncbi.nlm.nih.gov/datasets/v2alpha/"
-    url = baseURL + f"/genome/accession/{accession}/dataset_report"
-
-    headers = {
-        "accept": "application/json",
-        "api-key": apiKey
-    }
-
-    response = requests.get(url, headers=headers)
-    data = response.json()
-    reports = data.get("reports", [])
-    if not reports:
-        return {}
     
-    info = reports[0] # Use first report
+    def _extractListKeys(l: list[dict], keys: list[str], prefix: str = "", suffix: str = "") -> list:
+        retVal = []
+        for item in l:
+            retVal.append(_extractKeys(item, keys, prefix, suffix))
+        return retVal
+    
+    def _extract(item: any, keys: list[str], prefix: str = "", suffix: str = "") -> any:
+        if isinstance(item, list):
+            return _extractListKeys(item, keys, prefix, suffix)
+        elif isinstance(item, dict):
+            return _extractKeys(item, keys, prefix, suffix)
+        else:
+            raise Exception(f"Unexpected item: {item}")
 
     # Annotation info
-    annotationInfo = info.get("annotation_info", {})
+    annotationInfo = record.get("annotation_info", {})
     annotationFields = [
         "busco", # - busco
         "method", # - method
@@ -275,12 +284,12 @@ def retrieveAPI(accession: str, apiKey: str) -> dict:
         }
     }
 
-    annotationInfo = _extractKeys(annotationInfo, annotationFields)
-    annotationInfo |= _extractKeys(annotationInfo.pop("busco", {}), annotationSubFields["busco"], "busco")
-    annotationInfo |= _extractKeys(annotationInfo.pop("stats", {}).get("gene_counts", {}), annotationSubFields["stats"]["gene_counts"], suffix="gene_count")
+    annotationInfo = _extract(annotationInfo, annotationFields)
+    annotationInfo |= _extract(annotationInfo.pop("busco", {}), annotationSubFields["busco"], "busco")
+    annotationInfo |= _extract(annotationInfo.pop("stats", {}).get("gene_counts", {}), annotationSubFields["stats"]["gene_counts"], suffix="gene_count")
 
     # Assembly info
-    assemblyInfo = info.get("assembly_info", {})
+    assemblyInfo = record.get("assembly_info", {})
     assemblyFields = [
         "assembly_name", # - assemblyName
         "assembly_status", # - assemblyStatus
@@ -317,17 +326,17 @@ def retrieveAPI(accession: str, apiKey: str) -> dict:
         ]
     }
 
-    assemblyInfo = _extractKeys(assemblyInfo, assemblyFields)
-    assemblyInfo |= _extractKeys(assemblyInfo.pop("paired_assembly", {}), assemblySubFields["paired_assembly"], "pa")
-    assemblyInfo |= _extractKeys(assemblyInfo.pop("linked_assemblies", {}), assemblySubFields["linked_assemblies"], "la")
-    assemblyInfo |= _extractKeys(assemblyInfo.pop("atypical", {}), assemblySubFields["atypical"], "at")
+    assemblyInfo = _extract(assemblyInfo, assemblyFields)
+    assemblyInfo |= _extract(assemblyInfo.pop("paired_assembly", {}), assemblySubFields["paired_assembly"], "pa")
+    assemblyInfo |= _extract(assemblyInfo.pop("linked_assemblies", {}), assemblySubFields["linked_assemblies"], "la")
+    assemblyInfo |= _extract(assemblyInfo.pop("atypical", {}), assemblySubFields["atypical"], "at")
 
-    assemblyStats = info.get("assembly_stats", {}) # Unpack normally
+    assemblyStats = record.get("assembly_stats", {}) # Unpack normally
 
-    currentAccession = {"current_accession": info.get("current_accession", "")} # Should always exist
+    currentAccession = {"current_accession": record.get("current_accession", "")} # Should always exist
 
     # May not exist
-    organelleInfo = info.get("organelle_info", []) # - organelleInfo ?
+    organelleInfo = record.get("organelle_info", []) # - organelleInfo ?
     organelleInfoFields = [
         "description", #   - description ?
         "submitter", #    - submitter ?
@@ -336,16 +345,15 @@ def retrieveAPI(accession: str, apiKey: str) -> dict:
     ]
 
     organelleData = {}
-    for info in organelleInfo:
-        info = _extractKeys(info, organelleInfoFields, "organelle")
+    for info in _extract(organelleInfo, organelleInfoFields, "organelle"):
         organelleData[info.pop("description", "Unknown")] = info
 
-    typeMaterial = info.get("type_material", {}) # - typeMaterial ?
+    typeMaterial = record.get("type_material", {}) # - typeMaterial ?
     typeMaterialFields = [
         "type_label", #   - typeLabel
         "type_display_text", #   - typeDisplayText
     ]
 
-    typeMaterial = _extractKeys(typeMaterial, typeMaterialFields)
+    typeMaterial = _extract(typeMaterial, typeMaterialFields)
 
     return annotationInfo | assemblyInfo | assemblyStats | currentAccession | organelleData | typeMaterial
