@@ -120,6 +120,9 @@ class BigFileWriter:
                 maxInt = int(maxInt/10)
 
     def populateFromFolder(self, folderPath: Path) -> None:
+        if not folderPath.exists():
+            return
+        
         for filePath in folderPath.iterdir():
             if not filePath.suffix in Format._value2member_map_.keys():
                 continue

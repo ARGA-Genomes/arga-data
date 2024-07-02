@@ -147,6 +147,11 @@ def enrichStats(summaryFile: File, outputPath: Path, apiKeyPath: Path = None):
     accessionCol = "#assembly_accession"
     df = summaryFile.loadDataFrame(dtype=object)
 
+    subFile = outputPath.parent / "apiData.csv"
+    writer = BigFileWriter(subFile)
+    writer.populateFromFolder(writer.subfileDir)
+    writtenFileCount = len(writer.writtenFiles)
+
     summaryFields = {
         "assembly_name": "asm_name",
         "pa_accession": "gbrs_paired_asm",
@@ -165,31 +170,44 @@ def enrichStats(summaryFile: File, outputPath: Path, apiKeyPath: Path = None):
     progress = ProgressBar(50)
     totalRecords = len(df)
 
+    recordsPerSubsection = 30000
+    iterations = (totalRecords / recordsPerSubsection).__ceil__()
+
     queue = Queue()
-    workerRecordCount = (totalRecords / maxRequests).__ceil__()
-    workers: dict[int, Thread] = {}
-    for i in range(maxRequests):
-        accessions = (accession for accession in df[accessionCol][i*workerRecordCount:(i+1)*workerRecordCount])
-        worker = Thread(target=apiWorker, args=(i, accessions, apiKey, set(summaryFields), queue), daemon=True)
-        worker.start()
-        workers[i] = worker
-        time.sleep(1 / maxRequests)
+    for iteration in range(writtenFileCount, iterations):
+        workerRecordCount = (recordsPerSubsection / maxRequests).__ceil__()
+        workers: dict[int, Thread] = {}
 
-    recordData = []
-    failedAccessions = []
-    while workers:
-        value = queue.get()
-        if isinstance(value, tuple): # Worker done idx and failed entries
-            idx, failed = value
-            worker = workers.pop(idx)
-            worker.join()
-            failedAccessions.extend(failed)
-        else: # Record
-            recordData.append(value)
-            progress.render(len(recordData) / totalRecords)
+        for i in range(maxRequests):
+            startRange = (i + iteration) * workerRecordCount
+            endRange = (i + iteration + 1) * workerRecordCount
+            accessions = (accession for accession in df[accessionCol][startRange:endRange])
+            worker = Thread(target=apiWorker, args=(i, accessions, apiKey, set(summaryFields), queue), daemon=True)
+            worker.start()
+            workers[i] = worker
+            time.sleep(1 / maxRequests)
 
-    print(f"Failed: {failedAccessions}")
-    df.merge(pd.DataFrame.from_records(recordData), how="inner", left_on="#assembly_accession", right_on="current_accession").to_csv(outputPath, index=False)
+        recordData = []
+        failedAccessions = []
+        while workers:
+            value = queue.get()
+            if isinstance(value, tuple): # Worker done idx and failed entries
+                idx, failed = value
+                worker = workers.pop(idx)
+                worker.join()
+                failedAccessions.extend(failed)
+            else: # Record
+                recordData.append(value)
+                
+            progress.render((len(recordData) + len(failedAccessions)) / recordsPerSubsection)
+
+        print(f"Completed subsection {iteration}")
+        writer.writeDF(pd.DataFrame.from_records(recordData))
+
+    writer.oneFile(True)
+    # print(f"Failed: {failedAccessions}")
+
+    df.merge(pd.read_csv(subFile), how="outer", left_on="#assembly_accession", right_on="current_accession").to_csv(outputPath, index=False)
 
 def apiWorker(idx: int, accessions: Generator[str, None, None], apiKey: str, dropKeys: set, queue: Queue) -> list[dict]:
     session = requests.Session()

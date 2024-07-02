@@ -11,5 +11,5 @@ class ProgressBar:
         self._pos = (self._pos + 1) % 4
 
         if length == self.barLength: # Completed:
-            print("\n")
+            print()
     
