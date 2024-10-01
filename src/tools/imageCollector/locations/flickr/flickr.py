@@ -3,6 +3,7 @@ import math
 import pandas as pd
 import concurrent.futures
 from pathlib import Path
+from lib.tools.progressBar import SteppableProgressBar
 
 def buildURL(apiKey, method, **kwargs):
     baseURL = "https://api.flickr.com/services/rest/?method="
@@ -83,7 +84,7 @@ def run():
     licenses = {licenseInfo["id"]: licenseInfo["name"] for licenseInfo in licenseData["licenses"]["license"]}
 
     for user in userList:
-        if user.startswith("_"):
+        if user.startswith("#"):
             continue
 
         print(f"Getting photos for {user}")
@@ -99,14 +100,15 @@ def run():
             response = requests.get(buildURL(apiKey, "flickr.people.getPhotos", user_id=user, per_page=photosPerCall, page=call))
             photoData = response.json()["photos"]
             photoList = photoData.get("photo", [])
+            progress = SteppableProgressBar(50, len(photoList), "Photo")
 
             with concurrent.futures.ThreadPoolExecutor(max_workers=50) as executor:
                 futures = (executor.submit(processPhoto, apiKey, licenses, photo) for photo in photoList)
             
                 try:
-                    for idx, future in enumerate(concurrent.futures.as_completed(futures), start=1):
+                    for future in concurrent.futures.as_completed(futures):
                         result = future.result()
-                        print(f"At photo {idx} / {len(photoList)}", end="\r")
+                        progress.update()
                         if result:
                             photos.append(result)
 
