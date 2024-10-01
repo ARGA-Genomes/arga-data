@@ -1,7 +1,7 @@
 import requests
 import pandas as pd
-import math
 from pathlib import Path
+from lib.tools.progressBar import SteppableProgressBar
 
 def buildURL(keyword: str, perPage: int, page: int = 1) -> str:
     return f"https://collections.museumsvictoria.com.au/api/{keyword}?perpage={perPage}&page={page}&hasimages=yes"
@@ -59,10 +59,9 @@ def processEntry(entry: dict) -> list[dict]:
 
     return images
 
-def run():
+def collect():
     baseDir = Path(__file__).parent
-
-    keywords = ["species", "specimens"]
+    # keywords = ["species", "specimens"]
     entriesPerPage = 100
 
     headers = {
@@ -71,12 +70,15 @@ def run():
 
     response = requests.get(buildURL("species", 1), headers=headers)
     totalResults = int(response.headers.get("Total-Results", 0))
-    totalCalls = math.ceil(totalResults / entriesPerPage)
+    totalCalls = (totalResults / entriesPerPage).__ceil__()
+
+    progressBar = SteppableProgressBar(50, totalCalls)
 
     entries = []
-    for call in range(1, totalCalls+1):
-        print(f"At call: {call} / {totalCalls}", end="\r")
-        response = requests.get(buildURL("species", entriesPerPage, call), headers=headers)
+    for call in range(totalCalls):
+        progressBar.update()
+
+        response = requests.get(buildURL("species", entriesPerPage, call+1), headers=headers)
         data = response.json()
 
         for entry in data:
@@ -86,4 +88,4 @@ def run():
     df.to_csv(baseDir / "vicMuseumImages.csv", index=False)
 
 if __name__ == "__main__":
-    run()
+    collect()

@@ -1,5 +1,4 @@
 import requests
-import math
 import pandas as pd
 import concurrent.futures
 from pathlib import Path
@@ -63,21 +62,51 @@ def processPhoto(apiKey: str, licenses: dict, photo: dict) -> dict:
         "tags": tags
     }
 
-def run():
+def collectUserPhotos(user: str, apiKey: str, licenses: dict) -> list[dict]:
+    print(f"Getting photos for {user}")
+    photosPerCall = 500
+
+    response = requests.get(buildURL(apiKey, "flickr.people.getPhotos", user_id=user, per_page=1))
+    data = response.json()
+
+    totalPhotos = data["photos"]["total"]
+    totalCalls = (totalPhotos / photosPerCall).__ceil__()
+
+    photos = []
+    for call in range(totalCalls):
+        response = requests.get(buildURL(apiKey, "flickr.people.getPhotos", user_id=user, per_page=photosPerCall, page=call+1))
+        photoData = response.json()["photos"]
+        photoList = photoData.get("photo", [])
+        progress = SteppableProgressBar(50, len(photoList), f"Processing page {call+1} / {totalCalls}")
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=50) as executor:
+            futures = (executor.submit(processPhoto, apiKey, licenses, photo) for photo in photoList)
+        
+            try:
+                for future in concurrent.futures.as_completed(futures):
+                    result = future.result()
+                    progress.update()
+                    if result:
+                        photos.append(result)
+
+            except (KeyboardInterrupt, ValueError):
+                print("\nExiting...")
+                executor.shutdown(cancel_futures=True)
+                exit()
+
+    return photos
+
+def collect():
     baseDir = Path(__file__).parent
 
     with open(baseDir / "flickrkey.txt") as fp:
         apiKeyData = fp.read()
+    apiKey, _ = apiKeyData.rstrip("\n").split("\n")
 
     with open(baseDir / "flickrusers.txt") as fp:
         users = fp.read()
-
-    apiKey, secret = apiKeyData.rstrip("\n").split("\n")
     userList = users.rstrip("\n").split("\n")
 
-    photosPerCall = 500
-
-    # Get licenses
     print("Getting license information")
     response = requests.get(buildURL(apiKey, "flickr.photos.licenses.getInfo"))
     licenseData = response.json()
@@ -87,40 +116,13 @@ def run():
         if user.startswith("#"):
             continue
 
-        print(f"Getting photos for {user}")
-        response = requests.get(buildURL(apiKey, "flickr.people.getPhotos", user_id=user, per_page=1))
-        data = response.json()
-
-        totalPhotos = data["photos"]["total"]
-        totalCalls = math.ceil(totalPhotos / photosPerCall)
-
-        photos = []
-        for call in range(1, totalCalls + 1):
-            print(f"Processing page {call} / {totalCalls}")
-            response = requests.get(buildURL(apiKey, "flickr.people.getPhotos", user_id=user, per_page=photosPerCall, page=call))
-            photoData = response.json()["photos"]
-            photoList = photoData.get("photo", [])
-            progress = SteppableProgressBar(50, len(photoList), "Photo")
-
-            with concurrent.futures.ThreadPoolExecutor(max_workers=50) as executor:
-                futures = (executor.submit(processPhoto, apiKey, licenses, photo) for photo in photoList)
-            
-                try:
-                    for future in concurrent.futures.as_completed(futures):
-                        result = future.result()
-                        progress.update()
-                        if result:
-                            photos.append(result)
-
-                except (KeyboardInterrupt, ValueError):
-                    print("\nExiting...")
-                    executor.shutdown(cancel_futures=True)
-                    exit()
-
-            print()
-
+        photos = collectUserPhotos(user, apiKey, licenses)
         df = pd.DataFrame.from_records(photos)
         df.to_csv(baseDir / "userImages" / f"{user}.csv", index=False)
 
 if __name__ == "__main__":
-    run()
+    # In the flickr folder make sure you have a flickrkey.txt and flickrusers.txt
+    # users should have the userid of eadch user to collect from on each line
+    # key should have the api key as the first line and the secret as the second
+    
+    collect()
