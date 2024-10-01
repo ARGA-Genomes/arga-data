@@ -3,16 +3,117 @@ import pandas as pd
 import lib.commonFuncs as cmn
 from lib.tools.bigFileWriter import BigFileWriter
 import numpy as np
+from lib.tools.downloader import Downloader
+from lib.tools.zipping import extract
 
-def run():
-    dataFolder = Path("./inaturalist-open-data-20230827")
+def download(downloadDir: Path) -> Path:
+    outputFile = downloadDir / "inaturalist.tar.gz"
+
+    downloader = Downloader()
+    downloader.download("https://inaturalist-open-data.s3.amazonaws.com/metadata/inaturalist-open-data-latest.tar.gz", outputFile, verbose=True)
+    
+    outputPath = extract(outputFile)
+    return outputPath
+
+def getPhotoIDs(dataFolder: Path) -> Path:
+    createdFolder = dataFolder.parent / "createdFiles"
+    createdFolder.mkdir(exist_ok=True)
+
+    observations = dataFolder / "observations.csv"
+    photos = dataFolder / "photos.csv"
+    taxa = dataFolder / "taxa.csv"
+
+    taxonFile = createdFolder / "taxonCount.csv"
+    if not taxonFile.exists():
+        values = pd.read_csv(observations, sep="\t", usecols=["taxon_id"])
+        counts = values.value_counts()
+        df = counts.to_frame("counts")
+        df = df.reset_index()
+
+        del values
+
+        df["taxon_id"] = df["taxon_id"].astype(int)
+
+        taxonomy = pd.read_csv(taxa, sep="\t", dtype=object)
+        taxonomy["taxon_id"] = taxonomy["taxon_id"].astype(int)
+        df = df.merge(taxonomy, "left", on="taxon_id")
+        df.to_csv(taxonFile, index=False)
+    else:
+        df = pd.read_csv(taxonFile, dtype=object)
+
+    speciesFile = createdFolder / "speciesCount.csv"
+    if not speciesFile.exists():
+        df = df[df["rank"].isin(["species", "subspecies"])]
+        df.to_csv(speciesFile, index=False)
+    else:
+        df = pd.read_csv(speciesFile)
+
+    taxonIDFile = createdFolder / "taxonIDs.txt"
+    if not taxonIDFile.exists():
+        ids = df["taxon_id"].astype(str).tolist()
+        with open(taxonIDFile, "w") as fp:
+            fp.write("\n".join(ids))
+    else:
+        with open(taxonIDFile) as fp:
+            ids = fp.read().split("\n")
+
+    obsvIDs = createdFolder / "observationIDs.txt"
+    if not obsvIDs.exists():
+        chunkGen = cmn.chunkGenerator(observations, 1024*1024*4, "\t", usecols=["taxon_id", "observation_uuid"])
+
+        for idx, df in enumerate(chunkGen, start=1):
+            print(f"At chunk: {idx}", end="\r")
+
+            with open(obsvIDs, "a") as fp:
+                fp.write("\n".join(df["observation_uuid"].tolist()))
+                fp.write("\n")
+
+        print()
+
+    photoIDs = createdFolder / "photoIDs.txt"
+
+    lengthBefore = 0
+    lengthAfter = 0
+
+    chunkGen = cmn.chunkGenerator(photos, 1024*1024*4, sep="\t", usecols=["photo_uuid", "observation_uuid"])
+    readBytes = 1024*1024*256
+
+    for idx, df in enumerate(chunkGen, start=1):
+        lengthBefore += len(df)
+
+        with open(obsvIDs) as fp:
+            observationIDs = fp.readlines(readBytes)
+
+            subIdx = 1
+            print(" "*50, end="\r")
+            while observationIDs:
+                print(f"At chunk {idx}, subchunk {subIdx}", end="\r")
+                observationIDs = [x.rstrip("\n") for x in observationIDs] # Clean off trailing newline
+
+                df = df[df["observation_uuid"].isin(observationIDs)].copy()
+                photoUUIDs = df["photo_uuid"].tolist()
+                lengthAfter += len(photoUUIDs)
+
+                with open(photoIDs, "a") as fp2:
+                    fp2.write("\n".join(photoUUIDs))
+                    fp2.write("\n")
+
+                observationIDs = fp.readlines(readBytes)
+                subIdx += 1
+
+    print()
+    print(lengthBefore, lengthAfter)
+    return photoIDs
+
+def collect():
+    parentDir = Path(__file__).parent
+    dataFolder = download(parentDir)
+    photoIDs = getPhotoIDs(dataFolder)
 
     observations = dataFolder / "observations.csv" # Large
     observers = dataFolder / "observers.csv"
     photos = dataFolder / "photos.csv" # Large
     taxa = dataFolder / "taxa.csv"
-
-    photoIDs = Path("./createdFiles/photoIDs.txt")
 
     # Prepare taxonomy for getting species name
     taxonomy = pd.read_csv(taxa, dtype=object, sep="\t")
@@ -25,7 +126,7 @@ def run():
     observers["creator"] = observers["name"].fillna(observers["login"])
     observers.drop(["name", "login"], axis=1, inplace=True)
 
-    writer = BigFileWriter(Path("./inaturalist.csv"), "subfiles")
+    writer = BigFileWriter(parentDir / "inaturalist.csv", "subfiles")
 
     photosGen = cmn.chunkGenerator(photos, 1024*1024*2, "\t")
     for idx, df in enumerate(photosGen, start=1):
@@ -87,6 +188,7 @@ def run():
     writer.oneFile(False)
 
 if __name__ == "__main__":
-    # downloadURL = "https://inaturalist-open-data.s3.amazonaws.com/metadata/inaturalist-open-data-latest.tar.gz"
-
-    run()
+    # Make sure you download inaturalist dump from https://inaturalist-open-data.s3.amazonaws.com/metadata/inaturalist-open-data-latest.tar.gz
+    # Once extracted, update the "dataFolder" variable string to the new folder name
+    
+    collect()
