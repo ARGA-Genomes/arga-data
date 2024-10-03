@@ -5,19 +5,23 @@ from lib.tools.bigFileWriter import BigFileWriter
 import numpy as np
 from lib.tools.downloader import Downloader
 from lib.tools.zipping import extract
+from lib.tools.progressBar import SteppableProgressBar
+from lib.tools.logger import Logger
 
-def download(downloadDir: Path) -> Path:
-    outputFile = downloadDir / "inaturalist.tar.gz"
+def downloadAndExtract(downloadDir: Path) -> Path:
+    outputFile = downloadDir / "inaturalist-open-data-latest.tar.gz"
 
-    downloader = Downloader()
-    downloader.download("https://inaturalist-open-data.s3.amazonaws.com/metadata/inaturalist-open-data-latest.tar.gz", outputFile, verbose=True)
+    if not outputFile.exists():
+        downloader = Downloader()
+        downloader.download("https://inaturalist-open-data.s3.amazonaws.com/metadata/inaturalist-open-data-latest.tar.gz", outputFile, verbose=True)
     
     outputPath = extract(outputFile)
     return outputPath
 
 def getPhotoIDs(dataFolder: Path) -> Path:
-    createdFolder = dataFolder.parent / "createdFiles"
-    createdFolder.mkdir(exist_ok=True)
+    Logger.info("Getting Photo IDs")
+    createdFolder = dataFolder.parents[1] / "createdFiles"
+    # createdFolder.mkdir(exist_ok=True)
 
     observations = dataFolder / "observations.csv"
     photos = dataFolder / "photos.csv"
@@ -25,6 +29,7 @@ def getPhotoIDs(dataFolder: Path) -> Path:
 
     taxonFile = createdFolder / "taxonCount.csv"
     if not taxonFile.exists():
+        Logger.info("Creating taxonCount")
         values = pd.read_csv(observations, sep="\t", usecols=["taxon_id"])
         counts = values.value_counts()
         df = counts.to_frame("counts")
@@ -43,6 +48,7 @@ def getPhotoIDs(dataFolder: Path) -> Path:
 
     speciesFile = createdFolder / "speciesCount.csv"
     if not speciesFile.exists():
+        Logger.info("Creating speciesCount")
         df = df[df["rank"].isin(["species", "subspecies"])]
         df.to_csv(speciesFile, index=False)
     else:
@@ -50,6 +56,7 @@ def getPhotoIDs(dataFolder: Path) -> Path:
 
     taxonIDFile = createdFolder / "taxonIDs.txt"
     if not taxonIDFile.exists():
+        Logger.info("Creating taxonIDs")
         ids = df["taxon_id"].astype(str).tolist()
         with open(taxonIDFile, "w") as fp:
             fp.write("\n".join(ids))
@@ -59,35 +66,33 @@ def getPhotoIDs(dataFolder: Path) -> Path:
 
     obsvIDs = createdFolder / "observationIDs.txt"
     if not obsvIDs.exists():
-        chunkGen = cmn.chunkGenerator(observations, 1024*1024*4, "\t", usecols=["taxon_id", "observation_uuid"])
-
-        for idx, df in enumerate(chunkGen, start=1):
-            print(f"At chunk: {idx}", end="\r")
-
-            with open(obsvIDs, "a") as fp:
-                fp.write("\n".join(df["observation_uuid"].tolist()))
-                fp.write("\n")
-
-        print()
-
+        Logger.info("Creating observationIDs")
+        series = pd.read_csv(observations, sep="\t", usecols=["observation_uuid"])["observation_uuid"]
+        
+        with open(obsvIDs, "w") as fp:
+            fp.write("\n".join(series.tolist()))
+        
     photoIDs = createdFolder / "photoIDs.txt"
 
     lengthBefore = 0
     lengthAfter = 0
 
     chunkGen = cmn.chunkGenerator(photos, 1024*1024*4, sep="\t", usecols=["photo_uuid", "observation_uuid"])
-    readBytes = 1024*1024*256
+    readLines = 1024*1024*8
 
+    Logger.info("Processing chunks")
+    # print("HERE")
+    # progress = SteppableProgressBar(50, len(list(chunkGen)))
+    # print(progress.taskCount)
     for idx, df in enumerate(chunkGen, start=1):
         lengthBefore += len(df)
 
         with open(obsvIDs) as fp:
-            observationIDs = fp.readlines(readBytes)
+            observationIDs = fp.readlines(readLines)
 
             subIdx = 1
-            print(" "*50, end="\r")
             while observationIDs:
-                print(f"At chunk {idx}, subchunk {subIdx}", end="\r")
+                print(f"At chunk: {idx} | subIdx: {subIdx}", end="\r")
                 observationIDs = [x.rstrip("\n") for x in observationIDs] # Clean off trailing newline
 
                 df = df[df["observation_uuid"].isin(observationIDs)].copy()
@@ -98,16 +103,16 @@ def getPhotoIDs(dataFolder: Path) -> Path:
                     fp2.write("\n".join(photoUUIDs))
                     fp2.write("\n")
 
-                observationIDs = fp.readlines(readBytes)
+                observationIDs = fp.readlines(readLines)
                 subIdx += 1
 
-    print()
-    print(lengthBefore, lengthAfter)
+    print(f"\nBefore: {lengthBefore} | After: {lengthAfter}")
     return photoIDs
 
 def collect():
     parentDir = Path(__file__).parent
-    dataFolder = download(parentDir)
+    extractedFolder = downloadAndExtract(parentDir)
+    dataFolder = [key for key, _ in sorted({folder: int(folder.name[-8:]) for folder in extractedFolder.iterdir()}.items(), key=lambda x: x[1])][-1]
     photoIDs = getPhotoIDs(dataFolder)
 
     observations = dataFolder / "observations.csv" # Large
@@ -149,14 +154,14 @@ def collect():
         print(" "*100, end="\r") # Clear stdout
         obsvGen = cmn.chunkGenerator(observations, 1024*1024, "\t")        
         for subIdx, obsv in enumerate(obsvGen, start=1):
-            print(f"At: chunk {idx} | sub chunk {subIdx}", end="\r")
+            print(f"At chunk: {idx} | subIdx: {subIdx}", end="\r")
             obsv.drop(obsv[obsv["quality_grade"] != "research"].index, inplace=True)
             obsv.drop(["latitude" , "longitude", "positional_accuracy", "quality_grade", "observer_id"], axis=1, inplace=True)
             obsv.drop_duplicates("observation_uuid", inplace=True)
             obsv.set_index("observation_uuid", inplace=True)
 
             for column in ("taxon_id", "observed_on"):
-                df[column].fillna(obsv[column], inplace=True)
+                df[[column]] = df[[column]].fillna(obsv[column])
         
         df.reset_index(drop=True, inplace=True) # Reset index and drop observation uuid
         df.drop(df[df["taxon_id"].isna()].index, inplace=True) # Remove NaN entries to allow conversion to int

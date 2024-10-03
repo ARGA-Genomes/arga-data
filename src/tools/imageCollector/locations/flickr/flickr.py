@@ -3,6 +3,7 @@ import pandas as pd
 import concurrent.futures
 from pathlib import Path
 from lib.tools.progressBar import SteppableProgressBar
+from lib.tools.logger import Logger
 
 def buildURL(apiKey, method, **kwargs):
     baseURL = "https://api.flickr.com/services/rest/?method="
@@ -25,14 +26,14 @@ def processPhoto(apiKey: str, licenses: dict, photo: dict) -> dict:
 
     response = requests.get(buildURL(apiKey, "flickr.photos.getInfo", photo_id=photoID))
     if response.status_code != 200:
-        print(f"Info error with id: {photoID}")
+        Logger.error(f"Info error with id: {photoID}")
         return {}
     
     photoInfo = response.json()["photo"]
 
     response = requests.get(buildURL(apiKey, "flickr.photos.getSizes", photo_id=photoID))
     if response.status_code != 200:
-        print(f"Size error with id: {photoID}")
+        Logger.error(f"Size error with id: {photoID}")
         return {}
     
     photoSizes = response.json()["sizes"]
@@ -63,7 +64,7 @@ def processPhoto(apiKey: str, licenses: dict, photo: dict) -> dict:
     }
 
 def collectUserPhotos(user: str, apiKey: str, licenses: dict) -> list[dict]:
-    print(f"Getting photos for {user}")
+    Logger.info(f"Getting photos for {user}")
     photosPerCall = 500
 
     response = requests.get(buildURL(apiKey, "flickr.people.getPhotos", user_id=user, per_page=1))
@@ -71,21 +72,21 @@ def collectUserPhotos(user: str, apiKey: str, licenses: dict) -> list[dict]:
 
     totalPhotos = data["photos"]["total"]
     totalCalls = (totalPhotos / photosPerCall).__ceil__()
+    progress = SteppableProgressBar(50, totalPhotos, "Collecting Photos")
 
     photos = []
     for call in range(totalCalls):
         response = requests.get(buildURL(apiKey, "flickr.people.getPhotos", user_id=user, per_page=photosPerCall, page=call+1))
         photoData = response.json()["photos"]
         photoList = photoData.get("photo", [])
-        progress = SteppableProgressBar(50, len(photoList), f"Processing page {call+1} / {totalCalls}")
 
-        with concurrent.futures.ThreadPoolExecutor(max_workers=50) as executor:
+        with concurrent.futures.ThreadPoolExecutor() as executor:
             futures = (executor.submit(processPhoto, apiKey, licenses, photo) for photo in photoList)
         
             try:
                 for future in concurrent.futures.as_completed(futures):
                     result = future.result()
-                    progress.update()
+                    progress.update(f"On page {call+1}/{totalCalls}")
                     if result:
                         photos.append(result)
 
@@ -98,6 +99,8 @@ def collectUserPhotos(user: str, apiKey: str, licenses: dict) -> list[dict]:
 
 def collect():
     baseDir = Path(__file__).parent
+    outputFolder = baseDir / "userImages"
+    outputFolder.mkdir(exist_ok=True)
 
     with open(baseDir / "flickrkey.txt") as fp:
         apiKeyData = fp.read()
@@ -107,18 +110,20 @@ def collect():
         users = fp.read()
     userList = users.rstrip("\n").split("\n")
 
-    print("Getting license information")
+    Logger.info("Getting license information")
     response = requests.get(buildURL(apiKey, "flickr.photos.licenses.getInfo"))
     licenseData = response.json()
     licenses = {licenseInfo["id"]: licenseInfo["name"] for licenseInfo in licenseData["licenses"]["license"]}
 
     for user in userList:
-        if user.startswith("#"):
+        outputFile = outputFolder / f"{user}.csv"
+
+        if outputFile.exists():
             continue
 
         photos = collectUserPhotos(user, apiKey, licenses)
         df = pd.DataFrame.from_records(photos)
-        df.to_csv(baseDir / "userImages" / f"{user}.csv", index=False)
+        df.to_csv(outputFile, index=False)
 
 if __name__ == "__main__":
     # In the flickr folder make sure you have a flickrkey.txt and flickrusers.txt
