@@ -8,117 +8,98 @@ from lib.tools.zipping import extract
 from lib.tools.progressBar import SteppableProgressBar
 from lib.tools.logger import Logger
 
-def downloadAndExtract(downloadDir: Path) -> Path:
-    outputFile = downloadDir / "inaturalist-open-data-latest.tar.gz"
+def createTaxonIDs(observations: Path, taxa: Path, outputPath: Path) -> None:
+    values = pd.read_csv(observations, sep="\t", usecols=["taxon_id"])
+    counts = values.value_counts()
+    df = counts.to_frame("counts")
+    df = df.reset_index()
 
-    if not outputFile.exists():
-        downloader = Downloader()
-        downloader.download("https://inaturalist-open-data.s3.amazonaws.com/metadata/inaturalist-open-data-latest.tar.gz", outputFile, verbose=True)
+    del values
+
+    df["taxon_id"] = df["taxon_id"].astype(int)
+
+    taxonomy = pd.read_csv(taxa, sep="\t", dtype=object)
+    taxonomy["taxon_id"] = taxonomy["taxon_id"].astype(int)
+    df = df.merge(taxonomy, "left", on="taxon_id")
+    df = df[df["rank"].isin(["species", "subspecies"])]
+    ids = df["taxon_id"].astype(str).tolist()
+
+    with open(outputPath, "w") as fp:
+        fp.write("\n".join(ids))
+
+def createObservationIDs(observations: Path, outputFilePath: Path) -> None:
+    series = pd.read_csv(observations, sep="\t", usecols=["observation_uuid"])["observation_uuid"]
     
-    outputPath = extract(outputFile)
-    return outputPath
+    with open(outputFilePath, "w") as fp:
+        fp.write("\n".join(series.tolist()))
 
-def getPhotoIDs(dataFolder: Path) -> Path:
-    Logger.info("Getting Photo IDs")
-    createdFolder = dataFolder.parents[1] / "createdFiles"
-    # createdFolder.mkdir(exist_ok=True)
-
-    observations = dataFolder / "observations.csv"
-    photos = dataFolder / "photos.csv"
-    taxa = dataFolder / "taxa.csv"
-
-    taxonFile = createdFolder / "taxonCount.csv"
-    if not taxonFile.exists():
-        Logger.info("Creating taxonCount")
-        values = pd.read_csv(observations, sep="\t", usecols=["taxon_id"])
-        counts = values.value_counts()
-        df = counts.to_frame("counts")
-        df = df.reset_index()
-
-        del values
-
-        df["taxon_id"] = df["taxon_id"].astype(int)
-
-        taxonomy = pd.read_csv(taxa, sep="\t", dtype=object)
-        taxonomy["taxon_id"] = taxonomy["taxon_id"].astype(int)
-        df = df.merge(taxonomy, "left", on="taxon_id")
-        df.to_csv(taxonFile, index=False)
-    else:
-        df = pd.read_csv(taxonFile, dtype=object)
-
-    speciesFile = createdFolder / "speciesCount.csv"
-    if not speciesFile.exists():
-        Logger.info("Creating speciesCount")
-        df = df[df["rank"].isin(["species", "subspecies"])]
-        df.to_csv(speciesFile, index=False)
-    else:
-        df = pd.read_csv(speciesFile)
-
-    taxonIDFile = createdFolder / "taxonIDs.txt"
-    if not taxonIDFile.exists():
-        Logger.info("Creating taxonIDs")
-        ids = df["taxon_id"].astype(str).tolist()
-        with open(taxonIDFile, "w") as fp:
-            fp.write("\n".join(ids))
-    else:
-        with open(taxonIDFile) as fp:
-            ids = fp.read().split("\n")
-
-    obsvIDs = createdFolder / "observationIDs.txt"
-    if not obsvIDs.exists():
-        Logger.info("Creating observationIDs")
-        series = pd.read_csv(observations, sep="\t", usecols=["observation_uuid"])["observation_uuid"]
-        
-        with open(obsvIDs, "w") as fp:
-            fp.write("\n".join(series.tolist()))
-        
-    photoIDs = createdFolder / "photoIDs.txt"
-
+def createPhotoIDs(photos: Path, observationIDs: Path, outputFilePath: Path) -> None:
     lengthBefore = 0
     lengthAfter = 0
+    linesToRead = 1024*1024*65
 
     chunkGen = cmn.chunkGenerator(photos, 1024*1024*4, sep="\t", usecols=["photo_uuid", "observation_uuid"])
-    readLines = 1024*1024*8
-
-    Logger.info("Processing chunks")
-    # print("HERE")
-    # progress = SteppableProgressBar(50, len(list(chunkGen)))
-    # print(progress.taskCount)
     for idx, df in enumerate(chunkGen, start=1):
         lengthBefore += len(df)
 
-        with open(obsvIDs) as fp:
-            observationIDs = fp.readlines(readLines)
+        with open(observationIDs) as fp:
+            ids = fp.readlines(linesToRead)
 
-            subIdx = 1
-            while observationIDs:
-                print(f"At chunk: {idx} | subIdx: {subIdx}", end="\r")
-                observationIDs = [x.rstrip("\n") for x in observationIDs] # Clean off trailing newline
+        subIdx = 1
+        while ids:
+            idx = [i.rstrip("\n") for i in ids]
 
-                df = df[df["observation_uuid"].isin(observationIDs)].copy()
-                photoUUIDs = df["photo_uuid"].tolist()
-                lengthAfter += len(photoUUIDs)
+            print(f"At chunk: {idx} | sub-chunk: {subIdx}", end="\r")
+            df = df[df["observation_uuid"].isin(ids)].copy()
+            photoUUIDs = df["photo_uuid"].tolist()
+            lengthAfter += len(photoUUIDs)
 
-                with open(photoIDs, "a") as fp2:
-                    fp2.write("\n".join(photoUUIDs))
-                    fp2.write("\n")
+            with open(outputFilePath, "a") as outputFP:
+                outputFP.write("\n".join(photoUUIDs))
+                outputFP.write("\n")
 
-                observationIDs = fp.readlines(readLines)
-                subIdx += 1
+            subIdx += 1
+            ids = fp.readlines(linesToRead)
 
     print(f"\nBefore: {lengthBefore} | After: {lengthAfter}")
-    return photoIDs
 
 def collect():
     parentDir = Path(__file__).parent
-    extractedFolder = downloadAndExtract(parentDir)
+    createdFiles = parentDir / "createdFiles"
+    if not createdFiles.exists():
+        createdFiles.mkdir()
+
+    downloadPath = parentDir / "inaturalist-open-data-latest.tar.gz"
+
+    if not downloadPath.exists():
+        downloader = Downloader()
+        downloader.download("https://inaturalist-open-data.s3.amazonaws.com/metadata/inaturalist-open-data-latest.tar.gz", downloadPath, verbose=True)
+
+    extractedFolder = extract(downloadPath)
     dataFolder = [key for key, _ in sorted({folder: int(folder.name[-8:]) for folder in extractedFolder.iterdir()}.items(), key=lambda x: x[1])][-1]
-    photoIDs = getPhotoIDs(dataFolder)
 
     observations = dataFolder / "observations.csv" # Large
     observers = dataFolder / "observers.csv"
     photos = dataFolder / "photos.csv" # Large
     taxa = dataFolder / "taxa.csv"
+
+    # Create a list of valid taxon IDs
+    taxonIDFile = createdFiles / "taxonIDs.txt"
+    if not taxonIDFile.exists():
+        Logger.info("Creating Taxon IDs")
+        createTaxonIDs(observations, taxa, taxonIDFile)
+
+    # Create a list of observation IDs
+    observationIDs = createdFiles / "observationIDs.txt"
+    if not observationIDs.exists():
+        Logger.info("Creating Observation IDs")
+        createObservationIDs(observations, observationIDs)
+
+    # Create a list of photo IDs
+    photoIDs = createdFiles / "photoIDs.txt"
+    if not photoIDs.exists():
+        Logger.info("Creating Photo IDs")
+        createPhotoIDs(photos, observationIDs, photoIDs)
 
     # Prepare taxonomy for getting species name
     taxonomy = pd.read_csv(taxa, dtype=object, sep="\t")
@@ -129,18 +110,19 @@ def collect():
     # Prepare observers for getting creator name
     observers = pd.read_csv(observers, dtype=object, sep="\t")
     observers["creator"] = observers["name"].fillna(observers["login"])
-    observers.drop(["name", "login"], axis=1, inplace=True)
+    observers = observers.drop(["name", "login"], axis=1)
 
     writer = BigFileWriter(parentDir / "inaturalist.csv", "subfiles")
-
     photosGen = cmn.chunkGenerator(photos, 1024*1024*2, "\t")
+
+    Logger.info("Building photos")
     for idx, df in enumerate(photosGen, start=1):
-        df.drop(df[df["license"] == "CC-BY-NC-ND"].index, inplace=True)
-        df.drop_duplicates("photo_uuid", inplace=True)
-        df.drop_duplicates("observation_uuid", inplace=True)
+        df = df.drop(df[df["license"] == "CC-BY-NC-ND"].index)
+        df = df.drop_duplicates("photo_uuid")
+        df = df.drop_duplicates("observation_uuid")
 
         with open(photoIDs) as fp:
-            ids = fp.read().split("\n")[:-1]
+            ids = fp.read().rstrip("\n").split("\n")
 
         df = df[df["photo_uuid"].isin(ids)] # Filter based on accepted photo uuids
         del ids
@@ -149,22 +131,22 @@ def collect():
         df["taxon_id"] = np.NaN
         df["observed_on"] = np.NaN
 
-        df.set_index("observation_uuid", inplace=True)
+        df = df.set_index("observation_uuid")
 
         print(" "*100, end="\r") # Clear stdout
-        obsvGen = cmn.chunkGenerator(observations, 1024*1024, "\t")        
+        obsvGen = cmn.chunkGenerator(observations, 1024*1024, "\t")
         for subIdx, obsv in enumerate(obsvGen, start=1):
             print(f"At chunk: {idx} | subIdx: {subIdx}", end="\r")
-            obsv.drop(obsv[obsv["quality_grade"] != "research"].index, inplace=True)
-            obsv.drop(["latitude" , "longitude", "positional_accuracy", "quality_grade", "observer_id"], axis=1, inplace=True)
-            obsv.drop_duplicates("observation_uuid", inplace=True)
-            obsv.set_index("observation_uuid", inplace=True)
+            obsv = obsv.drop(obsv[obsv["quality_grade"] != "research"].index)
+            obsv = obsv.drop(["latitude" , "longitude", "positional_accuracy", "quality_grade", "observer_id"], axis=1)
+            obsv = obsv.drop_duplicates("observation_uuid")
+            obsv = obsv.set_index("observation_uuid")
 
-            for column in ("taxon_id", "observed_on"):
-                df[[column]] = df[[column]].fillna(obsv[column])
+            df.taxon_id = df.taxon_id.fillna(obsv.taxon_id)
+            df.observed_on = df.observed_on.fillna(obsv.observed_on)
         
-        df.reset_index(drop=True, inplace=True) # Reset index and drop observation uuid
-        df.drop(df[df["taxon_id"].isna()].index, inplace=True) # Remove NaN entries to allow conversion to int
+        df = df.reset_index(drop=True) # Reset index and drop observation uuid
+        df = df.drop(df[df["taxon_id"].isna()].index) # Remove NaN entries to allow conversion to int
         df["taxon_id"] = df["taxon_id"].astype(int) # Fixes an issue where taxon_id is sometimes float
 
         df = pd.merge(df, taxonomy, "left", on="taxon_id")
@@ -173,21 +155,22 @@ def collect():
         df["license"] = "© " + df["creator"] + ", some rights reserved (" + df["license"] + ")"
         df["identifier"] = "https://inaturalist-open-data.s3.amazonaws.com/photos/" + df["photo_id"] + "/original." + df["extension"]
 
-        df.drop(["position", "taxon_id", "observer_id", "photo_id"], axis=1, inplace=True)
+        df = df.drop(["position", "taxon_id", "observer_id", "photo_id"], axis=1)
 
         # Renaming fields
-        df.rename({
+        df = df.rename({
             "extension": "format",
             "photo_uuid": "datasetID",
             "name": "taxonName",
             "observed_on": "created"
-        }, axis=1, inplace=True)
+        }, axis=1)
 
         df["type"] = "image"
         df["source"] = "iNaturalist"
         df["publisher"] = "iNaturalist"
         
         writer.writeDF(df)
+        # break
     
     print()
     writer.oneFile(False)
