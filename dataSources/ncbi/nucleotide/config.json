@@ -1,28 +1,65 @@
 {
+    "datasetID": "ARGA:TL:0000160",
+    "subsections": {
+        "bacteria": {
+            "name" : "bct"
+        },
+        "constructed": {
+            "name": "con"
+        },
+        "environmental": {
+            "name": "env"
+        },
+        "expressedSeq": {
+            "name": "est"
+        },
+        "genomeSurvey": {
+            "name": "gss"
+        },
+        "highCDNA": {
+            "name": "htc"
+        },
+        "invertebrate": {
+            "name": "inv"
+        },
+        "mammalian": {
+            "name": "mam"
+        },
+        "otherVertebrate": {
+            "name": "vrt"
+        },
+        "patent": {
+            "name": "pat"
+        },
+        "phage": {
+            "name": "phg"
+        },
+        "plant": {
+            "name": "pln"
+        },
+        "primate": {
+            "name": "pri"
+        },
+        "rodent": {
+            "name": "rod"
+        },
+        "sequenceTagged": {
+            "name": "sts"
+        },
+        "synthetic": {
+            "name": "syn"
+        },
+        "transcriptome": {
+            "name": "tsa"
+        },
+        "viral": {
+            "name": "vrl"
+        }
+    },
     "retrieveType": "crawl",
-    "subsections": [
-        "bacteria:bct",
-        "constructed:con",
-        "environmental:env",
-        "expressedSeq:est",
-        "genomeSurvey:gss",
-        "highCDNA:htc",
-        "invertebrate:inv",
-        "mammalian:mam",
-        "otherVertebrate:vrt",
-        "patent:pat",
-        "phage:phg",
-        "plant:pln",
-        "primate:pri",
-        "rodent:rod",
-        "sequenceTagged:sts",
-        "synthetic:syn",
-        "transcriptome:tsa",
-        "viral:vrl"
-    ],
     "download": {
         "url": "https://ftp.ncbi.nlm.nih.gov/genbank/",
-        "regex": "gb{SUBSECTION:VALUE}\\d+\\.seq\\.gz",
+        "regex": "gb{SUBSECTION:NAME}\\d+\\.seq\\.gz",
         "maxDepth": 0
     },
     "processing": {

@@ -1,9 +1,10 @@
 {
+    "datasetID": "ARGA:TL:0000187",
+    "subsections": {
+        "project": {},
+        "organism": {}
+    },
     "retrieveType": "script",
-    "subsections": [
-        "project",
-        "organism"
-    ],
     "download": {
         "path": "./processing.py",
         "function": "build",

@@ -1,19 +1,31 @@
 {
+    "subsections": {
+        "plants": {
+            "id": "ARGA:TL:0002009",
+            "name": "Plants"
+        },
+        "metazoa": {
+            "id": "ARGA:TL:0002008",
+            "name": "Metazoa"
+        },
+        "protists": {
+            "id": "ARGA:TL:0002010",
+            "name": "Protists"
+        },
+        "fungi": {
+            "id": "ARGA:TL:0002011",
+            "name": "Fungi"
+        }
+    },
     "retrieveType": "url",
-    "subsections": [
-        "plants:Plants",
-        "metazoa:Metazoa",
-        "protists:Protists",
-        "fungi:Fungi"
-    ],
     "download": {
         "files": [
             {
-                "url": "http://ftp.ensemblgenomes.org/pub/{SUBSECTION}/current/species_metadata_Ensembl{SUBSECTION:VALUE}.json",
+                "url": "http://ftp.ensemblgenomes.org/pub/{SUBSECTION}/current/species_metadata_Ensembl{SUBSECTION:NAME}.json",
                 "name": "{SUBSECTION}.json"
             },
             {
-                "url": "http://ftp.ensemblgenomes.org/pub/{SUBSECTION}/current/species_Ensembl{SUBSECTION:VALUE}.txt",
+                "url": "http://ftp.ensemblgenomes.org/pub/{SUBSECTION}/current/species_Ensembl{SUBSECTION:NAME}.txt",
                 "name": "{SUBSECTION}.tsv",
                 "properties": {
                     "sep": "\t"

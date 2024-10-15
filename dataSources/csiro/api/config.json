@@ -1,9 +1,13 @@
 {
+    "subsections": {
+        "datasets": {
+            "id": "ARGA:TL:0000179"
+        },
+        "genomes": {
+            "id": "ARGA:TL:0000180"
+        }
+    },
     "retrieveType": "script",
-    "subsections": [
-        "datasets",
-        "genomes"
-    ],
     "download": {
         "path": "./processing.py",
         "function": "build",

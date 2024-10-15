@@ -1,4 +1,5 @@
 {
+    "datasetID": "ARGA:TL:0002007",
     "retrieveType": "crawl",
     "download": {
         "url": "https://ftp.ebi.ac.uk/pub/databases/eva/rs_releases/release_4/by_species/",
