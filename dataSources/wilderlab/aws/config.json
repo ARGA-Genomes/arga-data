@@ -1,10 +1,10 @@
 {
     "datasetID": "ARGA:TL:0000192",
     "retrieveType": "url",
-    "subsections": [
-        "records",
-        "samples"
-    ],
+    "subsections": {
+        "records": {},
+        "samples": {}
+    },
     "download": {
         "files": [
             {

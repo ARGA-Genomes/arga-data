@@ -77,11 +77,15 @@ class Location:
         with open(configPath) as fp:
             return json.load(fp)
         
-    def _translateSubsection(self, config: dict, subsection: str, subvalue: str) -> dict:
+    def _translateSubsection(self, config: dict, subsectionName: str, subsectionProperties: dict) -> dict:
 
         def translate(obj: any) -> any:
             if isinstance(obj, str):
-                return obj.replace("{SUBSECTION}", subsection).replace("{SUBSECTION:VALUE}", subvalue)
+                obj = obj.replace("{SUBSECTION}", subsectionName)
+                for key, value in subsectionProperties.items():
+                    obj = obj.replace(f"{{SUBSECTION:{key.upper()}}}", value)
+
+                return obj
             
             if isinstance(obj, list):
                 return [translate(item) for item in obj]
@@ -91,7 +95,9 @@ class Location:
             
             return obj
 
-        return {key: translate(value) for key, value in config.items()}
+        cfg = {key: translate(value) for key, value in config.items()}
+        print(cfg)
+        return cfg
 
     def loadDBs(self, database: str, subsection: str = "all") -> list[Database]:
         config = self._loadConfig(database)
@@ -108,39 +114,29 @@ class Location:
             Logger.error(f"Database {database} has invalid retrieve type: {retrieveType}. Should be one of: {', '.join(self.dbMapping.keys())}")
             return []
 
-        subsections: list = config.pop("subsections", [])
+        subsections: dict = config.pop("subsections", {})
 
         if not subsections: # No subsections in config
             try:
                 return [dbType(self.locationName, database, "", config)]
             except AttributeError:
                 return []
-        
-        subsectionLookup = {}
-        for section in subsections:
-            parts = section.split(":")
-            if len(parts) == 1:
-                subsectionLookup[parts[0]] = ""
-            elif len(parts) == 2:
-                subsectionLookup[parts[0]] = parts[1]
-            else:
-                Logger.warning(f"Bad config subsection: {section}")
 
         if subsection == "all":
             retVal = []
-            for subKey, value in subsectionLookup.items():
+            for subsectionName, subsectionProperties in subsections.items():
                 try:
-                    retVal.append(dbType(self.locationName, database, subKey, self._translateSubsection(config, subKey, value)))
+                    retVal.append(dbType(self.locationName, database, subsectionName, self._translateSubsection(config, subsectionName, subsectionProperties)))
                 except AttributeError:
                     continue
                 
             return retVal
         
-        if subsection not in subsectionLookup:
+        if subsection not in subsections:
             Logger.error(f"Invalid subsection: {subsection}")
             return []
         
         try:
-            return [dbType(self.locationName, database, subsection, self._translateSubsection(config, subsection, subsectionLookup[subsection]))]
+            return [dbType(self.locationName, database, subsection, self._translateSubsection(config, subsection, subsections[subsection]))]
         except AttributeError:
             return []
