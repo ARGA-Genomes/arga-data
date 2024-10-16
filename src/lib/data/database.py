@@ -17,7 +17,7 @@ class Retrieve(Enum):
     CRAWL   = "crawl"
     SCRIPT  = "script"
 
-class Database:
+class BasicDB:
 
     retrieveType = Retrieve.URL
 
@@ -149,7 +149,7 @@ class Database:
         except KeyboardInterrupt:
             Logger.info(f"Process ended early when attempting to execute step '{step.name}' for {self}")
 
-class CrawlDB(Database):
+class CrawlDB(BasicDB):
 
     retrieveType = Retrieve.CRAWL
 
@@ -199,7 +199,7 @@ class CrawlDB(Database):
         folderName = urlParts[-2]
         return f"{folderName}_{fileName}"
 
-class ScriptDB(Database):
+class ScriptDB(BasicDB):
 
     retrieveType = Retrieve.SCRIPT
 

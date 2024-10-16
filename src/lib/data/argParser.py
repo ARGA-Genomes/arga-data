@@ -1,6 +1,6 @@
 import argparse
 from lib.data.sources import SourceManager
-from lib.data.database import Database
+from lib.data.database import BasicDB
 
 class ArgParser:
     def __init__(self, description=""):
@@ -8,8 +8,7 @@ class ArgParser:
         self.parser = argparse.ArgumentParser(description=description)
         self.manager = SourceManager()
 
-        self.parser.add_argument("source", choices=self.manager.choices(), help="Database to interact with", metavar="SOURCE")
-        self.parser.add_argument("-s", "--subsection", type=str, default="all", help="Database subsection, defaults to all.")
+        self.parser.add_argument("source", help="Data set to interact with", metavar="SOURCE")
         self.parser.add_argument("-p", "--prepare", action="store_true", help="Force redoing preparation")
         self.parser.add_argument("-o", "--overwrite", action="store_true", help="Force overwriting files")
         self.parser.add_argument("-q", "--quiet", action="store_false", help="Suppress output")
@@ -17,10 +16,10 @@ class ArgParser:
     def add_argument(self, *args, **kwargs) -> None:
         self.parser.add_argument(*args, **kwargs)
 
-    def parse_args(self, *args, **kwargs) -> tuple[list[Database], tuple[bool, bool], bool, argparse.Namespace]:
+    def parse_args(self, *args, **kwargs) -> tuple[list[BasicDB], tuple[bool, bool], bool, argparse.Namespace]:
         parsedArgs = self.parser.parse_args(*args, **kwargs)
 
-        sources = self.manager.getDBs(self._extract(parsedArgs, "source"), self._extract(parsedArgs, "subsection"))
+        sources = self.manager.requestDBs(self._extract(parsedArgs, "source"))
         if len(sources) >= self.sourceWarning:
             passed = self._warnSources(len(sources))
             if not passed:
@@ -48,4 +47,4 @@ class ArgParser:
         while response.lower() not in ("y", "n"):
             response = input(f"Invalid response '{response}', continue? (y/n): ")
 
-        return response == "y"
+        return response.lower() == "y"
