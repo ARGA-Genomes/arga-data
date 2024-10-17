@@ -151,12 +151,13 @@ class Database:
                 Logger.error(error)
                 continue
 
-            configs[subsectionName] = config
+            configs[subsectionName] = (datasetID, config)
         
         dbs = []
-        for subsectionName, config in configs.items():
+        for subsectionName, configData in configs.items():
+            datasetID, config = configData
             try:
-                dbs.append(dbType(self.locationName, self.databaseName, subsectionName, config))
+                dbs.append(dbType(self.locationName, self.databaseName, subsectionName, datasetID, config))
             except AttributeError:
                 continue
 

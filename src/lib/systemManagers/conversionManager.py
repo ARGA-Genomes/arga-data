@@ -11,10 +11,11 @@ from lib.tools.logger import Logger
 import gc
 
 class ConversionManager:
-    def __init__(self, baseDir: Path, converionDir: Path, location: str):
+    def __init__(self, baseDir: Path, converionDir: Path, location: str, datasetID: str):
         self.baseDir = baseDir
         self.conversionDir = converionDir
         self.location = location
+        self.datasetID = datasetID
 
         self.recordsFile = "records.txt"
 
@@ -81,6 +82,7 @@ class ConversionManager:
 
             df = self.fillNA.apply(df)
             df = self.applyAugments(df)
+            df["datasetID"] = self.datasetID
 
             for eventColumn in df.columns.levels[0]:
                 writers[eventColumn].writeDF(df[eventColumn])

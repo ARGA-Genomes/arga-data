@@ -21,10 +21,11 @@ class BasicDB:
 
     retrieveType = Retrieve.URL
 
-    def __init__(self, location: str, database: str, subsection: str, config: dict):
+    def __init__(self, location: str, database: str, subsection: str, datasetID: str, config: dict):
         self.location = location
         self.database = database
         self.subsection = subsection
+        self.datasetID = datasetID
 
         # Auth
         self.authFile: str = config.pop("auth", "")
@@ -49,7 +50,7 @@ class BasicDB:
         # System Managers
         self.downloadManager = DownloadManager(self.databaseDir, self.downloadDir, self.authFile)
         self.processingManager = ProcessingManager(self.databaseDir, self.processingDir)
-        self.conversionManager = ConversionManager(self.databaseDir, self.convertedDir, location)
+        self.conversionManager = ConversionManager(self.databaseDir, self.convertedDir, location, self.datasetID)
         self.timeManager = TimeManager(self.databaseDir)
 
         # Report extra config options
