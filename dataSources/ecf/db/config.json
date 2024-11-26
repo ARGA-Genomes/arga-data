@@ -1,0 +1,28 @@
+{
+    "retrieveType": "url",
+    "download": {
+        "files": [
+            {
+                "url": "https://researcharchive.calacademy.org/research/ichthyology/catalog/ValidNamesRecursivelyNormalized.txt",
+                "name": "validNames.tsv",
+                "properties": {
+                    "sep": "\t"
+                }
+            }
+        ]
+    },
+    "processing": {
+        "final": [
+            {
+                "path": "./processing.py",
+                "function": "getMetadata",
+                "args": [
+                    "{INPATH}",
+                    "{OUTPATH}"
+                ],
+                "output": "ecf.csv"
+            }
+        ]
+    },
+    "conversion": {}
+}
