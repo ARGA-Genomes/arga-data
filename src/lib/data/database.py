@@ -5,14 +5,12 @@ from pathlib import Path
 from lib.systemManagers.downloading import DownloadManager
 from lib.systemManagers.processing import ProcessingManager
 from lib.systemManagers.conversion import ConversionManager
-from lib.systemManagers.metadata import MetadataManager
 from lib.systemManagers.updating import UpdateManager
 
 from lib.processing.stages import Step
 
 from lib.tools.crawler import Crawler
 from lib.tools.logger import Logger
-import lib.tools.zipping as zp
 
 class Retrieve(Enum):
     URL     = "url"
@@ -51,10 +49,9 @@ class BasicDB:
         self.convertedDir = self.dataDir / "converted"
 
         # System Managers
-        self.downloadManager = DownloadManager(self.databaseDir, self.downloadDir, self.authFile)
-        self.processingManager = ProcessingManager(self.databaseDir, self.processingDir)
-        self.conversionManager = ConversionManager(self.databaseDir, self.convertedDir, self.datasetID, location, database, subsection)
-        self.metadataManager = MetadataManager(self.subsectionDir)
+        self.downloadManager = DownloadManager(self.subsectionDir, self.downloadDir, self.authFile)
+        self.processingManager = ProcessingManager(self.subsectionDir, self.processingDir)
+        self.conversionManager = ConversionManager(self.subsectionDir, self.convertedDir, self.datasetID, location, database, subsection)
         self.updateManager = UpdateManager(self.updateConfig)
 
         # Report extra config options
@@ -139,19 +136,13 @@ class BasicDB:
     def _execute(self, step: Step, overwrite: bool, verbose: bool, **kwargs: dict) -> bool:
         Logger.info(f"Executing {self} step '{step.name}' with flags: overwrite={overwrite} | verbose={verbose}")
         if step == Step.DOWNLOAD:
-            success, metadata = self.downloadManager.download(overwrite, verbose, **kwargs)
-            self.metadataManager.update(step, metadata)
-            return success
-        
+            return self.downloadManager.download(overwrite, verbose, **kwargs)
+
         if step == Step.PROCESSING:
-            success, metadata = self.processingManager.process(overwrite, verbose, **kwargs)
-            self.metadataManager.update(step, metadata)
-            return success
+            return self.processingManager.process(overwrite, verbose, **kwargs)
         
         if step == Step.CONVERSION:
-            success, metadata = self.conversionManager.convert(overwrite, verbose, **kwargs)
-            self.metadataManager.update(step, metadata)
-            return success
+            return self.conversionManager.convert(overwrite, verbose, **kwargs)
 
         Logger.error(f"Unknown step to execute: {step}")
         return False
@@ -172,14 +163,14 @@ class BasicDB:
             Logger.info(f"Process ended early when attempting to execute step '{step.name}' for {self}")
 
     def package(self) -> Path:
-        renamedFilePath = self.metadataManager.metadataPath.rename(self.conversionManager.output.filePath / self.metadataManager.metadataPath.name)
-        outputPath = zp.compress(self.conversionManager.output.filePath, self.dataDir)
-        renamedFilePath.rename(self.metadataManager.metadataPath)
-        Logger.info(f"Successfully zipped converted data source file to {outputPath}")
+        outputPath = self.conversionManager.package(self.dataDir)
+        if outputPath is not None:
+            Logger.info(f"Successfully zipped converted data source file to {outputPath}")
+
         return outputPath
 
     def checkUpdateReady(self) -> bool:
-        lastUpdate = self.metadataManager.getLastDownloadUpdate()
+        lastUpdate = self.downloadManager.getLastUpdate()
         return self.updateManager.isUpdateReady(lastUpdate)
 
 class CrawlDB(BasicDB):

@@ -1,5 +1,5 @@
 from pathlib import Path
-import lib.commonFuncs as cmn
+from lib.systemManagers.baseManager import SystemManager
 from lib.processing.stages import File
 from lib.processing.scripts import Script
 from lib.tools.logger import Logger
@@ -38,9 +38,10 @@ class _ScriptDownload(_Download):
     def retrieve(self, overwrite: bool, verbose: bool) -> bool:
         return self.script.run(overwrite, verbose)
 
-class DownloadManager:
+class DownloadManager(SystemManager):
     def __init__(self, baseDir: Path, downloadDir: Path, authFile: str):
-        self.baseDir = baseDir
+        super().__init__(baseDir, "downloading", "files")
+
         self.downloadDir = downloadDir
         self.authFile = authFile
 
@@ -64,19 +65,18 @@ class DownloadManager:
     def getLatestFile(self) -> File:
         return self.files[-1].file
 
-    def download(self, overwrite: bool = False, verbose: bool = False) -> tuple[bool, dict]:
+    def download(self, overwrite: bool = False, verbose: bool = False) -> bool:
         if not self.downloadDir.exists():
             self.downloadDir.mkdir(parents=True)
 
-        metadata = {"files": []}
         allSucceeded = True
         startTime = time.perf_counter()
 
-        for download in self.downloads:
+        for idx, download in enumerate(self.downloads):
             downloadStart = time.perf_counter()
             success = download.retrieve(overwrite, verbose)
 
-            metadata["files"].append({
+            self.updateMetadata(idx, {
                 "output": download.file.filePath.name,
                 "success": success,
                 "duration": time.perf_counter() - downloadStart,
@@ -85,8 +85,8 @@ class DownloadManager:
 
             allSucceeded = allSucceeded and success
 
-        metadata["totalTime"] = time.perf_counter() - startTime
-        return allSucceeded, metadata
+        self.updateTotalTime(time.perf_counter() - startTime)
+        return allSucceeded
 
     def registerFromURL(self, url: str, fileName: str, fileProperties: dict = {}) -> bool:
         download = _URLDownload(url, self.downloadDir / fileName, fileProperties, self.username, self.password)
