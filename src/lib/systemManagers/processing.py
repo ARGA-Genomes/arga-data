@@ -1,12 +1,12 @@
 from pathlib import Path
 from lib.processing.stages import File
 from lib.processing.scripts import Script
-from lib.systemManagers.baseManager import SystemManager
+from lib.systemManagers.baseManager import SystemManager, Task
 from lib.tools.logger import Logger
 import time
 from datetime import datetime
 
-class _Node:
+class _Node(Task):
     def __init__(self, index: int, script: Script, parents: list['_Node']):
         self.index = index
         self.script = script
@@ -15,11 +15,11 @@ class _Node:
     def __eq__(self, other: '_Node'):
         return self.index == other.index
 
-    def getOutput(self) -> File:
+    def getOutputPath(self) -> Path:
+        return self.script.output.filePath
+
+    def getOutputFile(self) -> File:
         return self.script.output
-    
-    def getFunction(self) -> str:
-        return self.script.function
     
     def getRequirements(self, tasks: list['_Node']) -> list['_Node']:
         newTasks = []
@@ -31,20 +31,23 @@ class _Node:
         newTasks.append(self)
         return newTasks
 
-    def execute(self, overwrite: bool, verbose: bool) -> bool:
+    def runTask(self, overwrite: bool, verbose: bool) -> bool:
         return self.script.run(overwrite, verbose)
 
 class _Root(_Node):
     def __init__(self, file: File):
         self.file = file
 
-    def getOutput(self) -> File:
+    def getOutputPath(self) -> Path:
+        return self.file.filePath
+
+    def getOutputFile(self) -> File:
         return self.file
     
     def getRequirements(self, *args) -> list[_Node]:
         return []
     
-    def execute(self, *args) -> bool:
+    def runTask(self, *args) -> bool:
         return True
 
 class ProcessingManager(SystemManager):
@@ -56,7 +59,7 @@ class ProcessingManager(SystemManager):
         self._nodeIndex = 0
 
     def _createNode(self, step: dict, parents: list[_Node]) -> _Node | None:
-        inputs = [node.getOutput() for node in parents]
+        inputs = [node.getOutputFile() for node in parents]
         try:
             script = Script(self.baseDir, self.processingDir, dict(step), inputs)
         except AttributeError as e:
@@ -74,12 +77,12 @@ class ProcessingManager(SystemManager):
         return node
     
     def getLatestNodeFiles(self) -> list[File]:
-        return [node.getOutput() for node in self.nodes]
+        return [node.getOutputFile() for node in self.nodes]
 
     def process(self, overwrite: bool = False, verbose: bool = False) -> bool:
         if all(isinstance(node, _Root) for node in self.nodes): # All root nodes, no processing required
             Logger.info("No processing required for any nodes")
-            return True, {}
+            return True
 
         if not self.processingDir.exists():
             self.processingDir.mkdir()
@@ -89,25 +92,7 @@ class ProcessingManager(SystemManager):
             requirements = node.getRequirements(queuedTasks)
             queuedTasks.extend(requirements)
 
-        allSucceeded = True
-        startTime = time.perf_counter()
-        for idx, task in enumerate(queuedTasks):
-            stattTime = time.perf_counter()
-            success = task.execute(overwrite, verbose)
-
-            self.updateMetadata(idx, {
-                "function": task.getFunction(),
-                "output": task.getOutput().filePath.name,
-                "success": success,
-                "duration": time.perf_counter() - stattTime,
-                "timestamp": datetime.now().isoformat()
-            })
-
-            allSucceeded = allSucceeded and success
-
-        self.updateTotalTime(time.perf_counter() - startTime)
-
-        return allSucceeded
+        return self.runTasks(queuedTasks, overwrite, verbose)
 
     def registerFile(self, file: File, processingSteps: list[dict]) -> bool:
         node = _Root(file)

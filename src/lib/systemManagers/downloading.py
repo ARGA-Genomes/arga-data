@@ -1,5 +1,5 @@
 from pathlib import Path
-from lib.systemManagers.baseManager import SystemManager
+from lib.systemManagers.baseManager import SystemManager, Task
 from lib.processing.stages import File
 from lib.processing.scripts import Script
 from lib.tools.logger import Logger
@@ -7,12 +7,12 @@ import lib.tools.downloading as dl
 import time
 from datetime import datetime
 
-class _Download:
+class _Download(Task):
     def __init__(self, filePath: Path, properties: dict):
         self.file = File(filePath, properties)
 
-    def retrieve(self, overwrite: bool) -> bool:
-        raise NotImplementedError
+    def getOutputPath(self) -> Path:
+        return self.file.filePath
 
 class _URLDownload(_Download):
     def __init__(self, url: str, filePath: Path, properties: dict, username: str, password: str):
@@ -21,10 +21,10 @@ class _URLDownload(_Download):
 
         super().__init__(filePath, properties)
 
-    def retrieve(self, overwrite: bool, verbose: bool) -> bool:
+    def runTask(self, overwrite: bool, verbose: bool) -> bool:
         if not overwrite and self.file.exists():
             Logger.info(f"Output file {self.file.filePath} already exists")
-            return self.file.filePath
+            return False
         
         self.file.filePath.unlink(True)
         return dl.download(self.url, self.file.filePath, verbose=verbose, auth=self.auth)
@@ -35,7 +35,7 @@ class _ScriptDownload(_Download):
 
         super().__init__(self.script.output.filePath, self.script.outputProperties)
 
-    def retrieve(self, overwrite: bool, verbose: bool) -> bool:
+    def runTask(self, overwrite: bool, verbose: bool) -> bool:
         return self.script.run(overwrite, verbose)
 
 class DownloadManager(SystemManager):
@@ -69,24 +69,7 @@ class DownloadManager(SystemManager):
         if not self.downloadDir.exists():
             self.downloadDir.mkdir(parents=True)
 
-        allSucceeded = True
-        startTime = time.perf_counter()
-
-        for idx, download in enumerate(self.downloads):
-            downloadStart = time.perf_counter()
-            success = download.retrieve(overwrite, verbose)
-
-            self.updateMetadata(idx, {
-                "output": download.file.filePath.name,
-                "success": success,
-                "duration": time.perf_counter() - downloadStart,
-                "timestamp": datetime.now().isoformat()
-            })
-
-            allSucceeded = allSucceeded and success
-
-        self.updateTotalTime(time.perf_counter() - startTime)
-        return allSucceeded
+        return self.runTasks(self.downloads, overwrite, verbose)
 
     def registerFromURL(self, url: str, fileName: str, fileProperties: dict = {}) -> bool:
         download = _URLDownload(url, self.downloadDir / fileName, fileProperties, self.username, self.password)

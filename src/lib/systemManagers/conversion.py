@@ -6,7 +6,7 @@ from lib.tools.bigFileWriter import BigFileWriter
 from lib.processing.mapping import Remapper, Event
 from lib.processing.stages import File, StackedFile
 from lib.processing.scripts import Script
-from lib.systemManagers.baseManager import SystemManager
+from lib.systemManagers.baseManager import SystemManager, Metadata
 from lib.tools.logger import Logger
 import gc
 import time
@@ -109,13 +109,15 @@ class ConversionManager(SystemManager):
             writer.oneFile()
 
         self.updateMetadata(0, {
-            "output": self.output.filePath.name,
-            "success": True,
-            "duration": time.perf_counter() - startTime,
-            "timestamp": datetime.now().isoformat(),
-            "columns": len(columns),
-            "unmappedColumns": len(self.remapper.table.getUnmapped()),
-            "rows": totalRows
+            Metadata.OUTPUT: self.output.filePath.name,
+            Metadata.SUCCESS: True,
+            Metadata.DURATION: time.perf_counter() - startTime,
+            Metadata.TIMESTAMP: datetime.now().isoformat(),
+            Metadata.CUSTOM: {
+                "columns": len(columns),
+                "unmappedColumns": len(self.remapper.table.getUnmapped()),
+                "rows": totalRows
+            }
         })
         
         return True
