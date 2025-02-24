@@ -131,7 +131,7 @@ class ConversionManager(SystemManager):
 
     def applyAugments(self, df: pd.DataFrame) -> pd.DataFrame | None:
         for augment in self.augments:
-            success, df = augment.run(True, inputArgs=[df])
+            success, df = augment.run(False, inputArgs=[df])
 
             if not success:
                 return None
