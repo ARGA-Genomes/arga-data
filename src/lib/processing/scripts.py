@@ -6,22 +6,12 @@ from enum import Enum
 import traceback
 import lib.config as cfg
 
-class Key(Enum):
-    INPUT_FILE  = "INFILE"
-    INPUT_PATH  = "INPATH"
-    INPUT_STEM  = "INSTEM"
-    INPUT_DIR   = "INDIR"
-    OUTPUT_FILE = "OUTFILE"
-    OUTPUT_DIR  = "OUTDIR"
-    OUTPUT_PATH = "OUTPATH"
-
-class Script:
+class FunctionScript:
     _libDir = cfg.Folders.src / "lib"
 
-    def __init__(self, baseDir: Path, outputDir: Path, scriptInfo: dict, inputs: list[File]):
+    def __init__(self, baseDir: Path, scriptInfo: dict):
         self.baseDir = baseDir
-        self.outputDir = outputDir
-        self.inputs = inputs
+        self.scriptInfo = scriptInfo
 
         # Script information
         self.path: str = scriptInfo.pop("path", None)
@@ -35,48 +25,52 @@ class Script:
         if self.function is None:
             raise Exception("No script function specified") from AttributeError
         
-        # Output information
-        self.output = scriptInfo.pop("output", "")
-        self.outputProperties = scriptInfo.pop("properties", {})
+        self.path = self._parsePath(self.path, True)
 
         for parameter in scriptInfo:
-            Logger.debug(f"Unknown step parameter: {parameter}")
+            Logger.debug(f"Unknown script parameter: {parameter}")
 
-        # Parsing
-        self.path = self._parseArg(self.path)
-        if not isinstance(self.path, Path): # If not path after parsing due to relative import, convert to path
-            self.path = Path(self.path)
+    def _importFunction(self, modulePath: Path, functionName: str) -> callable:
+        spec = importlib.util.spec_from_file_location(modulePath.name, modulePath)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        return getattr(module, functionName)
 
-        self.output = self._parseArg(self.output, [Key.OUTPUT_DIR, Key.OUTPUT_PATH])
-        if isinstance(self.output, str):
-            self.output = self.outputDir / self.output
+    def _parsePath(self, arg: str, forceOutput: bool = False) -> Path | str:
+        if arg.startswith("./"):
+            workingDir = self.baseDir
+            return workingDir / arg[2:]
+         
+        if arg.startswith("../"):
+            workingDir = self.baseDir.parent
+            newStructure = arg[3:]
+            while newStructure.startswith("../"):
+                workingDir = workingDir.parent
+                newStructure = newStructure[3:]
 
-        if not self.output.suffix:
-            self.output = Folder(self.output)
-        else:
-            self.output: File = File(self.output, self.outputProperties)
+            return workingDir / newStructure
+        
+        if arg.startswith(".../"):
+            return self._libDir / arg[4:]
 
-        self.args = [self._parseArg(arg) for arg in self.args]
-        self.kwargs = {key: self._parseArg(arg) for key, arg in self.kwargs.items()}
-
-    def run(self, overwrite: bool = False, verbose: bool = False, args: list = [], kwargs: dict = {}) -> bool:
-        if isinstance(self.output, File) and self.output.exists():
-            if not overwrite:
-                Logger.info(f"Output {self.output} exist and not overwriting, skipping '{self.function}'")
-                return True
-            
-            self.output.backUp(True)
-
+        Logger.warning(f"Unable to parse suspected path: {arg}")
+        if forceOutput:
+            return Path(arg)
+        
+        return arg
+    
+    def run(self, verbose: bool, inputArgs: list = [], inputKwargs: dict = {}) -> tuple[bool, any]:
         try:
             processFunction = self._importFunction(self.path, self.function)
         except:
             Logger.error(f"Error importing function '{self.function}' from path '{self.path}'")
             Logger.error(traceback.format_exc())
-            self.output.restoreBackUp()
+            if isinstance(self.output, File):
+                self.output.restoreBackUp()
             return False
 
-        args = self.args + args
-        kwargs = self.kwargs | kwargs
+        args = self.args + inputArgs
+        kwargs = self.kwargs | inputKwargs
 
         if verbose:
             msg = f"Running {self.path} function '{self.function}'"
@@ -87,38 +81,86 @@ class Script:
                     msg += " and"
                 msg += f" with kwargs {kwargs}"
             Logger.info(msg)
-
+        
         try:
-            processFunction(*args, **kwargs)
+            retVal = processFunction(*args, **kwargs)
         except KeyboardInterrupt:
             Logger.info("Cancelled external script")
-            self.output.restoreBackUp()
-            return False
+            return False, None
         except PermissionError:
             Logger.info("External script does not have permission to modify file, potentially open")
-            self.output.restoreBackUp()
-            return False
+            return False, None
         except:
             Logger.error(f"Error running external script:\n{traceback.format_exc()}")
-            self.output.restoreBackUp()
-            return False
+            return False, None
+                
+        return True, retVal
 
+class OutputScript(FunctionScript):
+    def __init__(self, baseDir: Path, scriptInfo: dict, outputDir: Path):
+        self.outputDir = outputDir
+
+        # Output information
+        self.output = scriptInfo.pop("output", None)
+        self.outputProperties = scriptInfo.pop("properties", {})
+
+        if self.output is None:
+            raise Exception("No output specified, please use FunctionScript if intentionally has no output") from AttributeError
+
+        self.output = self._parseOutput(self.outputDir / self.output, self.outputProperties)
+
+        super().__init__(baseDir, scriptInfo)
+
+    def _parseOutput(self, outputPath: Path, outputProperties: dict) -> File:
+        if not outputPath.suffix:
+            return Folder(outputPath)
+        return File(outputPath, outputProperties)
+
+    def run(self, overwrite: bool, verbose: bool, inputArgs: list = [], inputKwargs: dict = {}) -> tuple[bool, any]:
+        if self.output.exists():
+            if not overwrite:
+                Logger.info(f"Output {self.output} exist and not overwriting, skipping '{self.function}'")
+                return True, None
+            
+            self.output.backUp(True)
+
+        success, retVal = super().run(verbose, inputArgs, inputKwargs)
+        if not success:
+            self.output.restoreBackUp()
+            return False, retVal
+        
         if not self.output.exists():
             Logger.warning(f"Output {self.output} was not created")
             self.output.restoreBackUp()
-            return False
-
+            return False, retVal
+        
         Logger.info(f"Created file {self.output}")
         self.output.deleteBackup()
-        return True
-    
-    def _importFunction(self, modulePath: Path, functionName: str) -> callable:
-        spec = importlib.util.spec_from_file_location(modulePath.name, modulePath)
-        module = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(module)
-        return getattr(module, functionName)
+        return True, retVal
 
-    def _parseArg(self, arg: any, excludeKeys: list[Key] = []) -> Path | str:
+class FileScript(OutputScript):
+    class _Key(Enum):
+        INPUT_FILE  = "INFILE"
+        INPUT_PATH  = "INPATH"
+        INPUT_STEM  = "INSTEM"
+        INPUT_DIR   = "INDIR"
+        OUTPUT_FILE = "OUTFILE"
+        OUTPUT_DIR  = "OUTDIR"
+        OUTPUT_PATH = "OUTPATH"
+
+    def __init__(self, baseDir: Path, scriptInfo: dict, outputDir: Path, inputs: list[File]):
+        self.inputs = inputs
+
+        super().__init__(baseDir, scriptInfo, outputDir)
+
+        self.args = [self._parseArg(arg) for arg in self.args]
+        self.kwargs = {key: self._parseArg(arg) for key, arg in self.kwargs.items()}
+
+    def _parseOutput(self, output: str, outputProperties: dict) -> File:
+        outputPath = self._parseArg(output, [self._Key.OUTPUT_DIR, self._Key.OUTPUT_PATH])
+        return super()._parseOutput(outputPath, outputProperties)
+
+    def _parseArg(self, arg: any, excludeKeys: list[_Key] = []) -> Path | str:
         if not isinstance(arg, str):
             return arg
         
@@ -146,67 +188,47 @@ class Script:
             return arg
 
         argValue = argValue[0]
-        if argValue not in Key._value2member_map_:
+        if argValue not in self._Key._value2member_map_:
             Logger.warning(f"Unknown key code: {argValue}")
             return arg
         
-        key = Key._value2member_map_[argValue]
+        key = self._Key._value2member_map_[argValue]
         if key in excludeKeys:
             Logger.warning(f"Disallowed key code: {argValue}")
             return arg
         
         # Parsing key
-        if key == Key.OUTPUT_FILE:
+        if key == self._Key.OUTPUT_FILE:
             return self.output
             
-        if key == Key.OUTPUT_DIR:
+        if key == self._Key.OUTPUT_DIR:
             return self.outputDir
         
-        if key == Key.OUTPUT_PATH:
+        if key == self._Key.OUTPUT_PATH:
             if not isinstance(self.output, File):
                 Logger.warning("No output path found")
                 return None
             
             return self.output.filePath
 
-        if key == Key.INPUT_DIR:
+        if key == self._Key.INPUT_DIR:
             if not self.inputs:
                 Logger.warning("No inputs to get directory from")
                 return None
             
             return self.inputs[selection].filePath.parent
         
-        if key in (Key.INPUT_FILE, Key.INPUT_PATH, Key.INPUT_STEM):
+        if key in (self._Key.INPUT_FILE, self._Key.INPUT_PATH, self._Key.INPUT_STEM):
             if not self.inputs:
                 Logger.warning("No inputs to get path from")
                 return None
             
             file = self.inputs[selection]
-            if key == Key.INPUT_FILE:
+            if key == self._Key.INPUT_FILE:
                 return file
 
             path = file.filePath
-            if key == Key.INPUT_PATH:
+            if key == self._Key.INPUT_PATH:
                 return path
             
             return path.stem
-
-    def _parsePath(self, arg: str) -> Path | str:
-        if arg.startswith("./"):
-            workingDir = self.baseDir
-            return workingDir / arg[2:]
-         
-        if arg.startswith("../"):
-            workingDir = self.baseDir.parent
-            newStructure = arg[3:]
-            while newStructure.startswith("../"):
-                workingDir = workingDir.parent
-                newStructure = newStructure[3:]
-
-            return workingDir / newStructure
-        
-        if arg.startswith(".../"):
-            return self._libDir / arg[4:]
-
-        Logger.warning(f"Unable to parse suspected path: {arg}")
-        return arg
