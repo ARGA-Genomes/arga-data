@@ -1,13 +1,11 @@
 from pathlib import Path
 from lib.processing.stages import File
-from lib.processing.scripts import Script
+from lib.processing.scripts import FileScript
 from lib.systemManagers.baseManager import SystemManager, Task
 from lib.tools.logger import Logger
-import time
-from datetime import datetime
 
 class _Node(Task):
-    def __init__(self, index: int, script: Script, parents: list['_Node']):
+    def __init__(self, index: int, script: FileScript, parents: list['_Node']):
         self.index = index
         self.script = script
         self.parents = parents
@@ -61,7 +59,7 @@ class ProcessingManager(SystemManager):
     def _createNode(self, step: dict, parents: list[_Node]) -> _Node | None:
         inputs = [node.getOutputFile() for node in parents]
         try:
-            script = Script(self.baseDir, self.processingDir, dict(step), inputs)
+            script = FileScript(self.baseDir, dict(step), self.processingDir, inputs)
         except AttributeError as e:
             Logger.error(f"Invalid processing script configuration: {e}")
             return None

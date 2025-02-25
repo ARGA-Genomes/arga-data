@@ -5,13 +5,14 @@ import lib.commonFuncs as cmn
 from lib.tools.bigFileWriter import BigFileWriter
 from lib.processing.mapping import Remapper, Event
 from lib.processing.stages import File, StackedFile
-from lib.processing.scripts import Script
+from lib.processing.scripts import FunctionScript
 from lib.systemManagers.baseManager import SystemManager, Metadata
 from lib.tools.logger import Logger
 import gc
 import time
 from datetime import datetime
 import lib.tools.zipping as zp
+from typing import Generator
 
 class ConversionManager(SystemManager):
     def __init__(self, baseDir: Path, converionDir: Path, datasetID: str, location: str, database: str, subsection: str):
@@ -33,12 +34,10 @@ class ConversionManager(SystemManager):
         self.customMapPath = properties.pop("customMapPath", None)
 
         self.chunkSize = properties.pop("chunkSize", 1024)
-        self.setNA = properties.pop("setNA", [])
-        self.fillNA = ColumnFiller(properties.pop("fillNA", {}))
         self.skipRemap = properties.pop("skipRemap", [])
         self.preserveDwC = properties.pop("preserveDwC", False)
         self.prefixUnmapped = properties.pop("prefixUnmapped", True)
-        self.augments = [Script(self.baseDir, self.conversionDir, augProperties, []) for augProperties in properties.pop("augment", [])]
+        self.augments = [FunctionScript(self.baseDir, augProperties) for augProperties in properties.pop("augment", [])]
 
         self.remapper = Remapper(mapDir, self.mapID, self.customMapID, self.customMapPath, self.location, self.preserveDwC, self.prefixUnmapped)
         self.fileLoaded = True
@@ -90,13 +89,21 @@ class ConversionManager(SystemManager):
                 print(f"At chunk: {idx}", end='\r')
 
             df = self.remapper.applyTranslation(df) # Returns a multi-index dataframe
-            for na in self.setNA:
-                df = df.replace(na, np.NaN)
-
-            df = self.fillNA.apply(df)
             df = self.applyAugments(df)
-            df[(Event.COLLECTION, "dataset_id")] = self.datasetID
-            df[(Event.COLLECTION, "entity_id")] = df[(Event.COLLECTION, "dataset_id")] + df[(Event.COLLECTION, "scientific_name")]
+
+            if df is None:
+                return False
+
+            datasetID = "dataset_id"
+            scientificName = "scientific_name"
+            entityID = "entity_id"
+
+            if scientificName not in df[Event.COLLECTION].columns:
+                Logger.error(f"Unable to generate '{entityID}' as dataset is missing field '{scientificName}' in event '{Event.COLLECTION.value}'")
+                return False
+            
+            df[(Event.COLLECTION, datasetID)] = self.datasetID
+            df[(Event.COLLECTION, entityID)] = df[(Event.COLLECTION, datasetID)] + df[(Event.COLLECTION, scientificName)]
 
             for eventColumn in df.columns.levels[0]:
                 writers[eventColumn].writeDF(df[eventColumn])
@@ -122,9 +129,17 @@ class ConversionManager(SystemManager):
         
         return True
 
-    def applyAugments(self, df: pd.DataFrame) -> pd.DataFrame:
+    def applyAugments(self, df: pd.DataFrame) -> pd.DataFrame | None:
         for augment in self.augments:
-            df = augment.run(args=[df])
+            success, df = augment.run(False, inputArgs=[df])
+
+            if not success:
+                return None
+
+            if not isinstance(df, pd.DataFrame):
+                Logger.error(f"Augment '{augment.function}' does not output dataframe as required, instead output {type(df)}")
+                return None
+            
         return df
     
     def package(self, compressLocation: Path) -> Path:
@@ -132,28 +147,3 @@ class ConversionManager(SystemManager):
         outputPath = zp.compress(self.output.filePath, compressLocation)
         renamedFile.rename(self.metadataPath)
         return outputPath
-    
-class ColumnFiller:
-    def __init__(self, fillProperties: dict[str, dict]):
-        self.fillProperties = fillProperties
-
-        for event, columns in self.fillProperties.items():
-            if not self._validEvent(event):
-                raise Exception(f"Unknown event: {event}") from AttributeError
-            
-            for mapToDict in columns.values():
-                for mapToEvent in mapToDict:
-                    if not self._validEvent(mapToEvent):
-                        raise Exception(f"Unknown mapTo event: {event}") from AttributeError
-
-    def _validEvent(self, event: str) -> bool:
-        return event in Event._value2member_map_
-    
-    def apply(self, df: pd.DataFrame) -> pd.DataFrame:
-        for event, columns in self.fillProperties.items():
-            for columnName, mapTo in columns.items():
-                for mapToEvent, mapToColumnList in mapTo.items():
-                    for mapToColumn in mapToColumnList:
-                        df[(mapToEvent, mapToColumn)].fillna(df[(event, columnName)], inplace=True)
-
-        return df

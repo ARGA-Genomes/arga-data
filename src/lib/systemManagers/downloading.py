@@ -1,11 +1,9 @@
 from pathlib import Path
 from lib.systemManagers.baseManager import SystemManager, Task
 from lib.processing.stages import File
-from lib.processing.scripts import Script
+from lib.processing.scripts import OutputScript
 from lib.tools.logger import Logger
 import lib.tools.downloading as dl
-import time
-from datetime import datetime
 
 class _Download(Task):
     def __init__(self, filePath: Path, properties: dict):
@@ -31,7 +29,7 @@ class _URLDownload(_Download):
 
 class _ScriptDownload(_Download):
     def __init__(self, baseDir: Path, downloadDir: Path, scriptInfo: dict):
-        self.script = Script(baseDir, downloadDir, dict(scriptInfo), [])      
+        self.script = OutputScript(baseDir, dict(scriptInfo), downloadDir)      
 
         super().__init__(self.script.output.filePath, self.script.outputProperties)
 

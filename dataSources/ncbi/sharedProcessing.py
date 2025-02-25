@@ -9,6 +9,8 @@ from threading import Thread
 from queue import Queue
 from typing import Generator
 import requests
+import numpy as np
+from lib.processing.mapping import Event
 
 def enrichStats(summaryFile: File, outputPath: Path, apiKeyPath: Path = None):
     if apiKeyPath is not None and apiKeyPath.exists():
@@ -252,3 +254,21 @@ def parseRecord(record: dict) -> dict:
     typeMaterial = _extract(typeMaterial, typeMaterialFields)
 
     return annotationInfo | assemblyInfo | assemblyStats | currentAccession | organelleData | typeMaterial
+
+def genbankAugment(df: pd.DataFrame) -> pd.DataFrame:
+    df = df.replace("na", np.NaN)
+    
+    fillNA = {
+        Event.ASSEMBLIES: "sequence_id",
+        Event.ANNOTATION: "sequence_id",
+        Event.DEPOSITION: "sequence_id",
+        Event.SEQUENCE: "record_id"
+    }
+
+    for event, column in fillNA.items():
+        if column not in df[event]:
+            df[(event, column)] = np.NaN
+            
+        df[(event, column)].fillna(df[(Event.ASSEMBLIES, "datasetID")], inplace=True)
+
+    return df

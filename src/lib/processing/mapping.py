@@ -15,7 +15,7 @@ class Event(Enum):
     SUBSAMPLE = "subsamples"
     EXTRACTION = "dna_extractions"
     SEQUENCE = "sequences"
-    ASSEMBLIE = "assemblies"
+    ASSEMBLIES = "assemblies"
     ANNOTATION = "annotations"
     DEPOSITION = "depositions"
     UNMAPPED = "unmapped"
