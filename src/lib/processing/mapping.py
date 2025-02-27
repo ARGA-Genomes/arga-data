@@ -8,6 +8,7 @@ from pathlib import Path
 from enum import Enum
 from lib.tools.logger import Logger
 from dataclasses import dataclass
+import lib.commonFuncs as cmn
 
 class Event(Enum):
     COLLECTION = "collections"
@@ -72,7 +73,7 @@ class Map:
         for column, event in zip(eventColumns, mappings.keys()):
             subDF = df[[fields, column]] # Select only the dwc name and event columns
             for _, row in subDF.iterrows():
-                dwcName = row[fields]
+                dwcName = cmn.toSnakeCase(row[fields])
                 oldName = row[column]
 
                 # Clean the old name cell

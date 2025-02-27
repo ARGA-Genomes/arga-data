@@ -1,24 +1,10 @@
 from pathlib import Path
 import pandas as pd
-
-def toSnakeCase(s: str) -> str:
-    ret = ""
-    upperCount = 0
-    for char in s:
-        if char.upper() == char:
-            if upperCount == 0:
-                ret += "_"
-            ret += char.lower()
-            upperCount += 1
-        else:
-            upperCount = 0
-            ret += char
-
-    return ret
+import lib.commonFuncs as cmn
 
 def denormalize(filePath: Path, outputFilePath: Path) -> None:
     df = pd.read_csv(filePath)
-    columnMap = {column: toSnakeCase(column) for column in df.columns}
+    columnMap = {column: cmn.toSnakeCase(column) for column in df.columns}
     df = df.rename(columns=columnMap)
 
     subDFMap = {
