@@ -171,6 +171,10 @@ class BasicDB:
     def checkUpdateReady(self) -> bool:
         lastUpdate = self.downloadManager.getLastUpdate()
         return self.updateManager.isUpdateReady(lastUpdate)
+    
+    def update(self) -> bool:
+        for step in (Step.DOWNLOAD, Step.PROCESSING, Step.CONVERSION):
+            self.create(step, (True, True), True)
 
 class CrawlDB(BasicDB):
 
