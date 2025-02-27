@@ -269,6 +269,6 @@ def genbankAugment(df: pd.DataFrame) -> pd.DataFrame:
         if column not in df[event]:
             df[(event, column)] = np.NaN
             
-        df[(event, column)].fillna(df[(Event.ASSEMBLIES, "datasetID")], inplace=True)
+        df[(event, column)].fillna(df[(Event.ASSEMBLIES, "dataset_id")], inplace=True)
 
     return df
