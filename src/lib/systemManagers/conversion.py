@@ -32,6 +32,8 @@ class ConversionManager(SystemManager):
         self.mapID = properties.pop("mapID", -1)
         self.customMapID = properties.pop("customMapID", -1)
         self.customMapPath = properties.pop("customMapPath", None)
+        if self.customMapPath is not None:
+            self.customMapPath = Path(self.customMapPath)
 
         self.chunkSize = properties.pop("chunkSize", 1024)
         self.skipRemap = properties.pop("skipRemap", [])
