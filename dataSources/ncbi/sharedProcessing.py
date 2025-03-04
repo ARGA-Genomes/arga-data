@@ -271,4 +271,9 @@ def genbankAugment(df: pd.DataFrame) -> pd.DataFrame:
             
         df[(event, column)].fillna(df[(Event.ASSEMBLIES, "dataset_id")], inplace=True)
 
+    df[(Event.SEQUENCE, "dna_extract_id")] = df[(Event.DEPOSITION, "dataset_id")]
+    df = df.drop((Event.DEPOSITION, "dataset_id"), axis=1)
+
+    df[(Event.SEQUENCE, "scientific_name")] = df[(Event.COLLECTION, "scientific_name")]
+
     return df
