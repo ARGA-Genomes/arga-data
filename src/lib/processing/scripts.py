@@ -6,6 +6,15 @@ from enum import Enum
 import traceback
 import lib.config as cfg
 
+class _Key(Enum):
+    INPUT_FILE  = "INFILE"
+    INPUT_PATH  = "INPATH"
+    INPUT_STEM  = "INSTEM"
+    INPUT_DIR   = "INDIR"
+    OUTPUT_FILE = "OUTFILE"
+    OUTPUT_DIR  = "OUTDIR"
+    OUTPUT_PATH = "OUTPATH"
+
 class FunctionScript:
     _libDir = cfg.Folders.src / "lib"
 
@@ -26,6 +35,9 @@ class FunctionScript:
             raise Exception("No script function specified") from AttributeError
         
         self.path = self._parsePath(self.path, True)
+
+        self.args = [self._parsePath(arg) for arg in self.args]
+        self.kwargs = {key: self._parsePath(arg) for key, arg in self.kwargs.items()}
 
         for parameter in scriptInfo:
             Logger.debug(f"Unknown script parameter: {parameter}")
@@ -53,7 +65,6 @@ class FunctionScript:
         if arg.startswith(".../"):
             return self._libDir / arg[4:]
 
-        Logger.warning(f"Unable to parse suspected path: {arg}")
         if forceOutput:
             return Path(arg)
         
@@ -65,8 +76,6 @@ class FunctionScript:
         except:
             Logger.error(f"Error importing function '{self.function}' from path '{self.path}'")
             Logger.error(traceback.format_exc())
-            if isinstance(self.output, File):
-                self.output.restoreBackUp()
             return False
 
         args = self.args + inputArgs
@@ -111,10 +120,39 @@ class OutputScript(FunctionScript):
 
         super().__init__(baseDir, scriptInfo)
 
+        self.args = [self._parseArg(arg) for arg in self.args]
+        self.kwargs = {key: self._parseArg(arg) for key, arg in self.kwargs.items()}
+
     def _parseOutput(self, outputPath: Path, outputProperties: dict) -> File:
         if not outputPath.suffix:
             return Folder(outputPath)
         return File(outputPath, outputProperties)
+    
+    def _parseArg(self, arg: any) -> Path | str:
+        if not isinstance(arg, str):
+            return arg
+        
+        if not (arg.startswith("{") and arg.endswith("}")):
+            return arg
+        
+        parsedArg = self._parseArgKey(arg[1:-1])
+        if  isinstance(parsedArg, str):
+            Logger.warning(f"Unknown key code: {parsedArg}")
+            return arg
+        
+        return parsedArg
+
+    def _parseArgKey(self, argKey: str) -> Path | str:
+        if argKey == _Key.OUTPUT_FILE.value:
+            return self.output
+            
+        if argKey == _Key.OUTPUT_DIR.value:
+            return self.outputDir
+        
+        if argKey == _Key.OUTPUT_PATH.value:
+            return self.output.filePath
+        
+        return argKey
 
     def run(self, overwrite: bool, verbose: bool, inputArgs: list = [], inputKwargs: dict = {}) -> tuple[bool, any]:
         if self.output.exists():
@@ -139,42 +177,18 @@ class OutputScript(FunctionScript):
         return True, retVal
 
 class FileScript(OutputScript):
-    class _Key(Enum):
-        INPUT_FILE  = "INFILE"
-        INPUT_PATH  = "INPATH"
-        INPUT_STEM  = "INSTEM"
-        INPUT_DIR   = "INDIR"
-        OUTPUT_FILE = "OUTFILE"
-        OUTPUT_DIR  = "OUTDIR"
-        OUTPUT_PATH = "OUTPATH"
-
     def __init__(self, baseDir: Path, scriptInfo: dict, outputDir: Path, inputs: list[File]):
         self.inputs = inputs
 
         super().__init__(baseDir, scriptInfo, outputDir)
 
-        self.args = [self._parseArg(arg) for arg in self.args]
-        self.kwargs = {key: self._parseArg(arg) for key, arg in self.kwargs.items()}
-
     def _parseOutput(self, output: str, outputProperties: dict) -> File:
         outputPath = self._parseArg(output, [self._Key.OUTPUT_DIR, self._Key.OUTPUT_PATH])
         return super()._parseOutput(outputPath, outputProperties)
 
-    def _parseArg(self, arg: any, excludeKeys: list[_Key] = []) -> Path | str:
-        if not isinstance(arg, str):
-            return arg
-        
-        if arg.startswith("."):
-            arg = self._parsePath(arg)
-            if isinstance(arg, str):
-                Logger.warning(f"Argument {arg} starts with '.' but is not a path")
-                
-            return arg
-        
-        if not (arg.startswith("{") and arg.endswith("}")):
-            return arg
-        
-        argValue = arg[1:-1].split("_")
+    def _parseArgKey(self, argKey: str) -> Path | str:
+        argValue = argKey.split("_")
+
         if len(argValue) == 1:
             selection = 0
         elif len(argValue) == 2:
@@ -182,53 +196,24 @@ class FileScript(OutputScript):
                 selection = int(argValue[1])
             else:
                 Logger.warning(f"Invalid selection number: {argValue[1]}")
-                return arg
+                return argKey
         else:
             Logger.warning(f"Cannot interpret input: {arg}")
-            return arg
+            return argKey
 
-        argValue = argValue[0]
-        if argValue not in self._Key._value2member_map_:
-            Logger.warning(f"Unknown key code: {argValue}")
-            return arg
-        
-        key = self._Key._value2member_map_[argValue]
-        if key in excludeKeys:
-            Logger.warning(f"Disallowed key code: {argValue}")
-            return arg
-        
-        # Parsing key
-        if key == self._Key.OUTPUT_FILE:
-            return self.output
-            
-        if key == self._Key.OUTPUT_DIR:
-            return self.outputDir
-        
-        if key == self._Key.OUTPUT_PATH:
-            if not isinstance(self.output, File):
-                Logger.warning("No output path found")
-                return None
-            
-            return self.output.filePath
+        arg = argValue[0]
+        selected = self.inputs[selection]
 
-        if key == self._Key.INPUT_DIR:
-            if not self.inputs:
-                Logger.warning("No inputs to get directory from")
-                return None
-            
-            return self.inputs[selection].filePath.parent
+        if argKey == _Key.INPUT_DIR.value:
+            return selected.filePath.parent
         
-        if key in (self._Key.INPUT_FILE, self._Key.INPUT_PATH, self._Key.INPUT_STEM):
-            if not self.inputs:
-                Logger.warning("No inputs to get path from")
-                return None
-            
-            file = self.inputs[selection]
-            if key == self._Key.INPUT_FILE:
-                return file
+        if argKey == _Key.INPUT_FILE.value:
+            return selected
+        
+        if argKey == _Key.INPUT_PATH.value:
+            return selected.filePath
+        
+        if argKey == _Key.INPUT_STEM.value:
+            return selected.filePath.stem
 
-            path = file.filePath
-            if key == self._Key.INPUT_PATH:
-                return path
-            
-            return path.stem
+        return argKey
