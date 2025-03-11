@@ -1,6 +1,6 @@
 from pathlib import Path
 from lib.processing.stages import File
-from lib.processing.scripts import FileScript
+from lib.processing.scripts import FileScript, FileSelect
 from lib.systemManagers.baseManager import SystemManager, Task
 from lib.tools.logger import Logger
 
@@ -33,7 +33,8 @@ class _Node(Task):
         return self.script.run(overwrite, verbose)
 
 class _Root(_Node):
-    def __init__(self, file: File):
+    def __init__(self, index: int, file: File):
+        self.index = index
         self.file = file
 
     def getOutputPath(self) -> Path:
@@ -55,29 +56,32 @@ class ProcessingManager(SystemManager):
         super().__init__(dataDir.parent, self.stepName, "steps")
 
         self.processingDir = dataDir / self.stepName
-        self.nodes: list[_Node] = []
-        self._nodeIndex = 0
+        self.nodes: dict[FileSelect, list[_Node]] = {
+            FileSelect.DOWNLOAD: [],
+            FileSelect.PROCESS: []
+        }
 
     def _createNode(self, step: dict, parents: list[_Node]) -> _Node | None:
-        inputs = [node.getOutputFile() for node in parents]
+        inputs = {FileSelect.INPUT: self.getLatestNodeFile()} | {select: [node.getOutputFile() for node in nodes] for select, nodes in self.nodes.items()}
+        
         try:
             script = FileScript(self.baseDir, dict(step), self.processingDir, inputs)
         except AttributeError as e:
             Logger.error(f"Invalid processing script configuration: {e}")
             return None
         
-        node = _Node(self._nodeIndex, script, parents)
-        self._nodeIndex += 1
-        return node
+        return _Node(len(self.nodes[FileSelect.PROCESS]), script, parents)
     
-    def _addProcessing(self, node: _Node, processingSteps: list[dict]) -> _Node:
+    def _addProcessing(self, node: _Node, processingSteps: list[dict]) -> None:
         for step in processingSteps:
             subNode = self._createNode(step, [node])
+            self.nodes[FileSelect.PROCESS].append(subNode)
             node = subNode
         return node
     
-    def getLatestNodeFiles(self) -> list[File]:
-        return [node.getOutputFile() for node in self.nodes]
+    def getLatestNodeFile(self) -> File:
+        latestNode = self.nodes[FileSelect.DOWNLOAD][-1] if not self.nodes[FileSelect.PROCESS] else self.nodes[FileSelect.PROCESS][-1]
+        return latestNode.getOutputFile()
 
     def process(self, overwrite: bool = False, verbose: bool = False) -> bool:
         if all(isinstance(node, _Root) for node in self.nodes): # All root nodes, no processing required
@@ -95,11 +99,11 @@ class ProcessingManager(SystemManager):
         return self.runTasks(queuedTasks, overwrite, verbose)
 
     def registerFile(self, file: File, processingSteps: list[dict]) -> bool:
-        node = _Root(file)
-        node = self._addProcessing(node, processingSteps)
-        self.nodes.append(node)
+        node = _Root(len(self.nodes[FileSelect.DOWNLOAD]), file)
+        self.nodes[FileSelect.DOWNLOAD].append(node)
+        self._addProcessing(node, list(processingSteps))
 
-    def addAllProcessing(self, processingSteps: list[dict]) -> bool:
+    def addSpecificProcessing(self, processingSteps: list[dict]) -> bool:
         if not processingSteps:
             return
         

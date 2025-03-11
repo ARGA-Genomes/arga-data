@@ -17,11 +17,22 @@
         "final": [
             {
                 "path": "../sharedProcessing.py",
-                "function": "enrichStats",
+                "function": "getStats",
+                "keepInput": false,
                 "args": [
-                    "{INFILE}",
-                    "{OUTPATH}",
+                    "{IN-PATH}",
+                    "{OUT-PATH}",
                     "./apikey.txt"
+                ],
+                "output": "apiData.csv"
+            },
+            {
+                "path": "../sharedProcessing.py",
+                "function": "merge",
+                "args": [
+                    "{D0-PATH}",
+                    "{IN-PATH}",
+                    "{OUT-PATH}"
                 ],
                 "output": "refseq.csv"
             }

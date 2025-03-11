@@ -86,24 +86,19 @@ class BasicDB:
             self.downloadManager.registerFromURL(url, name, properties)
     
     def _prepareProcessing(self, overwrite: bool, verbose: bool) -> None:
-        specificProcessing: dict[int, list[dict]] = self.processingConfig.pop("specific", {})
-        perFileProcessing: list[dict] = self.processingConfig.pop("perFile", [])
+        firstProcessing: dict[int, list[dict]] = self.processingConfig.pop("first", [])
+        specificProcessing: list[dict] = self.processingConfig.pop("specific", {})
         finalProcessing: list[dict] = self.processingConfig.pop("final", [])
 
-        for idx, file in enumerate(self.downloadManager.getFiles()):
-            processing = specificProcessing.get(str(idx), [])
-            self.processingManager.registerFile(file, list(processing))
+        for file in self.downloadManager.getFiles():
+            self.processingManager.registerFile(file, firstProcessing)
 
-        self.processingManager.addAllProcessing(perFileProcessing)
+        self.processingManager.addSpecificProcessing(specificProcessing)
         self.processingManager.addFinalProcessing(finalProcessing)
     
     def _prepareConversion(self, overwrite: bool, verbose: bool) -> None:
-        filesToConvert = self.processingManager.getLatestNodeFiles()
-        
-        if len(filesToConvert) != 1:
-            raise Exception(f"Unable to prepare conversion, there should be 1 but there is {len(filesToConvert)}")
-        
-        self.conversionManager.loadFile(filesToConvert[0], self.conversionConfig, self.databaseDir)
+        fileToConvert = self.processingManager.getLatestNodeFile()
+        self.conversionManager.loadFile(fileToConvert, self.conversionConfig, self.databaseDir)
 
     def _prepare(self, step: Step, overwrite: bool, verbose: bool) -> bool:
         callbacks = {

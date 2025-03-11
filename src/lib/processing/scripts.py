@@ -6,14 +6,17 @@ from enum import Enum
 import traceback
 import lib.config as cfg
 
-class _Key(Enum):
-    INPUT_FILE  = "INFILE"
-    INPUT_PATH  = "INPATH"
-    INPUT_STEM  = "INSTEM"
-    INPUT_DIR   = "INDIR"
-    OUTPUT_FILE = "OUTFILE"
-    OUTPUT_DIR  = "OUTDIR"
-    OUTPUT_PATH = "OUTPATH"
+class FileSelect(Enum):
+    INPUT    = "IN"
+    OUTPUT   = "OUT"
+    DOWNLOAD = "D"
+    PROCESS  = "P"
+
+class _FileProperty(Enum):
+    DIR  = "DIR"
+    FILE = "FILE"
+    PATH = "PATH"
+    STEM = "STEM"
 
 class FunctionScript:
     _libDir = cfg.Folders.src / "lib"
@@ -117,6 +120,9 @@ class OutputScript(FunctionScript):
             raise Exception("No output specified, please use FunctionScript if intentionally has no output") from AttributeError
 
         self.output = self._parseOutput(self.outputDir / self.output, self.outputProperties)
+        self.fileLookup = {
+            FileSelect.OUTPUT: [self.output]
+        }
 
         super().__init__(baseDir, scriptInfo)
 
@@ -135,23 +141,54 @@ class OutputScript(FunctionScript):
         if not (arg.startswith("{") and arg.endswith("}")):
             return arg
         
-        parsedArg = self._parseArgKey(arg[1:-1])
+        parsedArg = self._parseSelectorArg(arg[1:-1])
         if  isinstance(parsedArg, str):
             Logger.warning(f"Unknown key code: {parsedArg}")
             return arg
         
         return parsedArg
 
-    def _parseArgKey(self, argKey: str) -> Path | str:
-        if argKey == _Key.OUTPUT_FILE.value:
-            return self.output
-            
-        if argKey == _Key.OUTPUT_DIR.value:
-            return self.outputDir
+    def _parseSelectorArg(self, argKey: str) -> Path | str:
+        if "-" not in argKey:
+            Logger.warning(f"Both file type and file property not present in arg, deliminate with '-'")
+            return argKey
         
-        if argKey == _Key.OUTPUT_PATH.value:
-            return self.output.filePath
+        fType, fProperty = argKey.split("-") 
+
+        if fType[-1].isdigit():
+            fType = fType[:-1]
+            selection = int(fType[-1])
+        else:
+            selection = 0
+
+        fTypeEnum = FileSelect._value2member_map_.get(fType, None)
+        if fTypeEnum is None:
+            Logger.error(f"Invalid file type: '{file}'")
+            return argKey
+
+        files = self.fileLookup.get(fTypeEnum, None)
+        if files is None:
+            Logger.error(f"No files provided for file type: '{fType}")
+            return argKey
+
+        if selection > len(files):
+            Logger.error(f"File selection '{selection}' out of range for file type '{fType}' which has a length of '{len(files)}")
+            return argKey
         
+        file: File = files[selection]
+        if fProperty == _FileProperty.DIR.value:
+            return file.filePath.parent
+        
+        if fProperty == _FileProperty.FILE.value:
+            return file
+        
+        if fProperty == _FileProperty.PATH.value:
+            return file.filePath
+        
+        if fProperty == _FileProperty.STEM.value:
+            return file.filePath.stem
+        
+        Logger.error(f"Unable to parse file property: '{fProperty}")
         return argKey
 
     def run(self, overwrite: bool, verbose: bool, inputArgs: list = [], inputKwargs: dict = {}) -> tuple[bool, any]:
@@ -177,43 +214,12 @@ class OutputScript(FunctionScript):
         return True, retVal
 
 class FileScript(OutputScript):
-    def __init__(self, baseDir: Path, scriptInfo: dict, outputDir: Path, inputs: list[File]):
+    def __init__(self, baseDir: Path, scriptInfo: dict, outputDir: Path, inputs: dict[str, File]):
         self.inputs = inputs
 
         super().__init__(baseDir, scriptInfo, outputDir)
+        self.fileLookup |= inputs
 
     def _parseOutput(self, output: str, outputProperties: dict) -> File:
-        outputPath = self._parseArg(output, [self._Key.OUTPUT_DIR, self._Key.OUTPUT_PATH])
+        outputPath = self._parseArg(output)
         return super()._parseOutput(outputPath, outputProperties)
-
-    def _parseArgKey(self, argKey: str) -> Path | str:
-        argValue = argKey.split("_")
-
-        if len(argValue) == 1:
-            selection = 0
-        elif len(argValue) == 2:
-            if argValue[1].isdigit():
-                selection = int(argValue[1])
-            else:
-                Logger.warning(f"Invalid selection number: {argValue[1]}")
-                return argKey
-        else:
-            Logger.warning(f"Cannot interpret input: {arg}")
-            return argKey
-
-        arg = argValue[0]
-        selected = self.inputs[selection]
-
-        if argKey == _Key.INPUT_DIR.value:
-            return selected.filePath.parent
-        
-        if argKey == _Key.INPUT_FILE.value:
-            return selected
-        
-        if argKey == _Key.INPUT_PATH.value:
-            return selected.filePath
-        
-        if argKey == _Key.INPUT_STEM.value:
-            return selected.filePath.stem
-
-        return argKey
