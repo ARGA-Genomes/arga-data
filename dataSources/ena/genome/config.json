@@ -1,14 +1,12 @@
 {
     "datasetID": "ARGA:TL:0002006",
     "retrieveType": "url",
-    "downloading": {
-        "files": [
-            {
-                "url": "https://ftp.ebi.ac.uk/pub/databases/ena/genome_collections/gc.xml",
-                "name": "genomeCollections.xml"
-            }
-        ]
-    },
+    "download": [
+        {
+            "url": "https://ftp.ebi.ac.uk/pub/databases/ena/genome_collections/gc.xml",
+            "name": "genomeCollections.xml"
+        }
+    ],
     "processing": {
         "linear": [
             {

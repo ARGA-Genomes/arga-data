@@ -1,21 +1,19 @@
 {
     "retrieveType": "url",
-    "downloading": {
-        "files": [
-            {
-                "url": "https://ftp.ncbi.nih.gov/pub/taxonomy/biocollections/Collection_codes.txt",
-                "name": "Collection_codes.txt"
-            },
-            {
-                "url": "https://ftp.ncbi.nih.gov/pub/taxonomy/biocollections/Institution_codes.txt",
-                "name": "Institution_codes.txt"
-            },
-            {
-                "url": "https://ftp.ncbi.nih.gov/pub/taxonomy/biocollections/Unique_institution_codes.txt",
-                "name": "Unique_institution_codes.txt"
-            } 
-        ]
-    },
+    "download": [
+        {
+            "url": "https://ftp.ncbi.nih.gov/pub/taxonomy/biocollections/Collection_codes.txt",
+            "name": "Collection_codes.txt"
+        },
+        {
+            "url": "https://ftp.ncbi.nih.gov/pub/taxonomy/biocollections/Institution_codes.txt",
+            "name": "Institution_codes.txt"
+        },
+        {
+            "url": "https://ftp.ncbi.nih.gov/pub/taxonomy/biocollections/Unique_institution_codes.txt",
+            "name": "Unique_institution_codes.txt"
+        } 
+    ],
     "processing": {
         "linear": [
             {

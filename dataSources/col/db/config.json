@@ -1,14 +1,12 @@
 {
     "retrieveType": "url",
     "datasetID": "ARGA:TL:0001018",
-    "downloading": {
-        "files": [
-            {
-                "url": "https://api.checklistbank.org/dataset/304708/export.zip?extended=true&format=DwCA",
-                "name": "catalogueOfLife.zip"
-            }
-        ]
-    },
+    "download": [
+        {
+            "url": "https://api.checklistbank.org/dataset/304708/export.zip?extended=true&format=DwCA",
+            "name": "catalogueOfLife.zip"
+        }
+    ],
     "processing": {
         "linear": [
             {

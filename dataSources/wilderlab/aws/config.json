@@ -5,14 +5,12 @@
         "records": {},
         "samples": {}
     },
-    "downloading": {
-        "files": [
-            {
-                "url": "https://s3.ap-southeast-2.amazonaws.com/wilderlab.publicdata/{SUBSECTION}3.csv",
-                "name": "{SUBSECTION}.csv"
-            }
-        ]
-    },
+    "download": [
+        {
+            "url": "https://s3.ap-southeast-2.amazonaws.com/wilderlab.publicdata/{SUBSECTION}3.csv",
+            "name": "{SUBSECTION}.csv"
+        }
+    ],
     "processing": {
         "linear": [
             {

@@ -1,18 +1,16 @@
 {
     "datasetID": "ARGA:TL:0000167",
     "retrieveType": "url",
-    "downloading": {
-        "files": [
-            {
-                "url": "https://ftp.ncbi.nlm.nih.gov/tpa/release/con_tpa_cu.gbff.gz",
-                "name": "con_tpa_cu.gbff.gz"
-            },
-            {
-                "url": "https://ftp.ncbi.nlm.nih.gov/tpa/release/tpa_cu.gbff.gz",
-                "name": "tpa_cu.gbff.gz"
-            }
-        ]
-    },
+    "download": [
+        {
+            "url": "https://ftp.ncbi.nlm.nih.gov/tpa/release/con_tpa_cu.gbff.gz",
+            "name": "con_tpa_cu.gbff.gz"
+        },
+        {
+            "url": "https://ftp.ncbi.nlm.nih.gov/tpa/release/tpa_cu.gbff.gz",
+            "name": "tpa_cu.gbff.gz"
+        }
+    ],
     "processing": {
         "parallel": [
             {

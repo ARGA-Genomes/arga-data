@@ -1,14 +1,12 @@
 {
     "datasetID": "ARGA:TL:0002012",
     "retrieveType": "url",
-    "download" : {
-        "files": [
-            {
-                "url": "https://ftp.ensembl.org/pub/rapid-release/species_metadata.json",
-                "name": "species_metadata.json"
-            }
-        ]
-    },
+    "download" : [
+        {
+            "url": "https://ftp.ensembl.org/pub/rapid-release/species_metadata.json",
+            "name": "species_metadata.json"
+        }
+    ],
     "processing": {
         "linear": [
             {

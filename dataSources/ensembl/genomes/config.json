@@ -18,54 +18,46 @@
         }
     },
     "retrieveType": "url",
-    "downloading": {
-        "files": [
-            {
-                "url": "http://ftp.ensemblgenomes.org/pub/{SUBSECTION}/current/species_metadata_Ensembl{SUBSECTION:NAME}.json",
-                "name": "{SUBSECTION}.json"
-            },
-            {
-                "url": "http://ftp.ensemblgenomes.org/pub/{SUBSECTION}/current/species_Ensembl{SUBSECTION:NAME}.txt",
-                "name": "{SUBSECTION}.tsv",
-                "properties": {
-                    "sep": "\t"
-                }
-            }
-        ]
-    },
-    "processing": {
-        "specific": {
-            "0": [
-                {
-                    "path": "./processing.py",
-                    "function": "flatten",
-                    "args": [
-                        "{IN-PATH}",
-                        "{OUT-PATH}"
-                    ],
-                    "output": "metadata.csv"
-                }
-            ],
-            "1": [
-                {
-                    "path": "./processing.py",
-                    "function": "enrich",
-                    "args": [
-                        "{IN-PATH}",
-                        "{SUBSECTION}",
-                        "{OUT-PATH}"
-                    ],
-                    "output": "enrichedStats.csv"
-                }
-            ]
+    "download": [
+        {
+            "url": "http://ftp.ensemblgenomes.org/pub/{SUBSECTION}/current/species_metadata_Ensembl{SUBSECTION:NAME}.json",
+            "name": "{SUBSECTION}.json"
         },
+        {
+            "url": "http://ftp.ensemblgenomes.org/pub/{SUBSECTION}/current/species_Ensembl{SUBSECTION:NAME}.txt",
+            "name": "{SUBSECTION}.tsv",
+            "properties": {
+                "sep": "\t"
+            }
+        }
+    ],
+    "processing": {
         "linear": [
             {
-                "path": "./processing.py",
+                "path": "../processing.py",
+                "function": "flatten",
+                "args": [
+                    "{D0-PATH}",
+                    "{OUT-PATH}"
+                ],
+                "output": "metadata.csv"
+            },
+            {
+                "path": "../processing.py",
+                "function": "enrich",
+                "args": [
+                    "{D1-PATH}",
+                    "{SUBSECTION}",
+                    "{OUT-PATH}"
+                ],
+                "output": "enrichedStats.csv"
+            },
+            {
+                "path": "../processing.py",
                 "function": "combine",
                 "args": [
-                    "{INPATH_0}",
-                    "{INPATH_1}",
+                    "{P0-PATH}",
+                    "{P1-PATH}",
                     "{OUT-PATH}"
                 ],
                 "output": "{SUBSECTION}.csv"

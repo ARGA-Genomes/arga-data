@@ -1,13 +1,11 @@
 {
     "retrieveType": "url",
-    "downloading": {
-        "files": [
-            {
-                "url": "https://ftp.ncbi.nlm.nih.gov/biosample/biosample_set.xml.gz",
-                "name": "biosample_set.xml.gz"
-            }
-        ]
-    },
+    "download": [
+        {
+            "url": "https://ftp.ncbi.nlm.nih.gov/biosample/biosample_set.xml.gz",
+            "name": "biosample_set.xml.gz"
+        }
+    ],
     "processing": {
         "linear": [
             {

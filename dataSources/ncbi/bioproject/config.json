@@ -1,14 +1,12 @@
 {
     "retrieveType": "url",
-    "downloading": {
-        "files": [
-            {
-                "url": "https://ftp.ncbi.nlm.nih.gov/bioproject/bioproject.xml",    
-                "name": "bioproject.xml"
-                
-            }
-        ]
-    },
+    "download": [
+        {
+            "url": "https://ftp.ncbi.nlm.nih.gov/bioproject/bioproject.xml",    
+            "name": "bioproject.xml"
+            
+        }
+    ],
     "processing": {
         "linear": [
             {

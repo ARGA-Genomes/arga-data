@@ -1,14 +1,12 @@
 {
     "datasetID": "",
     "retrieveType": "url",
-    "downloading": {
-        "files": [
-            {
-                "url": "https://biodiversity.org.au/nsl/services/export/taxonCsv",
-                "name": "apc.csv"
-            }
-        ]
-    },
+    "download": [
+        {
+            "url": "https://biodiversity.org.au/nsl/services/export/taxonCsv",
+            "name": "apc.csv"
+        }
+    ],
     "processing": {
         "linear": [
             {

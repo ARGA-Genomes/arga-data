@@ -1,18 +1,16 @@
 {
     "datasetID": "ARGA:TL:0002003",
     "retrieveType": "url",
-    "downloading": {
-        "files": [
-            {
-                "url": "https://ftp.ncbi.nih.gov/genomes/genbank/assembly_summary_genbank.txt",
-                "name": "assembly_summary_genbank.tsv",
-                "properties": {
-                    "separator": "\t",
-                    "firstrow": 1
-                }
+    "download": [
+        {
+            "url": "https://ftp.ncbi.nih.gov/genomes/genbank/assembly_summary_genbank.txt",
+            "name": "assembly_summary_genbank.tsv",
+            "properties": {
+                "separator": "\t",
+                "firstrow": 1
             }
-        ]
-    },
+        }
+    ],
     "processing": {
         "linear": [
             {

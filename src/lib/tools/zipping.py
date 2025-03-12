@@ -1,8 +1,18 @@
 import zipfile
 import shutil
+import gzip
 from pathlib import Path
 from lib.tools.logger import Logger
-        
+
+def _gunzip(gzippedFile: Path, outputfilePath: Path) -> None:
+    with gzip.open(gzippedFile, "rb") as fpIn:
+        with open(outputfilePath, "wb") as fpOut:
+            shutil.copyfileobj(fpIn, fpOut)
+
+
+extractableSuffixes = (".zip", ".tar", ".gz", ".xz", ".bz2")
+shutil.register_unpack_format("gz", [".gz"], _gunzip)
+
 class RepeatExtractor:
     def __init__(self, outputDir: str = "", addSuffix: str = "", overwrite: bool = False):
         self.outputDir = outputDir
@@ -55,10 +65,10 @@ def compress(filePath: Path, outputDir: Path = None, zipName: str = None) -> Pat
     return outputFile
 
 def canBeExtracted(filePath: Path) -> bool:
-    return any(suffix in (".zip", ".tar", ".gz", ".xz", ".bz2") for suffix in filePath.suffixes)
+    return any(suffix in extractableSuffixes for suffix in filePath.suffixes)
 
 def extractsTo(filePath: Path, outputDir: Path = None, addSuffix: str = "") -> Path:
-    outputPath = outputDir / filePath.name[:-len("".join(filePath.suffixes))]
+    outputPath = outputDir / filePath.name[:-len("".join(suffix for suffix in filePath.suffixes if suffix in extractableSuffixes))]
     if addSuffix:
         outputPath = outputPath.with_suffix(addSuffix)
     

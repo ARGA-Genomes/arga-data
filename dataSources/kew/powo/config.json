@@ -1,14 +1,12 @@
 {
     "retrieveType": "url",
     "datasetID": "ARGA:TL:0001021",
-    "downloading": {
-        "files": [
-            {
-                "url": "https://sftp.kew.org/pub/data-repositories/WCVP/wcvp_dwca.zip",
-                "name": "wcvp_dwca.zip"
-            }
-        ]
-    },
+    "download": [
+        {
+            "url": "https://sftp.kew.org/pub/data-repositories/WCVP/wcvp_dwca.zip",
+            "name": "wcvp_dwca.zip"
+        }
+    ],
     "processing": {
         "linear": [
             {

@@ -1,15 +1,13 @@
 {
     "datasetID": "ARGA:TL:0002004",
     "retrieveType": "url",
-    "downloading": {
-        "files": [
-            {
-                "url": "https://ftp.ebi.ac.uk/pub/databases/ena/taxonomy/taxonomy.xml.gz",
-                "name": "taxonomy.xml.gz"
-            }
-            
-        ]
-    },
+    "download": [
+        {
+            "url": "https://ftp.ebi.ac.uk/pub/databases/ena/taxonomy/taxonomy.xml.gz",
+            "name": "taxonomy.xml.gz"
+        }
+        
+    ],
     "processing": {
         "linear": [
             {

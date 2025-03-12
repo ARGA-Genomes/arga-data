@@ -1,14 +1,12 @@
 {
     "datasetID": "ARGA:TL:0002000",
     "retrieveType": "url",
-    "downloading": {
-        "files": [
-            {
-                "url": "https://ftp.ncbi.nlm.nih.gov/pub/taxonomy/taxdmp.zip",
-                "name": "taxdump.zip"
-            }
-        ]
-    },
+    "download": [
+        {
+            "url": "https://ftp.ncbi.nlm.nih.gov/pub/taxonomy/taxdmp.zip",
+            "name": "taxdump.zip"
+        }
+    ],
     "processing": {
         "linear": [
             {

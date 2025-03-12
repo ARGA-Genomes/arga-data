@@ -1,17 +1,15 @@
 {
     "datasetID": "ARGA:TL:0000186",
     "retrieveType": "url",
-    "downloading": {
-        "files": [
-            {
-                "url": "https://pilbseq.dbca.wa.gov.au/data/table.tsv",
-                "name": "pilbseq.tsv",
-                "properties": {
-                    "sep": "\t"
-                }
+    "download": [
+        {
+            "url": "https://pilbseq.dbca.wa.gov.au/data/table.tsv",
+            "name": "pilbseq.tsv",
+            "properties": {
+                "sep": "\t"
             }
-        ]
-    },
+        }
+    ],
     "update": {
         "type": "weekly",
         "day": "sunday",
