@@ -40,8 +40,8 @@
                     "path": "./processing.py",
                     "function": "flatten",
                     "args": [
-                        "{INPATH}",
-                        "{OUTPATH}"
+                        "{IN-PATH}",
+                        "{OUT-PATH}"
                     ],
                     "output": "metadata.csv"
                 }
@@ -51,22 +51,22 @@
                     "path": "./processing.py",
                     "function": "enrich",
                     "args": [
-                        "{INPATH}",
+                        "{IN-PATH}",
                         "{SUBSECTION}",
-                        "{OUTPATH}"
+                        "{OUT-PATH}"
                     ],
                     "output": "enrichedStats.csv"
                 }
             ]
         },
-        "final": [
+        "linear": [
             {
                 "path": "./processing.py",
                 "function": "combine",
                 "args": [
                     "{INPATH_0}",
                     "{INPATH_1}",
-                    "{OUTPATH}"
+                    "{OUT-PATH}"
                 ],
                 "output": "{SUBSECTION}.csv"
             }

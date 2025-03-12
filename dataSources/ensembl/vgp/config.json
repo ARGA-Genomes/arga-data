@@ -5,7 +5,7 @@
         "path": "sourceProcessing/ensembl.py",
         "function": "collectVGP",
         "args": [
-            "{OUTPATH}"
+            "{OUT-PATH}"
         ],
         "output": "vgp.csv"
     },

@@ -14,13 +14,13 @@
         ]
     },
     "processing": {
-        "final": [
+        "linear": [
             {
                 "path": "./processing.py",
                 "function": "clean",
                 "args": [
-                    "{INPATH}",
-                    "{OUTPATH}"
+                    "{IN-PATH}",
+                    "{OUT-PATH}"
                 ],
                 "output": "cleaned{SUBSECTION}.csv"
             }

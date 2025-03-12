@@ -11,14 +11,13 @@
                     "firstrow": 1
                 }
             }
-        ]
-    },
+        }
+    ],
     "processing": {
-        "final": [
+        "linear": [
             {
                 "path": "../sharedProcessing.py",
                 "function": "getStats",
-                "keepInput": false,
                 "args": [
                     "{IN-PATH}",
                     "{OUT-PATH}",

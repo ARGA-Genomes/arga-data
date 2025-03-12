@@ -109,6 +109,8 @@ class FunctionScript:
         return True, retVal
 
 class OutputScript(FunctionScript):
+    fileLookup = {}
+    
     def __init__(self, baseDir: Path, scriptInfo: dict, outputDir: Path):
         self.outputDir = outputDir
 
@@ -120,9 +122,7 @@ class OutputScript(FunctionScript):
             raise Exception("No output specified, please use FunctionScript if intentionally has no output") from AttributeError
 
         self.output = self._parseOutput(self.outputDir / self.output, self.outputProperties)
-        self.fileLookup = {
-            FileSelect.OUTPUT: [self.output]
-        }
+        self.fileLookup |= {FileSelect.OUTPUT: [self.output]}
 
         super().__init__(baseDir, scriptInfo)
 
@@ -153,11 +153,11 @@ class OutputScript(FunctionScript):
             Logger.warning(f"Both file type and file property not present in arg, deliminate with '-'")
             return argKey
         
-        fType, fProperty = argKey.split("-") 
+        fType, fProperty = argKey.split("-")
 
         if fType[-1].isdigit():
-            fType = fType[:-1]
             selection = int(fType[-1])
+            fType = fType[:-1]
         else:
             selection = 0
 
@@ -215,10 +215,9 @@ class OutputScript(FunctionScript):
 
 class FileScript(OutputScript):
     def __init__(self, baseDir: Path, scriptInfo: dict, outputDir: Path, inputs: dict[str, File]):
-        self.inputs = inputs
+        self.fileLookup |= inputs
 
         super().__init__(baseDir, scriptInfo, outputDir)
-        self.fileLookup |= inputs
 
     def _parseOutput(self, output: str, outputProperties: dict) -> File:
         outputPath = self._parseArg(output)

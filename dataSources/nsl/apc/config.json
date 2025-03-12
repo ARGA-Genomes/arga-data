@@ -10,13 +10,13 @@
         ]
     },
     "processing": {
-        "final": [
+        "linear": [
             {
                 "path": "./processing.py",
                 "function": "denormalize",
                 "args": [
-                    "{INPATH}",
-                    "{OUTPATH}"
+                    "{IN-PATH}",
+                    "{OUT-PATH}"
                 ],
                 "output": "demormalized.csv"
             },
@@ -24,8 +24,8 @@
                 "path": "./processing.py",
                 "function": "cleanup",
                 "args": [
-                    "{INPATH}",
-                    "{OUTPATH}"
+                    "{IN-PATH}",
+                    "{OUT-PATH}"
                 ],
                 "output": "all-taxa.csv"
             }

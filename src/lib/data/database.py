@@ -70,9 +70,7 @@ class BasicDB:
             Logger.debug(f"{self.location}-{self.database} unknown config item: {property}")
 
     def _prepareDownload(self, overwrite: bool, verbose: bool) -> None:
-        files: list[dict] = self.downloadConfig.pop("files", [])
-
-        for file in files:
+        for file in self.downloadConfig:
             url = file.get("url", None)
             name = file.get("name", None)
             properties = file.get("properties", {})
@@ -86,15 +84,13 @@ class BasicDB:
             self.downloadManager.registerFromURL(url, name, properties)
     
     def _prepareProcessing(self, overwrite: bool, verbose: bool) -> None:
-        firstProcessing: dict[int, list[dict]] = self.processingConfig.pop("first", [])
-        specificProcessing: list[dict] = self.processingConfig.pop("specific", {})
-        finalProcessing: list[dict] = self.processingConfig.pop("final", [])
+        parallelProcessing: list[dict] = self.processingConfig.pop("parallel", [])
+        linearProcessing: list[dict] = self.processingConfig.pop("linear", [])
 
         for file in self.downloadManager.getFiles():
-            self.processingManager.registerFile(file, firstProcessing)
+            self.processingManager.registerFile(file, parallelProcessing)
 
-        self.processingManager.addSpecificProcessing(specificProcessing)
-        self.processingManager.addFinalProcessing(finalProcessing)
+        self.processingManager.addFinalProcessing(linearProcessing)
     
     def _prepareConversion(self, overwrite: bool, verbose: bool) -> None:
         fileToConvert = self.processingManager.getLatestNodeFile()

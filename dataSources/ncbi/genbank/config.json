@@ -14,13 +14,13 @@
         ]
     },
     "processing": {
-        "final": [
+        "linear": [
             {
                 "path": "../sharedProcessing.py",
                 "function": "enrichStats",
                 "args": [
                     "{INFILE}",
-                    "{OUTPATH}",
+                    "{OUT-PATH}",
                     "./apikey.txt"
                 ],
                 "output": "genbank.csv"

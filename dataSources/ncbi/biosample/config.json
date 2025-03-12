@@ -9,12 +9,12 @@
         ]
     },
     "processing": {
-        "final": [
+        "linear": [
             {
                 "path": "lib/tools/zipping.py",
                 "function": "extract",
                 "args": [
-                    "{INPATH}",
+                    "{IN-PATH}",
                     "{OUTDIR}"
                 ],
                 "output": "biosample_set.xml"
@@ -23,8 +23,8 @@
                 "path": "tools/processing/xmlProcess.py",
                 "function": "process",
                 "args": [
-                    "{INPATH}",
-                    "{OUTPATH}"
+                    "{IN-PATH}",
+                    "{OUT-PATH}"
                 ],
                 "kwargs": {
                     "subfileRows": 150000,

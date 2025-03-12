@@ -10,12 +10,12 @@
         ]
     },
     "processing": {
-        "final": [
+        "linear": [
             {
                 "path": ".../tools/zipping.py",
                 "function": "extract",
                 "args": [
-                    "{INPATH}",
+                    "{IN-PATH}",
                     "{OUTDIR}"
                 ],
                 "output": "taxdump"
@@ -24,8 +24,8 @@
                 "path": "./processing.py",
                 "function": "parse",
                 "args": [
-                    "{INPATH}",
-                    "{OUTPATH}"
+                    "{IN-PATH}",
+                    "{OUT-PATH}"
                 ],
                 "output": "ncbiTaxonomy.csv"
             }

@@ -5,7 +5,7 @@
         "path": "sourceProcessing/ensembl.py",
         "function": "speciesDownload",
         "args": [
-            "{OUTPATH}"
+            "{OUT-PATH}"
         ],
         "output": "species.csv"
     }

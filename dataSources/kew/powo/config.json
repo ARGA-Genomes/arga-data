@@ -10,22 +10,22 @@
         ]
     },
     "processing": {
-        "final": [
+        "linear": [
             {
                 "path": ".../tools/zipping.py",
                 "function": "extract",
                 "args": [
-                    "{INPATH}",
+                    "{IN-PATH}",
                     "{OUTDIR}"
                 ],
-                "output": "{INSTEM}"
+                "output": "{IN-STEM}"
             },
             {
                 "path": "./processing.py",
                 "function": "combine",
                 "args": [
-                    "{INPATH}",
-                    "{OUTPATH}"
+                    "{IN-PATH}",
+                    "{OUT-PATH}"
                 ],
                 "output": "powo.csv"
             }

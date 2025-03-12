@@ -8,15 +8,15 @@
         "depth": 0
     },
     "processing": {
-        "perFile": [
+        "parallel": [
             {
                 "path": "lib/tools/zipping.py",
                 "function": "extract",
                 "args": [
-                    "{INPATH}",
+                    "{IN-PATH}",
                     "{OUTDIR}"
                 ],
-                "output": "{INSTEM}",
+                "output": "{IN-STEM}",
                 "properties": {
                     "separator": "\t"
                 }

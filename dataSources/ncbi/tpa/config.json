@@ -14,23 +14,23 @@
         ]
     },
     "processing": {
-        "perFile": [
+        "parallel": [
             {
                 "path": "lib/tools/zipping.py",
                 "function": "extract",
                 "args": [
-                    "{INPATH}",
+                    "{IN-PATH}",
                     "{OUTDIR}"
                 ],
-                "output": "{INSTEM}"
+                "output": "{IN-STEM}"
             },
             {
                 "path": "../flatFileParser.py",
                 "function": "parseFlatfile",
                 "args": [
-                    "{INPATH}"
+                    "{IN-PATH}"
                 ],
-                "output": "{INSTEM}"
+                "output": "{IN-STEM}"
             }
         ]
     },

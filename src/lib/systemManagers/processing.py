@@ -5,7 +5,7 @@ from lib.systemManagers.baseManager import SystemManager, Task
 from lib.tools.logger import Logger
 
 class _Node(Task):
-    def __init__(self, index: int, script: FileScript, parents: list['_Node']):
+    def __init__(self, index: str, script: FileScript, parents: list['_Node']):
         self.index = index
         self.script = script
         self.parents = parents
@@ -60,9 +60,11 @@ class ProcessingManager(SystemManager):
             FileSelect.DOWNLOAD: [],
             FileSelect.PROCESS: []
         }
+        
+        self._lowestNodes: list[_Node] = []
 
     def _createNode(self, step: dict, parents: list[_Node]) -> _Node | None:
-        inputs = {FileSelect.INPUT: self.getLatestNodeFile()} | {select: [node.getOutputFile() for node in nodes] for select, nodes in self.nodes.items()}
+        inputs = {FileSelect.INPUT: [self.getLatestNodeFile()]} | {select: [node.getOutputFile() for node in nodes] for select, nodes in self.nodes.items()}
         
         try:
             script = FileScript(self.baseDir, dict(step), self.processingDir, inputs)
@@ -70,12 +72,13 @@ class ProcessingManager(SystemManager):
             Logger.error(f"Invalid processing script configuration: {e}")
             return None
         
-        return _Node(len(self.nodes[FileSelect.PROCESS]), script, parents)
+        node = _Node(f"P{len(self.nodes[FileSelect.PROCESS])}", script, parents)
+        self.nodes[FileSelect.PROCESS].append(node)
+        return node
     
-    def _addProcessing(self, node: _Node, processingSteps: list[dict]) -> None:
+    def _addProcessing(self, node: _Node, processingSteps: list[dict]) -> _Node:
         for step in processingSteps:
             subNode = self._createNode(step, [node])
-            self.nodes[FileSelect.PROCESS].append(subNode)
             node = subNode
         return node
     
@@ -84,7 +87,7 @@ class ProcessingManager(SystemManager):
         return latestNode.getOutputFile()
 
     def process(self, overwrite: bool = False, verbose: bool = False) -> bool:
-        if all(isinstance(node, _Root) for node in self.nodes): # All root nodes, no processing required
+        if all(isinstance(node, _Root) for node in self._lowestNodes): # All root nodes, no processing required
             Logger.info("No processing required for any nodes")
             return True
 
@@ -92,28 +95,21 @@ class ProcessingManager(SystemManager):
             self.processingDir.mkdir()
 
         queuedTasks: list[_Node] = []
-        for node in self.nodes:
+        for node in self._lowestNodes:
             requirements = node.getRequirements(queuedTasks)
             queuedTasks.extend(requirements)
 
         return self.runTasks(queuedTasks, overwrite, verbose)
 
-    def registerFile(self, file: File, processingSteps: list[dict]) -> bool:
-        node = _Root(len(self.nodes[FileSelect.DOWNLOAD]), file)
+    def registerFile(self, file: File, processingSteps: list[dict]) -> None:
+        node = _Root(f"D{len(self.nodes[FileSelect.DOWNLOAD])}", file)
         self.nodes[FileSelect.DOWNLOAD].append(node)
-        self._addProcessing(node, list(processingSteps))
+        lowestNode = self._addProcessing(node, list(processingSteps))
+        self._lowestNodes.append(lowestNode)
 
-    def addSpecificProcessing(self, processingSteps: list[dict]) -> bool:
+    def addFinalProcessing(self, processingSteps: list[dict]) -> None:
         if not processingSteps:
             return
-        
-        for idx, node in enumerate(self.nodes):
-            self.nodes[idx] = self._addProcessing(node, processingSteps)
 
-    def addFinalProcessing(self, processingSteps: list[dict]) -> bool:
-        if not processingSteps:
-            return
-        
-        # First step of final processing should combine all chains to a single file
-        finalNode = self._createNode(processingSteps[0], self.nodes)
-        self.nodes = [self._addProcessing(finalNode, processingSteps[1:])]
+        finalNode = self._createNode(processingSteps[0], self._lowestNodes)
+        self._lowestNodes = [self._addProcessing(finalNode, processingSteps[1:])]

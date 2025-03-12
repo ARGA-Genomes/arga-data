@@ -5,7 +5,7 @@
         "path": "./processing.py",
         "function": "getPortalData",
         "args": [
-            "{OUTPATH}"
+            "{OUT-PATH}"
         ],
         "output": "portalData.csv"
     },

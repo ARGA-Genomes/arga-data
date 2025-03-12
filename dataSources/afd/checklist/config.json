@@ -5,18 +5,18 @@
         "path": "./processing.py",
         "function": "retrieve",
         "args": [
-            "{OUTPATH}"
+            "{OUT-PATH}"
         ],
         "output": "rawAFD.csv"
     },
     "processing": {
-        "final": [
+        "linear": [
             {
                 "path": "./processing.py",
                 "function": "cleanup",
                 "args": [
-                    "{INPATH}",
-                    "{OUTPATH}"
+                    "{IN-PATH}",
+                    "{OUT-PATH}"
                 ],
                 "output": "cleanedAFD.csv"
             },
@@ -24,8 +24,8 @@
                 "path": "./processing.py",
                 "function": "addParents",
                 "args": [
-                    "{INPATH}",
-                    "{OUTPATH}"
+                    "{IN-PATH}",
+                    "{OUT-PATH}"
                 ],
                 "output": "afd.csv"
             },
@@ -33,8 +33,8 @@
                 "path": "./processing.py",
                 "function": "enrich",
                 "args": [
-                    "{INPATH}",
-                    "{OUTPATH}"
+                    "{IN-PATH}",
+                    "{OUT-PATH}"
                 ],
                 "output": "enrichedAFD.csv"
             }

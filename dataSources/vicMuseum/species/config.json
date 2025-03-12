@@ -12,13 +12,13 @@
         "output": "specimens.csv"
     },
     "processing": {
-        "final": [
+        "linear": [
             {
                 "path": "../processing.py",
                 "function": "expandTaxa",
                 "args": [
-                    "{INPATH}",
-                    "{OUTPATH}"
+                    "{IN-PATH}",
+                    "{OUT-PATH}"
                 ],
                 "output": "species.csv"
             }

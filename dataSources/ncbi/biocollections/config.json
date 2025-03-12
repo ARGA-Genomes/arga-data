@@ -17,13 +17,13 @@
         ]
     },
     "processing": {
-        "final": [
+        "linear": [
             {
                 "path": "./processing.py",
                 "function": "compile",
                 "args": [
-                    "{INDIR}",
-                    "{OUTPATH}"
+                    "{IN-DIR}",
+                    "{OUT-PATH}"
                 ],
                 "output": "biocollections.csv"
             }

@@ -10,13 +10,13 @@
         ]
     },
     "processing": {
-        "final": [
+        "linear": [
             {
                 "path": "./processing.py",
                 "function": "convert",
                 "args": [
-                    "{INPATH}",
-                    "{OUTPATH}"
+                    "{IN-PATH}",
+                    "{OUT-PATH}"
                 ],
                 "output": "metadata.csv"
             }

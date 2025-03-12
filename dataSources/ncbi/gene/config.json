@@ -10,12 +10,12 @@
         ]
     },
     "processing": {
-        "final": [
+        "linear": [
             {
                 "path": "lib/tools/zipping.py",
                 "function": "extract",
                 "args": [
-                    "{INPATH}",
+                    "{IN-PATH}",
                     "{OUTDIR}"
                 ],
                 "output": "All_data_gene_info.csv",

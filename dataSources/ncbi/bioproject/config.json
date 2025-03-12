@@ -10,13 +10,13 @@
         ]
     },
     "processing": {
-        "final": [
+        "linear": [
             {
                 "path": "tools/processing/xmlProcess.py",
                 "function": "process",
                 "args": [
-                    "{INPATH}",
-                    "{OUTPATH}"
+                    "{IN-PATH}",
+                    "{OUT-PATH}"
                 ],
                 "kwargs": {
                     "subfileRows": 150000,
