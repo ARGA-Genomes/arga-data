@@ -44,14 +44,11 @@ class BasicDB:
         self.databaseDir = self.locationDir / database
         self.subsectionDir = self.databaseDir / self.subsection # If no subsection, does nothing
         self.dataDir = self.subsectionDir / "data"
-        self.downloadDir = self.dataDir / "download"
-        self.processingDir = self.dataDir / "processing"
-        self.convertedDir = self.dataDir / "converted"
 
         # System Managers
-        self.downloadManager = DownloadManager(self.subsectionDir, self.downloadDir, self.authFile)
-        self.processingManager = ProcessingManager(self.subsectionDir, self.processingDir)
-        self.conversionManager = ConversionManager(self.subsectionDir, self.convertedDir, self.datasetID, location, database, subsection)
+        self.downloadManager = DownloadManager(self.dataDir, self.authFile)
+        self.processingManager = ProcessingManager(self.dataDir)
+        self.conversionManager = ConversionManager(self.dataDir, self.datasetID, location, database, subsection)
         self.updateManager = UpdateManager(self.updateConfig)
 
         # Report extra config options
