@@ -38,7 +38,7 @@ class _ScriptDownload(_Download):
 
 class DownloadManager(SystemManager):
     def __init__(self, dataDir: Path, authFile: str):
-        self.stepName = "download"
+        self.stepName = "downloading"
 
         super().__init__(dataDir.parent, self.stepName, "files")
 

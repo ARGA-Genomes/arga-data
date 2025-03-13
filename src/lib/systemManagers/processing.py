@@ -50,7 +50,7 @@ class _Root(_Node):
 
 class ProcessingManager(SystemManager):
     def __init__(self, dataDir: Path):
-        self.stepName = "process"
+        self.stepName = "processing"
 
         super().__init__(dataDir.parent, self.stepName, "steps")
 

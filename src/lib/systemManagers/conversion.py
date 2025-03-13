@@ -16,7 +16,7 @@ from typing import Generator
 
 class ConversionManager(SystemManager):
     def __init__(self, dataDir: Path, datasetID: str, location: str, database: str, subsection: str):
-        self.stepName = "convert"
+        self.stepName = "conversion"
 
         super().__init__(dataDir.parent, self.stepName, "tasks")
 
