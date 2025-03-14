@@ -156,10 +156,14 @@ class Database:
         dbs = []
         for subsectionName, configData in configs.items():
             datasetID, config = configData
+            databaseName = f"{self.locationName}-{self.databaseName}{f'-{subsectionName}' if subsectionName else ''}"
+
             try:
-                Logger.info(f"Creating database '{self.locationName}-{self.databaseName}{f'-{subsectionName}' if subsectionName else ''}'")
+                Logger.info(f"Creating database '{databaseName}'")
                 dbs.append(dbType(self.locationName, self.databaseName, subsectionName, datasetID, config))
-            except AttributeError:
+            except AttributeError as e:
+                Logger.error(f"Error creating database '{databaseName}' - {e}")
+                Logger.error()
                 continue
 
         return dbs

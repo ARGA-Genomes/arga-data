@@ -1,7 +1,7 @@
 {
     "datasetID": "ARGA:TL:0000167",
     "retrieveType": "url",
-    "download": {
+    "downloading": {
         "files": [
             {
                 "url": "https://ftp.ncbi.nlm.nih.gov/tpa/release/con_tpa_cu.gbff.gz",

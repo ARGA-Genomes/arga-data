@@ -1,7 +1,7 @@
 {
     "datasetID": "",
     "retrieveType": "url",
-    "download": {
+    "downloading": {
         "files": [
             {
                 "url": "https://biodiversity.org.au/nsl/services/export/taxonCsv",

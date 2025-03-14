@@ -30,15 +30,6 @@ class BasicDB:
         # Auth
         self.authFile: str = config.pop("auth", "")
 
-        # Config stages
-        self.downloadConfig: dict = config.pop("download", None)
-        self.processingConfig: dict = config.pop("processing", {})
-        self.conversionConfig: dict = config.pop("conversion", {})
-        self.updateConfig: dict = config.pop("update", {})
-
-        if self.downloadConfig is None:
-            raise Exception("No download config specified as required") from AttributeError
-
         # Relative folders
         self.locationDir = cfg.Folders.dataSources / location
         self.databaseDir = self.locationDir / database
@@ -49,6 +40,17 @@ class BasicDB:
         self.downloadManager = DownloadManager(self.dataDir, self.authFile)
         self.processingManager = ProcessingManager(self.dataDir)
         self.conversionManager = ConversionManager(self.dataDir, self.datasetID, location, database, subsection)
+
+        # Config stages
+        self.downloadConfig: dict = config.pop(self.downloadManager.stepName, None)
+        self.processingConfig: dict = config.pop(self.processingManager.stepName, {})
+        self.conversionConfig: dict = config.pop(self.conversionManager.stepName, {})
+
+        if self.downloadConfig is None:
+            raise Exception("No download config specified as required") from AttributeError
+        
+        # Updating
+        self.updateConfig: dict = config.pop("updating", {})
         self.updateManager = UpdateManager(self.updateConfig)
 
         # Report extra config options

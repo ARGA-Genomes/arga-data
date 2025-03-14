@@ -18,7 +18,7 @@
         }
     },
     "retrieveType": "url",
-    "download": {
+    "downloading": {
         "files": [
             {
                 "url": "http://ftp.ensemblgenomes.org/pub/{SUBSECTION}/current/species_metadata_Ensembl{SUBSECTION:NAME}.json",
