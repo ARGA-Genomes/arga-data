@@ -16,7 +16,7 @@ if __name__ == '__main__':
     delim = "\t" if args.tsv else ","
 
     for source in sources:
-        source._prepare(Step.CONVERSION, False, True)
+        source._prepare(Step.CONVERSION)
         dwcFile = source.conversionManager.output
 
         if not dwcFile.filePath.exists():

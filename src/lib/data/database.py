@@ -18,10 +18,10 @@ class Retrieve(Enum):
     SCRIPT  = "script"
 
 class Flag(Enum):
-    VERBOSE = 0
-    PREPARE_OVERWRITE = 1
-    OUTPUT_OVERWRITE = 2
-    UPDATE = 4
+    VERBOSE = "verbose"
+    PREPARE_OVERWRITE = "reprepare"
+    OUTPUT_OVERWRITE = "overwrite"
+    UPDATE = "update"
 
 class BasicDB:
 
@@ -75,7 +75,7 @@ class BasicDB:
         for property in properties:
             Logger.debug(f"{self.location}-{self.database} unknown config item: {property}")
 
-    def _prepareDownload(self, overwrite: bool, verbose: bool) -> None:
+    def _prepareDownload(self, flags: list[Flag]) -> None:
         for file in self.downloadConfig:
             url = file.get("url", None)
             name = file.get("name", None)
@@ -89,7 +89,7 @@ class BasicDB:
             
             self.downloadManager.registerFromURL(url, name, properties)
     
-    def _prepareProcessing(self, overwrite: bool, verbose: bool) -> None:
+    def _prepareProcessing(self, flags: list[Flag]) -> None:
         parallelProcessing: list[dict] = self.processingConfig.pop("parallel", [])
         linearProcessing: list[dict] = self.processingConfig.pop("linear", [])
 
@@ -98,11 +98,11 @@ class BasicDB:
 
         self.processingManager.addFinalProcessing(linearProcessing)
     
-    def _prepareConversion(self, overwrite: bool, verbose: bool) -> None:
+    def _prepareConversion(self, flags: list[Flag]) -> None:
         fileToConvert = self.processingManager.getLatestNodeFile()
         self.conversionManager.loadFile(fileToConvert, self.conversionConfig, self.databaseDir)
 
-    def _prepare(self, step: Step, overwrite: bool, verbose: bool) -> bool:
+    def _prepare(self, step: Step, flags: list[Flag]) -> bool:
         callbacks = {
             Step.DOWNLOAD: self._prepareDownload,
             Step.PROCESSING: self._prepareProcessing,
@@ -116,9 +116,9 @@ class BasicDB:
             if idx <= self._prepStage:
                 continue
 
-            Logger.info(f"Preparing {self} step '{stepType.name}' with flags: overwrite={overwrite} | verbose={verbose}")
+            Logger.info(f"Preparing {self} step '{stepType.name}' with flags: {self._verboseFlags()}")
             try:
-                callback(overwrite if step == stepType else False, verbose)
+                callback(flags)
             except AttributeError as e:
                 Logger.error(f"Error preparing step: {stepType.name} - {e}")
                 return False
@@ -129,8 +129,11 @@ class BasicDB:
             
         return True
 
-    def _execute(self, step: Step, overwrite: bool, verbose: bool, **kwargs: dict) -> bool:
-        Logger.info(f"Executing {self} step '{step.name}' with flags: overwrite={overwrite} | verbose={verbose}")
+    def _execute(self, step: Step, flags: list[Flag], **kwargs: dict) -> bool:
+        overwrite = Flag.OUTPUT_OVERWRITE in flags
+        verbose = Flag.VERBOSE in flags
+
+        Logger.info(f"Executing {self} step '{step.name}' with flags: {self._verboseFlags()}")
         if step == Step.DOWNLOAD:
             return self.downloadManager.download(overwrite, verbose, **kwargs)
 
@@ -144,12 +147,8 @@ class BasicDB:
         return False
     
     def create(self, step: Step, flags: list[Flag], **kwargs: dict) -> None:
-        verbose = Flag.VERBOSE in flags
-        reprepare = Flag.PREPARE_OVERWRITE in flags
-        overwrite = Flag.OUTPUT_OVERWRITE in flags
-
         try:
-            success = self._prepare(step, reprepare, verbose)
+            success = self._prepare(step, flags)
             if not success:
                 return
             
@@ -157,7 +156,7 @@ class BasicDB:
             Logger.info(f"Process ended early when attempting to prepare step '{step.name}' for {self}")
 
         try:
-            self._execute(step, overwrite, verbose, **kwargs)
+            self._execute(step, flags, **kwargs)
         except KeyboardInterrupt:
             Logger.info(f"Process ended early when attempting to execute step '{step.name}' for {self}")
 
@@ -176,17 +175,20 @@ class BasicDB:
         for step in (Step.DOWNLOAD, Step.PROCESSING, Step.CONVERSION):
             self.create(step, (True, True), True)
 
+    def _verboseFlags(self, flags: list[Flag]) -> str:
+        return " | ".join(f"{flag.value}={flag in flags}" for flag in Flag)
+
 class CrawlDB(BasicDB):
 
     retrieveType = Retrieve.CRAWL
 
-    def _prepareDownload(self, overwrite: bool, verbose: bool) -> None:
+    def _prepareDownload(self, flags: list[Flag]) -> None:
         properties = self.downloadConfig.pop("properties", {})
         folderPrefix = self.downloadConfig.pop("prefix", False)
         saveFile = self.downloadConfig.pop("saveFile", "crawl.txt")
         saveFilePath: Path = self.subsectionDir / saveFile
 
-        if saveFilePath.exists() and not overwrite:
+        if saveFilePath.exists() and not Flag.PREPARE_OVERWRITE in flags:
             Logger.info("Local file found, skipping crawling")
             with open(saveFilePath) as fp:
                 urls = fp.read().splitlines()
@@ -230,5 +232,5 @@ class ScriptDB(BasicDB):
 
     retrieveType = Retrieve.SCRIPT
 
-    def _prepareDownload(self, overwrite: bool, verbose: bool) -> None:
+    def _prepareDownload(self, flags: list[Flag]) -> None:
         self.downloadManager.registerFromScript(self.downloadConfig)
