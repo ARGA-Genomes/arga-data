@@ -17,6 +17,12 @@ class Retrieve(Enum):
     CRAWL   = "crawl"
     SCRIPT  = "script"
 
+class Flag(Enum):
+    VERBOSE = 0
+    PREPARE_OVERWRITE = 1
+    OUTPUT_OVERWRITE = 2
+    UPDATE = 4
+
 class BasicDB:
 
     retrieveType = Retrieve.URL
@@ -137,18 +143,21 @@ class BasicDB:
         Logger.error(f"Unknown step to execute: {step}")
         return False
     
-    def create(self, step: Step, overwrite: tuple[bool, bool], verbose: bool, **kwargs: dict) -> None:
-        prepare, reprocess = overwrite
+    def create(self, step: Step, flags: list[Flag], **kwargs: dict) -> None:
+        verbose = Flag.VERBOSE in flags
+        reprepare = Flag.PREPARE_OVERWRITE in flags
+        overwrite = Flag.OUTPUT_OVERWRITE in flags
 
         try:
-            success = self._prepare(step, prepare, verbose)
+            success = self._prepare(step, reprepare, verbose)
             if not success:
                 return
+            
         except KeyboardInterrupt:
             Logger.info(f"Process ended early when attempting to prepare step '{step.name}' for {self}")
 
         try:
-            self._execute(step, reprocess, verbose, **kwargs)
+            self._execute(step, overwrite, verbose, **kwargs)
         except KeyboardInterrupt:
             Logger.info(f"Process ended early when attempting to execute step '{step.name}' for {self}")
 
