@@ -30,7 +30,7 @@ class _Node(Task):
         return newTasks
 
     def runTask(self, overwrite: bool, verbose: bool) -> bool:
-        return self.script.run(overwrite, verbose)
+        return self.script.run(overwrite, verbose)[0] # No retval for processing tasks, just return success
 
 class _Root(_Node):
     def __init__(self, index: int, file: File):

@@ -17,7 +17,7 @@ class ArgParser:
     def add_argument(self, *args, **kwargs) -> None:
         self.parser.add_argument(*args, **kwargs)
 
-    def parse_args(self, *args, **kwargs) -> tuple[list[BasicDB], tuple[bool, bool], bool, argparse.Namespace]:
+    def parse_args(self, *args, **kwargs) -> tuple[list[BasicDB], list[Flag], argparse.Namespace]:
         parsedArgs = self.parser.parse_args(*args, **kwargs)
 
         sources = self.manager.requestDBs(self._extract(parsedArgs, "source"))

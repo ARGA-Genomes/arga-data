@@ -79,7 +79,7 @@ class FunctionScript:
         except:
             Logger.error(f"Error importing function '{self.function}' from path '{self.path}'")
             Logger.error(traceback.format_exc())
-            return False
+            return False, None
 
         args = self.args + inputArgs
         kwargs = self.kwargs | inputKwargs

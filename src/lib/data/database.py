@@ -116,7 +116,7 @@ class BasicDB:
             if idx <= self._prepStage:
                 continue
 
-            Logger.info(f"Preparing {self} step '{stepType.name}' with flags: {self._verboseFlags()}")
+            Logger.info(f"Preparing {self} step '{stepType.name}' with flags: {self._verboseFlags(flags)}")
             try:
                 callback(flags)
             except AttributeError as e:
@@ -133,7 +133,7 @@ class BasicDB:
         overwrite = Flag.OUTPUT_OVERWRITE in flags
         verbose = Flag.VERBOSE in flags
 
-        Logger.info(f"Executing {self} step '{step.name}' with flags: {self._verboseFlags()}")
+        Logger.info(f"Executing {self} step '{step.name}' with flags: {self._verboseFlags(flags)}")
         if step == Step.DOWNLOAD:
             return self.downloadManager.download(overwrite, verbose, **kwargs)
 
