@@ -1,6 +1,6 @@
 {
     "retrieveType": "url",
-    "download": [
+    "downloading": [
         {
             "url": "https://ftp.ncbi.nih.gov/pub/taxonomy/biocollections/Collection_codes.txt",
             "name": "Collection_codes.txt"

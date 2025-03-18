@@ -1,7 +1,7 @@
 {
     "datasetID": "ARGA:TL:0000161",
     "retrieveType": "url",
-    "download": [
+    "downloading": [
         {
             "url": "https://ftp.ncbi.nlm.nih.gov/gene/DATA/GENE_INFO/All_Data.gene_info.gz",
             "name": "All_data_gene_info.csv.gz"
