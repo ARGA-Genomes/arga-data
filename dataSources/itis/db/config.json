@@ -1,7 +1,7 @@
 {
     "retrieveType": "url",
     "datasetID": "ARGA:TL:0001016",
-    "download": [
+    "downloading": [
         {
             "url": "https://www.itis.gov/downloads/itisSqlite.zip",
             "name": "itisSqlite.zip"

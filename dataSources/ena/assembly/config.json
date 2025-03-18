@@ -1,7 +1,7 @@
 {
     "datasetID": "ARGA:TL:0002005",
     "retrieveType": "url",
-    "download": [
+    "downloading": [
         {
             "url": "https://www.ebi.ac.uk/ena/portal/api/search?result=assembly&fields=all&limit=0&format=tsv",
             "name": "ena_assembly_all_fields.tsv",

@@ -1,6 +1,6 @@
 {
     "retrieveType": "url",
-    "download": [
+    "downloading": [
         {
             "url": "https://ftp.ncbi.nlm.nih.gov/biosample/biosample_set.xml.gz",
             "name": "biosample_set.xml.gz"

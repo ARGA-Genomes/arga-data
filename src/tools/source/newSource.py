@@ -8,7 +8,7 @@ from lib.data.database import Retrieve
 def _urlConfig() -> dict:
     return {
         "retrieveType": "url",
-        "download": [
+        "downloading": [
             {
                 "url": "",
                 "name": ""
@@ -20,7 +20,7 @@ def _urlConfig() -> dict:
 def _crawlConfig() -> dict:
     return {
         "retrieveType": "crawl",
-        "download": {
+        "downloading": {
             "url": "",
             "regex": ""
         },
@@ -30,7 +30,7 @@ def _crawlConfig() -> dict:
 def _scriptConfig() -> dict:
     return {
         "retrieveType": "script",
-        "download": {
+        "downloading": {
             "path": "",
             "function": "",
             "args": [],
@@ -42,7 +42,7 @@ def _scriptConfig() -> dict:
 def _defaultConfig() -> dict:
     return {
         "retrieveType": "",
-        "download": {},
+        "downloading": {},
         "conversion": {}
     }
 
