@@ -15,11 +15,21 @@
         "linear": [
             {
                 "path": "../sharedProcessing.py",
-                "function": "enrichStats",
+                "function": "getStats",
                 "args": [
-                    "{INFILE}",
+                    "{IN-FILE}",
                     "{OUT-PATH}",
                     "./apikey.txt"
+                ],
+                "output": "apiData.csv"
+            },
+            {
+                "path": "../sharedProcessing.py",
+                "function": "merge",
+                "args": [
+                    "{D0-FILE}",
+                    "{IN-PATH}",
+                    "{OUT-PATH}"
                 ],
                 "output": "genbank.csv"
             }

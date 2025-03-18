@@ -19,7 +19,7 @@
                 "path": "../sharedProcessing.py",
                 "function": "getStats",
                 "args": [
-                    "{IN-PATH}",
+                    "{IN-FILE}",
                     "{OUT-PATH}",
                     "./apikey.txt"
                 ],
@@ -29,7 +29,7 @@
                 "path": "../sharedProcessing.py",
                 "function": "merge",
                 "args": [
-                    "{D0-PATH}",
+                    "{D0-FILE}",
                     "{IN-PATH}",
                     "{OUT-PATH}"
                 ],
