@@ -7,7 +7,7 @@
         "args": [
             "1LfrFMdXRn6oq4SfmcSYVOW3E8p83-y0mBFsQ5iKT36E",
             "1365022184",
-            "{OUTPATH}"
+            "{OUT-PATH}"
         ],
         "output": "tsiCompiled.csv"
     }

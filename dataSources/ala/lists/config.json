@@ -4,7 +4,7 @@
         "path": "./processing.py",
         "function": "collect",
         "args": [
-            "{OUTPATH}"
+            "{OUT-PATH}"
         ],
         "output": "lists.csv"
     },

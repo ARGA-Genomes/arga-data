@@ -1,22 +1,20 @@
 {
     "datasetID": "ARGA:TL:0002004",
     "retrieveType": "url",
-    "downloading": {
-        "files": [
-            {
-                "url": "https://ftp.ebi.ac.uk/pub/databases/ena/taxonomy/taxonomy.xml.gz",
-                "name": "taxonomy.xml.gz"
-            }
-            
-        ]
-    },
+    "download": [
+        {
+            "url": "https://ftp.ebi.ac.uk/pub/databases/ena/taxonomy/taxonomy.xml.gz",
+            "name": "taxonomy.xml.gz"
+        }
+        
+    ],
     "processing": {
-        "final": [
+        "linear": [
             {
                 "path": "lib/tools/zipping.py",
                 "function": "extract",
                 "args": [
-                    "{INPATH}",
+                    "{IN-PATH}",
                     "{OUTDIR}"
                 ],
                 "output": "taxonomy.xml"
@@ -25,8 +23,8 @@
                 "path": "tools/processing/xmlProcess.py",
                 "function": "process",
                 "args": [
-                    "{INPATH}",
-                    "{OUTPATH}"
+                    "{IN-PATH}",
+                    "{OUT-PATH}"
                 ],
                 "kwargs": {
                     "subfileRows": 100000

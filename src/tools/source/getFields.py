@@ -56,8 +56,8 @@ if __name__ == '__main__':
             outputDir.mkdir()
 
         extension = "tsv" if args.tsv else "json"
-        source._prepare(Step.CONVERSION, False, True)
-        stageFile = source.processingManager.getLatestNodeFiles()[0] # Should be singular stage file before DwC
+        source._prepare(Step.CONVERSION)
+        stageFile = source.processingManager.getLatestNodeFile()[0] # Should be singular stage file before DwC
 
         if not stageFile.filePath.exists():
             print(f"File {stageFile.filePath} does not exist, have you run preDwCCreate.py yet?")

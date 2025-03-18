@@ -11,26 +11,24 @@
         }
     },
     "retrieveType": "url",
-    "downloading": {
-        "files": [
-            {
-                "url": "https://www.esapubs.org/archive/ecol/E095/178/{SUBSECTION:NAME}FuncDat.txt",
-                "name": "{SUBSECTION}Data.tsv",
-                "properties": {
-                    "separator": "\t",
-                    "encoding": "cp1252"
-                }
-            },
-            {
-                "url": "https://www.esapubs.org/archive/ecol/E095/178/{SUBSECTION:NAME}FuncDatSources.txt",
-                "name": "{SUBSECTION}Sources.tsv",
-                "properties": {
-                    "separator": "\t",
-                    "encoding": "cp1252"
-                }
+    "download": [
+        {
+            "url": "https://www.esapubs.org/archive/ecol/E095/178/{SUBSECTION:NAME}FuncDat.txt",
+            "name": "{SUBSECTION}Data.tsv",
+            "properties": {
+                "separator": "\t",
+                "encoding": "cp1252"
             }
-        ]
-    },
+        },
+        {
+            "url": "https://www.esapubs.org/archive/ecol/E095/178/{SUBSECTION:NAME}FuncDatSources.txt",
+            "name": "{SUBSECTION}Sources.tsv",
+            "properties": {
+                "separator": "\t",
+                "encoding": "cp1252"
+            }
+        }
+    ],
     "update": {
         "type": "weekly",
         "day": "sunday",

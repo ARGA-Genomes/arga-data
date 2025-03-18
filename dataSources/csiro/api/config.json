@@ -13,7 +13,7 @@
         "function": "build",
         "args": [
             "{SUBSECTION}",
-            "{OUTPATH}"
+            "{OUT-PATH}"
         ],
         "output": "genomes.csv"
     },

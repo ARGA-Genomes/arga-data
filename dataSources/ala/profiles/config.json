@@ -11,7 +11,7 @@
         "path": "./processing.py",
         "function": "collect",
         "args": [
-            "{OUTDIR}",
+            "{OUT-DIR}",
             "{SUBSECTION}",
             "./token.json"
         ],

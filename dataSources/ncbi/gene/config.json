@@ -1,21 +1,19 @@
 {
     "datasetID": "ARGA:TL:0000161",
     "retrieveType": "url",
-    "downloading": {
-        "files": [
-            {
-                "url": "https://ftp.ncbi.nlm.nih.gov/gene/DATA/GENE_INFO/All_Data.gene_info.gz",
-                "name": "All_data_gene_info.csv.gz"
-            }
-        ]
-    },
+    "download": [
+        {
+            "url": "https://ftp.ncbi.nlm.nih.gov/gene/DATA/GENE_INFO/All_Data.gene_info.gz",
+            "name": "All_data_gene_info.csv.gz"
+        }
+    ],
     "processing": {
-        "final": [
+        "linear": [
             {
                 "path": "lib/tools/zipping.py",
                 "function": "extract",
                 "args": [
-                    "{INPATH}",
+                    "{IN-PATH}",
                     "{OUTDIR}"
                 ],
                 "output": "All_data_gene_info.csv",

@@ -1,17 +1,15 @@
 {
     "datasetID": "ARGA:TL:0002005",
     "retrieveType": "url",
-    "downloading": {
-        "files": [
-            {
-                "url": "https://www.ebi.ac.uk/ena/portal/api/search?result=assembly&fields=all&limit=0&format=tsv",
-                "name": "ena_assembly_all_fields.tsv",
-                "properties": {
-                    "separator": "\t"
-                }
+    "download": [
+        {
+            "url": "https://www.ebi.ac.uk/ena/portal/api/search?result=assembly&fields=all&limit=0&format=tsv",
+            "name": "ena_assembly_all_fields.tsv",
+            "properties": {
+                "separator": "\t"
             }
-        ]
-    },
+        }
+    ],
     "conversion": {
         "mapID": 1058330275
     },

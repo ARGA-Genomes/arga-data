@@ -1,31 +1,29 @@
 {
     "retrieveType": "url",
     "datasetID": "ARGA:TL:0001016",
-    "downloading": {
-        "files": [
-            {
-                "url": "https://www.itis.gov/downloads/itisSqlite.zip",
-                "name": "itisSqlite.zip"
-            }
-        ]
-    },
+    "download": [
+        {
+            "url": "https://www.itis.gov/downloads/itisSqlite.zip",
+            "name": "itisSqlite.zip"
+        }
+    ],
     "processing": {
-        "final": [
+        "linear": [
             {
                 "path": ".../tools/zipping.py",
                 "function": "extract",
                 "args": [
-                    "{INPATH}",
+                    "{IN-PATH}",
                     "{OUTDIR}"
                 ],
-                "output": "{INSTEM}"
+                "output": "{IN-STEM}"
             },
             {
                 "path": "./processing.py",
                 "function": "unpack",
                 "args": [
-                    "{INPATH}",
-                    "{OUTPATH}"
+                    "{IN-PATH}",
+                    "{OUT-PATH}"
                 ],
                 "output": "dumps"
             },
@@ -33,8 +31,8 @@
                 "path": "./processing.py",
                 "function": "combine",
                 "args": [
-                    "{INPATH}",
-                    "{OUTPATH}"
+                    "{IN-PATH}",
+                    "{OUT-PATH}"
                 ],
                 "output": "itis.csv"
             }

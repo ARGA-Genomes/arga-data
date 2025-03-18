@@ -1,22 +1,20 @@
 {
     "datasetID": "ARGA:TL:0000176",
     "retrieveType": "url",
-    "downloading": {
-        "files": [
-            {
-                "url": "http://v4.boldsystems.org/index.php/API_Public/combined?geo=Australia&format=xml",
-                "name": "bold_data.xml"
-            }
-        ]
-    },
+    "download": [
+        {
+            "url": "http://v4.boldsystems.org/index.php/API_Public/combined?geo=Australia&format=xml",
+            "name": "bold_data.xml"
+        }
+    ],
     "processing": {
-        "final": [
+        "linear": [
             {
                 "path": "tools/processing/xmlProcess.py",
                 "function": "process",
                 "args": [
-                    "{INPATH}",
-                    "{OUTPATH}"
+                    "{IN-PATH}",
+                    "{OUT-PATH}"
                 ],
                 "kwargs": {
                     "encoding": "iso-8859-1",

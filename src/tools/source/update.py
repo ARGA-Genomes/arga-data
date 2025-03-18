@@ -1,6 +1,5 @@
 from lib.data.argParser import ArgParser
 from lib.tools.logger import Logger
-from lib.processing.stages import Step
 
 if __name__ == '__main__':
     parser = ArgParser(description="Run update on data source")
@@ -13,7 +12,5 @@ if __name__ == '__main__':
             Logger.info(f"Data source '{source}' is not ready for update.")
             continue
 
-        for step in (Step.DOWNLOAD, Step.PROCESSING, Step.CONVERSION):
-            source.create(step, (True, True), True)
-
+        source.update()
         outputFile = source.package()

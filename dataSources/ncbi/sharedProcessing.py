@@ -12,7 +12,7 @@ import requests
 import numpy as np
 from lib.processing.mapping import Event
 
-def enrichStats(summaryFile: File, outputPath: Path, apiKeyPath: Path = None):
+def getStats(summaryFile: File, outputPath: Path, apiKeyPath: Path = None):
     if apiKeyPath is not None and apiKeyPath.exists():
         Logger.info("Found API key")
         with open(apiKeyPath) as fp:
@@ -84,9 +84,12 @@ def enrichStats(summaryFile: File, outputPath: Path, apiKeyPath: Path = None):
         writer.writeDF(pd.DataFrame.from_records(recordData))
 
     writer.oneFile(True)
-    # print(f"Failed: {failedAccessions}")
 
-    df.merge(pd.read_csv(subFile), how="outer", left_on="#assembly_accession", right_on="current_accession").to_csv(outputPath, index=False)
+def merge(summaryFile: Path, statsFile: Path, outputPath: Path) -> None:
+    df = pd.read_csv(summaryFile)
+    df2 = pd.read_csv(statsFile)
+    df = df.merge(df2, how="outer", left_on="#assembly_accession", right_on="current_accession")
+    df.to_csv(outputPath, index=False)
 
 def apiWorker(idx: int, accessions: Generator[str, None, None], apiKey: str, dropKeys: set, queue: Queue) -> list[dict]:
     session = requests.Session()

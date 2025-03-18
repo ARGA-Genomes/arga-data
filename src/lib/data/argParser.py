@@ -1,6 +1,6 @@
 import argparse
 from lib.data.sources import SourceManager
-from lib.data.database import BasicDB
+from lib.data.database import BasicDB, Flag
 
 class ArgParser:
     def __init__(self, description=""):
@@ -10,13 +10,14 @@ class ArgParser:
 
         self.parser.add_argument("source", help="Data set to interact with", metavar="SOURCE")
         self.parser.add_argument("-p", "--prepare", action="store_true", help="Force redoing preparation")
-        self.parser.add_argument("-o", "--overwrite", action="store_true", help="Force overwriting files")
+        self.parser.add_argument("-o", "--overwrite", action="store_true", help="Force overwriting output")
+        self.parser.add_argument("-u", "--update", action="store_true", help="Run update version of database if available")
         self.parser.add_argument("-q", "--quiet", action="store_false", help="Suppress output")
 
     def add_argument(self, *args, **kwargs) -> None:
         self.parser.add_argument(*args, **kwargs)
 
-    def parse_args(self, *args, **kwargs) -> tuple[list[BasicDB], tuple[bool, bool], bool, argparse.Namespace]:
+    def parse_args(self, *args, **kwargs) -> tuple[list[BasicDB], list[Flag], argparse.Namespace]:
         parsedArgs = self.parser.parse_args(*args, **kwargs)
 
         sources = self.manager.requestDBs(self._extract(parsedArgs, "source"))
@@ -25,11 +26,16 @@ class ArgParser:
             if not passed:
                 sources = []
 
-        prepare = self._extract(parsedArgs, "prepare")
-        overwrite = self._extract(parsedArgs, "overwrite")
-        verbose = self._extract(parsedArgs, "quiet")
+        flagMap = {
+            "quiet": Flag.VERBOSE,
+            "prepare": Flag.PREPARE_OVERWRITE,
+            "overwrite": Flag.OUTPUT_OVERWRITE,
+            "update": Flag.UPDATE
+        }
 
-        return sources, (prepare, overwrite), verbose, parsedArgs
+        flags = [flag for key, flag in flagMap.items() if self._extract(parsedArgs, key)]
+
+        return sources, flags, parsedArgs
     
     def namespaceKwargs(self, namespace: argparse.Namespace) -> dict:
         return vars(namespace)

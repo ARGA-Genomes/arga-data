@@ -7,12 +7,12 @@
         "output": "datapackage.tar.gz"
     },
     "processing": {
-        "final": [
+        "linear": [
             {
                 "path": "lib/tools/zipping.py",
                 "function": "extract",
                 "args": [
-                    "{INPATH}"
+                    "{IN-PATH}"
                 ],
                 "output": "datapackage"
             },
@@ -20,7 +20,7 @@
                 "path": "./processing.py",
                 "function": "cleanUp",
                 "args": [
-                    "{INPATH}"
+                    "{IN-PATH}"
                 ],
                 "output": "dataPackage.tsv",
                 "properties": {

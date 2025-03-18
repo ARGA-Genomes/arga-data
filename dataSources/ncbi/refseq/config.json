@@ -11,17 +11,27 @@
                     "firstrow": 1
                 }
             }
-        ]
-    },
+        }
+    ],
     "processing": {
-        "final": [
+        "linear": [
             {
                 "path": "../sharedProcessing.py",
-                "function": "enrichStats",
+                "function": "getStats",
                 "args": [
-                    "{INFILE}",
-                    "{OUTPATH}",
+                    "{IN-PATH}",
+                    "{OUT-PATH}",
                     "./apikey.txt"
+                ],
+                "output": "apiData.csv"
+            },
+            {
+                "path": "../sharedProcessing.py",
+                "function": "merge",
+                "args": [
+                    "{D0-PATH}",
+                    "{IN-PATH}",
+                    "{OUT-PATH}"
                 ],
                 "output": "refseq.csv"
             }
