@@ -7,7 +7,7 @@
         "mangrovewatch": {},
         "weeds-australia": {}
     },
-    "download": {
+    "downloading": {
         "path": "./processing.py",
         "function": "collect",
         "args": [

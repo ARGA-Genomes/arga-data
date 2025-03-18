@@ -1,7 +1,7 @@
 {
     "datasetID": "ARGA:TL:0002002",
     "retrieveType": "url",
-    "download": {
+    "downloading": {
         "files": [
             {
                 "url": "https://ftp.ncbi.nih.gov/genomes/refseq/assembly_summary_refseq.txt",

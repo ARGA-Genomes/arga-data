@@ -1,6 +1,6 @@
 {
     "retrieveType": "script",
-    "download": {
+    "downloading": {
         "path": "./processing.py",
         "function": "retrieve",
         "args": [

@@ -1,7 +1,7 @@
 {
     "datasetID": "ARGA:TL:0000191",
     "retrieveType": "script",
-    "download": {
+    "downloading": {
         "path": "../processing.py",
         "function": "retrieve",
         "args": [

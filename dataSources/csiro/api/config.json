@@ -8,7 +8,7 @@
         }
     },
     "retrieveType": "script",
-    "download": {
+    "downloading": {
         "path": "./processing.py",
         "function": "build",
         "args": [

@@ -1,7 +1,7 @@
 {
     "datasetID": "",
     "retrieveType": "crawl",
-    "download": {
+    "downloading": {
         "location": "https://www.arb-silva.de/no_cache/download/archive/current/Exports/full_metadata/",
         "link": "https://www.arb-silva.de/",
         "regex": ".*\\.gz$",

@@ -11,7 +11,7 @@
         }
     },
     "retrieveType": "url",
-    "download": {
+    "downloading": {
         "files": [
             {
                 "url": "https://www.esapubs.org/archive/ecol/E095/178/{SUBSECTION:NAME}FuncDat.txt",

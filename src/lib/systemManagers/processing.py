@@ -49,10 +49,12 @@ class _Root(_Node):
         return True
 
 class ProcessingManager(SystemManager):
-    def __init__(self, baseDir: Path, processingDir: Path):
-        super().__init__(baseDir, "processing", "steps")
+    def __init__(self, dataDir: Path):
+        self.stepName = "processing"
 
-        self.processingDir = processingDir
+        super().__init__(dataDir.parent, self.stepName, "steps")
+
+        self.processingDir = dataDir / self.stepName
         self.nodes: list[_Node] = []
         self._nodeIndex = 0
 

@@ -1,7 +1,7 @@
 {
     "datasetID": "ARGA:TL:0000194",
     "retrieveType": "url",
-    "download": {
+    "downloading": {
         "files": [
             {
                 "url": "ftp://ftp.bvbrc.org/RELEASE_NOTES/genome_metadata",

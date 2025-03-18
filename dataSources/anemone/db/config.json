@@ -2,7 +2,7 @@
     "datasetID": "ARGA:TL:0000174",
     "retrieveType": "crawl",
     "auth": "auth.txt",
-    "download": {
+    "downloading": {
         "url": "https://db.anemone.bio/dist/",
         "regex": ".*\\.tsv\\.xz",
         "prefix": true

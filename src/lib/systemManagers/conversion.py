@@ -15,10 +15,12 @@ import lib.tools.zipping as zp
 from typing import Generator
 
 class ConversionManager(SystemManager):
-    def __init__(self, baseDir: Path, converionDir: Path, datasetID: str, location: str, database: str, subsection: str):
-        super().__init__(baseDir, "converting", "tasks")
+    def __init__(self, dataDir: Path, datasetID: str, location: str, database: str, subsection: str):
+        self.stepName = "conversion"
 
-        self.conversionDir = converionDir
+        super().__init__(dataDir.parent, self.stepName, "tasks")
+
+        self.conversionDir = dataDir / self.stepName
         self.location = location
         self.datasetID = datasetID
 

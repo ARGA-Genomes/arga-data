@@ -37,10 +37,12 @@ class _ScriptDownload(_Download):
         return self.script.run(overwrite, verbose)
 
 class DownloadManager(SystemManager):
-    def __init__(self, baseDir: Path, downloadDir: Path, authFile: str):
-        super().__init__(baseDir, "downloading", "files")
+    def __init__(self, dataDir: Path, authFile: str):
+        self.stepName = "downloading"
 
-        self.downloadDir = downloadDir
+        super().__init__(dataDir.parent, self.stepName, "files")
+
+        self.downloadDir = dataDir / self.stepName
         self.authFile = authFile
 
         authPath = self.baseDir / self.authFile

@@ -57,7 +57,7 @@
         }
     },
     "retrieveType": "crawl",
-    "download": {
+    "downloading": {
         "url": "https://ftp.ncbi.nlm.nih.gov/genbank/",
         "regex": "gb{SUBSECTION:NAME}\\d+\\.seq\\.gz",
         "maxDepth": 0
