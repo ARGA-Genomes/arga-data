@@ -5,6 +5,7 @@ import importlib.util
 from enum import Enum
 import traceback
 import lib.config as cfg
+from typing import Any
 
 class FileSelect(Enum):
     INPUT    = "IN"
@@ -51,7 +52,7 @@ class FunctionScript:
         spec.loader.exec_module(module)
         return getattr(module, functionName)
 
-    def _parsePath(self, arg: any, forceOutput: bool = False) -> Path | any:
+    def _parsePath(self, arg: Any, forceOutput: bool = False) -> Path | Any:
         if not isinstance(arg, str):
             return arg
         
@@ -137,7 +138,7 @@ class OutputScript(FunctionScript):
             return Folder(outputPath)
         return File(outputPath, outputProperties)
     
-    def _parseArg(self, arg: any) -> Path | str:
+    def _parseArg(self, arg: Any) -> Path | str:
         if not isinstance(arg, str):
             return arg
         
