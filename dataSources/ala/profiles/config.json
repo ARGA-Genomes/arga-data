@@ -8,12 +8,12 @@
         "weeds-australia": {}
     },
     "downloading": {
-        "path": "./processing.py",
+        "path": "../processing.py",
         "function": "collect",
         "args": [
             "{OUT-DIR}",
             "{SUBSECTION}",
-            "./token.json"
+            "../token.json"
         ],
         "output": "{SUBSECTION}.csv"
     },

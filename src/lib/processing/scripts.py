@@ -51,7 +51,10 @@ class FunctionScript:
         spec.loader.exec_module(module)
         return getattr(module, functionName)
 
-    def _parsePath(self, arg: str, forceOutput: bool = False) -> Path | str:
+    def _parsePath(self, arg: any, forceOutput: bool = False) -> Path | any:
+        if not isinstance(arg, str):
+            return arg
+        
         if arg.startswith("./"):
             workingDir = self.baseDir
             return workingDir / arg[2:]
