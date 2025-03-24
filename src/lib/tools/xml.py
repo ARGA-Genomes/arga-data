@@ -1,6 +1,9 @@
 from xml.etree import cElementTree as ET
 from pathlib import Path
 from typing import Generator
+import concurrent.futures as cf
+from lib.tools.bigFileWriter import BigFileWriter
+import pandas as pd
 
 class ElementContainer:
     def __init__(self, element: ET.Element, parent: 'ElementContainer' = None):
@@ -66,3 +69,19 @@ def xmlGenerator(inputPath: Path) -> Generator[ElementContainer, None, None]:
 
             element.clear()
             root.clear()
+
+def xmlProcessor(inputPath: Path, outputPath: Path, entriesPerSection: int, processFunc: callable = flattenElement) -> None:
+    iterator = xmlGenerator(inputPath)
+    writer = BigFileWriter(outputPath)
+    records = []
+
+    with cf.ProcessPoolExecutor() as exector:
+        futures = (exector.submit(processFunc, element) for element in iterator)
+        for future in cf.as_completed(futures):
+            records.append(future.result())
+
+            if len(records) == entriesPerSection:
+                writer.writeDF(pd.DataFrame.from_records(records))
+                records.clear()
+
+    writer.oneFile()
