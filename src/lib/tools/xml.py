@@ -1,18 +1,11 @@
 from xml.etree import cElementTree as ET
 from pathlib import Path
-from enum import Enum
 from typing import Generator
-
-class ElementProperty(Enum):
-    TAG = "tag"
-    TEXT = "text"
-    ATTR = "attributes"
-    CHLD = "children"
 
 class ElementContainer:
     def __init__(self, element: ET.Element, parent: 'ElementContainer' = None):
-        self.tag = element.tag
-        self.text = element.text
+        self.tag = self._cleanText(element.tag)
+        self.text = self._cleanText(element.text)
         self.attributes = element.attrib.copy()
 
         self.parent = parent
@@ -20,14 +13,6 @@ class ElementContainer:
     
     def addChild(self, container: 'ElementContainer') -> None:
         self.children.append(container)
-
-    def getData(self) -> dict[ElementProperty, any]:
-        return {
-            ElementProperty.TAG: self._cleanText(self.tag),
-            ElementProperty.TEXT: self._cleanText(self.text),
-            ElementProperty.ATTR: self.attributes,
-            ElementProperty.CHLD: [child.getData() for child in self.children]
-        }
     
     def _cleanText(self, text: str) -> str:
         if not isinstance(text, str):
@@ -35,29 +20,24 @@ class ElementContainer:
         
         return text.translate(text.maketrans("\t\n\r", "   ")).strip()
 
-def _basicParse(data: dict[ElementProperty, any]) -> dict:
+def flattenElement(element: ElementContainer) -> dict[str, any]:
 
-    def flatten(data: dict[ElementProperty, any], prefixList: list[str]) -> dict:
-        fullPrefixList = prefixList + [data[ElementProperty.TAG]]
+    def flatten(e: ElementContainer, prefixList: list[str]) -> dict:
+        fullPrefixList = prefixList + [e.tag]
         prefix = "_".join(fullPrefixList)
 
-        retval = {prefix: data[ElementProperty.TEXT]}
-        for attrName, attrValue in data[ElementProperty.ATTR].items():
+        retval = {prefix: e.text}
+        for attrName, attrValue in e.attributes.items():
             retval[f"{prefix}_{attrName}"] = attrValue
 
-        for child in data[ElementProperty.CHLD]:
+        for child in e.children:
             retval |= flatten(child, fullPrefixList)
 
         return retval
 
-    return flatten(data, [])
- 
-def parse(inputPath: Path, dataParser: callable = _basicParse) -> list[dict]:
-    return next(parseChunks(inputPath, 0, dataParser))
+    return flatten(element, [])
 
-def parseChunks(inputPath: Path, entriesPerChunk: int, dataParser: callable = _basicParse) -> Generator[list[dict], None, None]:
-    entries = max(entriesPerChunk, 0)
-
+def xmlGenerator(inputPath: Path) -> Generator[ElementContainer, None, None]:
     context = ET.iterparse(inputPath, events=("start", "end"))
     _, root = next(context)
     _, mainElement = next(context)
@@ -65,7 +45,6 @@ def parseChunks(inputPath: Path, entriesPerChunk: int, dataParser: callable = _b
     currentElement = ElementContainer(mainElement)
     mainTag = currentElement.tag
 
-    data = []
     for event, element in context:
         if event == "start":
             nextElement = ElementContainer(element, currentElement)
@@ -80,17 +59,10 @@ def parseChunks(inputPath: Path, entriesPerChunk: int, dataParser: callable = _b
                 break
 
             if currentElement.tag == mainTag:
-                data.append(dataParser(currentElement.getData()))
+                yield currentElement
                 currentElement = None
-                
             else:
                 currentElement = currentElement.parent
 
             element.clear()
             root.clear()
-
-        if data and len(data) == entries:
-            yield data
-            data.clear()
-
-    yield data
