@@ -77,11 +77,13 @@ def xmlProcessor(inputPath: Path, outputPath: Path, entriesPerSection: int, proc
 
     with cf.ProcessPoolExecutor() as exector:
         futures = (exector.submit(processFunc, element) for element in iterator)
-        for future in cf.as_completed(futures):
+        for idx, future in enumerate(cf.as_completed(futures), start=1):
+            print(f"At record: {idx}", end="\r")
             records.append(future.result())
 
             if len(records) == entriesPerSection:
                 writer.writeDF(pd.DataFrame.from_records(records))
                 records.clear()
 
+    print()
     writer.oneFile()
