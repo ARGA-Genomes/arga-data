@@ -10,7 +10,7 @@ from lib.systemManagers.updating import UpdateManager
 from lib.processing.stages import Step
 
 from lib.tools.crawler import Crawler
-from lib.tools.logger import Logger
+import logging
 
 class Retrieve(Enum):
     URL     = "url"
@@ -73,7 +73,7 @@ class BasicDB:
     
     def _reportLeftovers(self, properties: dict) -> None:
         for property in properties:
-            Logger.debug(f"{self.location}-{self.database} unknown config item: {property}")
+            logging.debug(f"{self.location}-{self.database} unknown config item: {property}")
 
     def _prepareDownload(self, flags: list[Flag]) -> None:
         for file in self.downloadConfig:
@@ -116,11 +116,11 @@ class BasicDB:
             if idx <= self._prepStage:
                 continue
 
-            Logger.info(f"Preparing {self} step '{stepType.name}' with flags: {self._verboseFlags(flags)}")
+            logging.info(f"Preparing {self} step '{stepType.name}' with flags: {self._verboseFlags(flags)}")
             try:
                 callback(flags)
             except AttributeError as e:
-                Logger.error(f"Error preparing step: {stepType.name} - {e}")
+                logging.error(f"Error preparing step: {stepType.name} - {e}")
                 return False
             
             self._prepStage = idx
@@ -133,7 +133,7 @@ class BasicDB:
         overwrite = Flag.OUTPUT_OVERWRITE in flags
         verbose = Flag.VERBOSE in flags
 
-        Logger.info(f"Executing {self} step '{step.name}' with flags: {self._verboseFlags(flags)}")
+        logging.info(f"Executing {self} step '{step.name}' with flags: {self._verboseFlags(flags)}")
         if step == Step.DOWNLOAD:
             return self.downloadManager.download(overwrite, verbose, **kwargs)
 
@@ -143,7 +143,7 @@ class BasicDB:
         if step == Step.CONVERSION:
             return self.conversionManager.convert(overwrite, verbose, **kwargs)
 
-        Logger.error(f"Unknown step to execute: {step}")
+        logging.error(f"Unknown step to execute: {step}")
         return False
     
     def create(self, step: Step, flags: list[Flag], **kwargs: dict) -> None:
@@ -153,17 +153,18 @@ class BasicDB:
                 return
             
         except KeyboardInterrupt:
-            Logger.info(f"Process ended early when attempting to prepare step '{step.name}' for {self}")
+            logging.info(f"Process ended early when attempting to prepare step '{step.name}' for {self}")
 
         try:
             self._execute(step, flags, **kwargs)
         except KeyboardInterrupt:
-            Logger.info(f"Process ended early when attempting to execute step '{step.name}' for {self}")
+            logging.info(f"Process ended early when attempting to execute step '{step.name}' for {self}")
 
     def package(self) -> Path:
-        outputPath = self.conversionManager.package(self.dataDir)
+        outputDir = cfg.Settings.package if isinstance(cfg.Settings.package, Path) else self.dataDir
+        outputPath = self.conversionManager.package(outputDir)
         if outputPath is not None:
-            Logger.info(f"Successfully zipped converted data source file to {outputPath}")
+            logging.info(f"Successfully zipped converted data source file to {outputPath}")
 
         return outputPath
 
@@ -189,7 +190,7 @@ class CrawlDB(BasicDB):
         saveFilePath: Path = self.subsectionDir / saveFile
 
         if saveFilePath.exists() and not Flag.PREPARE_OVERWRITE in flags:
-            Logger.info("Local file found, skipping crawling")
+            logging.info("Local file found, skipping crawling")
             with open(saveFilePath) as fp:
                 urls = fp.read().splitlines()
         else:

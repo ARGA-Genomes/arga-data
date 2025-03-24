@@ -6,7 +6,7 @@ import sys
 from enum import Enum
 import pyarrow as pa
 import pyarrow.parquet as pq
-from lib.tools.logger import Logger
+import logging
 from typing import Iterator
 from lib.tools.progressBar import SteppableProgressBar
 
@@ -150,11 +150,11 @@ class BigFileWriter:
             self.globalColumns = cmn.extendUnique(self.globalColumns, columns)
 
             if logIndividually:
-                Logger.info(f"Added file: {subFile.filePath}")
+                logging.info(f"Added file: {subFile.filePath}")
 
             fileCount += 1
 
-        Logger.info(f"Added {fileCount} files to written files list")
+        logging.info(f"Added {fileCount} files to written files list")
 
     def getSubfileCount(self) -> int:
         return len(self.writtenFiles)
@@ -188,23 +188,23 @@ class BigFileWriter:
 
     def oneFile(self, removeOld: bool = True) -> None:
         if self.outputFile.exists():
-            Logger.info(f"Removing old file {self.outputFile}")
+            logging.info(f"Removing old file {self.outputFile}")
             self.outputFile.unlink()
 
         if len(self.writtenFiles) == 1:
-            Logger.info(f"Only single subfile, moving {self.writtenFiles[0]} to {self.outputFile}")
+            logging.info(f"Only single subfile, moving {self.writtenFiles[0]} to {self.outputFile}")
 
             self.writtenFiles[0].rename(self.outputFile, self.outputFileType)
             self.subfileDir.rmdir()
             return
 
-        Logger.info("Combining into one file")
+        logging.info("Combining into one file")
         if self.outputFileType in (Format.CSV, Format.TSV):
             self._oneCSV(removeOld)
         elif self.outputFileType == Format.PARQUET:
             self._oneParquet(removeOld)
 
-        Logger.info(f"\nCreated a single file at {self.outputFile}")
+        logging.info(f"\nCreated a single file at {self.outputFile}")
         if removeOld:
             self.subfileDir.rmdir()
             self.writtenFiles.clear()

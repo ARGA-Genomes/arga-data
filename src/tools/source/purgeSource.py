@@ -1,6 +1,6 @@
 from lib.data.argParser import ArgParser
 import lib.commonFuncs as cmn
-from lib.tools.logger import Logger
+import logging
 
 if __name__ == '__main__':
     parser = ArgParser(description="Clean up source to save space")
@@ -18,7 +18,7 @@ if __name__ == '__main__':
                 continue
 
             if folder.name == "dwc": # Clear non-zip files in dwc folder
-                Logger.info(f"Clearing folder: dwc")
+                logging.info(f"Clearing folder: dwc")
                 for item in folder.iterdir():
                     if item.suffix == ".zip":
                         continue
@@ -30,5 +30,5 @@ if __name__ == '__main__':
 
                 continue
 
-            Logger.info(f"Clearing folder: {folder.name}")
+            logging.info(f"Clearing folder: {folder.name}")
             cmn.clearFolder(folder)

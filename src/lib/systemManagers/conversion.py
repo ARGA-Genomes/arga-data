@@ -7,7 +7,7 @@ from lib.processing.mapping import Remapper, Event
 from lib.processing.stages import File, StackedFile
 from lib.processing.scripts import FunctionScript
 from lib.systemManagers.baseManager import SystemManager, Metadata
-from lib.tools.logger import Logger
+import logging
 import gc
 import time
 from datetime import datetime
@@ -48,19 +48,19 @@ class ConversionManager(SystemManager):
 
     def convert(self, overwrite: bool = False, verbose: bool = True, ignoreRemapErrors: bool = True, forceRetrieve: bool = False) -> bool:
         if not self.fileLoaded:
-            Logger.error("No file loaded for conversion, exiting...")
+            logging.error("No file loaded for conversion, exiting...")
             return False
 
         if self.datasetID is None:
-            Logger.error("No datasetID provided which is required for conversion, exiting...")
+            logging.error("No datasetID provided which is required for conversion, exiting...")
             return False
 
         if self.output.filePath.exists() and not overwrite:
-            Logger.info(f"{self.output.filePath} already exists, exiting...")
+            logging.info(f"{self.output.filePath} already exists, exiting...")
             return True
         
         # Get columns and create mappings
-        Logger.info("Getting column mappings")
+        logging.info("Getting column mappings")
         columns = cmn.getColumns(self.file.filePath, self.file.separator, self.file.firstRow)
 
         success = self.remapper.buildTable(columns, self.skipRemap, forceRetrieve)
@@ -71,18 +71,18 @@ class ConversionManager(SystemManager):
             if not ignoreRemapErrors:
                 for event, firstCol, matchingCols in self.remapper.table.getNonUnique():
                     for col in matchingCols:
-                        Logger.warning(f"Found mapping for column '{col}' that matches initial mapping '{firstCol}' under event '{event.value}'")
+                        logging.warning(f"Found mapping for column '{col}' that matches initial mapping '{firstCol}' under event '{event.value}'")
                 return False
             
             self.remapper.table.forceUnique()
         
-        Logger.info("Resolving events")
+        logging.info("Resolving events")
         writers: dict[str, BigFileWriter] = {}
         for event in self.remapper.table.getEventCategories():
             cleanedName = event.value.lower().replace(" ", "_")
             writers[event] = BigFileWriter(self.output.filePath / f"{cleanedName}.csv", f"{cleanedName}_chunks")
 
-        Logger.info("Processing chunks for conversion")
+        logging.info("Processing chunks for conversion")
 
         totalRows = 0
         startTime = time.perf_counter()
@@ -103,7 +103,7 @@ class ConversionManager(SystemManager):
             entityID = "entity_id"
 
             if scientificName not in df[Event.COLLECTION].columns:
-                Logger.error(f"Unable to generate '{entityID}' as dataset is missing field '{scientificName}' in event '{Event.COLLECTION.value}'")
+                logging.error(f"Unable to generate '{entityID}' as dataset is missing field '{scientificName}' in event '{Event.COLLECTION.value}'")
                 return False
             
             df[(Event.COLLECTION, datasetID)] = self.datasetID
@@ -141,7 +141,7 @@ class ConversionManager(SystemManager):
                 return None
 
             if not isinstance(df, pd.DataFrame):
-                Logger.error(f"Augment '{augment.function}' does not output dataframe as required, instead output {type(df)}")
+                logging.error(f"Augment '{augment.function}' does not output dataframe as required, instead output {type(df)}")
                 return None
             
         return df

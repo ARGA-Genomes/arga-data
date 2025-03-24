@@ -2,7 +2,7 @@ from pathlib import Path
 from lib.processing.stages import File
 from lib.processing.scripts import FileScript, FileSelect
 from lib.systemManagers.baseManager import SystemManager, Task
-from lib.tools.logger import Logger
+import logging
 
 class _Node(Task):
     def __init__(self, index: str, script: FileScript, parents: list['_Node']):
@@ -69,7 +69,7 @@ class ProcessingManager(SystemManager):
         try:
             script = FileScript(self.baseDir, dict(step), self.processingDir, inputs)
         except AttributeError as e:
-            Logger.error(f"Invalid processing script configuration: {e}")
+            logging.error(f"Invalid processing script configuration: {e}")
             return None
         
         node = _Node(f"P{len(self.nodes[FileSelect.PROCESS])}", script, parents)
@@ -88,7 +88,7 @@ class ProcessingManager(SystemManager):
 
     def process(self, overwrite: bool = False, verbose: bool = False) -> bool:
         if all(isinstance(node, _Root) for node in self._lowestNodes): # All root nodes, no processing required
-            Logger.info("No processing required for any nodes")
+            logging.info("No processing required for any nodes")
             return True
 
         if not self.processingDir.exists():

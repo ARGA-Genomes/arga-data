@@ -4,31 +4,36 @@ from pathlib import Path
 from datetime import datetime
 import sys
 
-class SystemLogger(logging.Logger):
-    def __init__(self):
-        super().__init__("processing", logging.DEBUG)
+def createLogger(logToConsole: bool = True, logLevel: str = "debug") -> logging.Logger:
+    logLevelLookup = {
+        "debug": logging.DEBUG,
+        "info": logging.INFO,
+        "warning": logging.WARNING,
+        "error": logging.ERROR,
+        "critical": logging.CRITICAL
+    }
 
-        # Log file information
-        logFolder: Path = cfg.Folders.logs
-        logFileName = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-        logFilePath = logFolder / f"{logFileName}.log"
+    level = logLevelLookup.get(logLevel, None)
+    if level is None:
+        raise Exception(f"Invalid logging level '{logLevel}', please adjust to one of [{', '.join(logLevelLookup.keys())}] in config.toml")
 
-        # Configure logger
-        self.setLevel(logging.DEBUG)
+    logFolder: Path = cfg.Folders.logs
+    logFileName = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    logFilePath = logFolder / f"{logFileName}.log"
 
-        # Setup handlers
-        # formatter = logging.Formatter("[%(asctime)s] %(module)s - %(levelname)s: %(message)s", "%H:%M:%S")
-        formatter = logging.Formatter("[%(asctime)s] %(levelname)s: %(message)s", "%H:%M:%S")
+    formatter = logging.Formatter("[%(asctime)s] %(levelname)s: %(message)s", "%H:%M:%S")
 
-        fileHandler = logging.FileHandler(filename=logFilePath)
-        fileHandler.setFormatter(formatter)
-        fileHandler.setLevel(logging.INFO)
-        self.addHandler(fileHandler)
+    logger = logging.getLogger()
+    logger.setLevel(level)
 
+    fileHandler = logging.FileHandler(filename=logFilePath)
+    fileHandler.setFormatter(formatter)
+    fileHandler.setLevel(logging.INFO)
+    logger.addHandler(fileHandler)
+
+    if logToConsole:
         streamHandler = logging.StreamHandler(sys.stdout)
         streamHandler.setFormatter(formatter)
-        self.addHandler(streamHandler)
-
-        self.info("Logger initialised")
-
-Logger = SystemLogger()
+        logger.addHandler(streamHandler)
+    
+    return logger

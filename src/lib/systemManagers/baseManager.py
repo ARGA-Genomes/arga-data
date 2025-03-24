@@ -1,6 +1,6 @@
 import json
 from pathlib import Path
-from lib.tools.logger import Logger
+import logging
 from datetime import datetime
 import time
 from enum import Enum
@@ -90,7 +90,7 @@ class SystemManager:
         self.metadata[self.taskName] = taskMetadata
         self._syncMetadata()
 
-        Logger.info(f"Updated {self.stepKey} metadata and saved to file")
+        logging.info(f"Updated {self.stepKey} metadata and saved to file")
 
     def updateTotalTime(self, totalTime: float) -> None:
         self.metadata[Metadata.TOTAL_TIME.value] = totalTime

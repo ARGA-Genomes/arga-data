@@ -2,7 +2,7 @@ import json
 import lib.config as cfg
 from pathlib import Path
 from lib.data.database import BasicDB, CrawlDB, ScriptDB, Retrieve
-from lib.tools.logger import Logger
+import logging
 
 class SourceManager:
     def __init__(self):
@@ -19,14 +19,14 @@ class SourceManager:
         sourceInformation = source.split("-")
 
         if len(sourceInformation) >= 4:
-            Logger.error(f"Unknown source: {source}")
+            logging.error(f"Unknown source: {source}")
             return []
         
         locationStr, databaseStr, subsectionStr = (sourceInformation + ["", ""])[:3] # Force sourceInformation to be 3 long
 
         location = self.locations.get(locationStr, None)
         if location is None:
-            Logger.error(f"Invalid location: {locationStr}")
+            logging.error(f"Invalid location: {locationStr}")
             return []
         
         return location.loadDBs(databaseStr, subsectionStr)
@@ -51,7 +51,7 @@ class Location:
         constructDBs = []
         if database:
             if database not in self.databases:
-                Logger.error(f"Invalid database: {database}")
+                logging.error(f"Invalid database: {database}")
                 return []
             constructDBs.append(database)
         else: # Load all dbs if database is empty string
@@ -80,7 +80,7 @@ class Database:
     def _loadConfig(self) -> dict | None:
         configPath = self.databasePath / self.configFile
         if not configPath.exists():
-            Logger.error(f"No config file found for database '{self.locationName}-{self.databaseName}'")
+            logging.error(f"No config file found for database '{self.locationName}-{self.databaseName}'")
             return None
         
         with open(configPath) as fp:
@@ -113,13 +113,13 @@ class Database:
         
         retrieveType = databaseConfig.pop("retrieveType", None)
         if retrieveType is None:
-            Logger.error(f"No retrieve type specified for database '{self.locationName}-{self.databaseName}'")
+            logging.error(f"No retrieve type specified for database '{self.locationName}-{self.databaseName}'")
             return []
         
         retrieveType = Retrieve(retrieveType)
         dbType = self.dbMapping.get(retrieveType, None)
         if dbType is None:
-            Logger.error(f"Database {self.databaseName} has invalid retrieve type: {retrieveType.value}. Should be one of: {', '.join(key.value for key in self.dbMapping)}")
+            logging.error(f"Database {self.databaseName} has invalid retrieve type: {retrieveType.value}. Should be one of: {', '.join(key.value for key in self.dbMapping)}")
             return []
         
         # Determine which subsections to load
@@ -128,7 +128,7 @@ class Database:
         if subsections: # Subsections in config
             if subsection: # User defined subsection
                 if subsection not in subsections:
-                    Logger.error(f"Invalid subsection: {subsection}")
+                    logging.error(f"Invalid subsection: {subsection}")
                     return []
                 else: # Valid subsection provided
                     loadSubsections[subsection] = subsections[subsection]
@@ -149,7 +149,7 @@ class Database:
                     error += f" with subsection '{subsectionName}'"
                 error += f" - Conversion process will not work."
 
-                Logger.warning(error)
+                logging.warning(error)
 
             configs[subsectionName] = (datasetID, config)
         
@@ -159,11 +159,11 @@ class Database:
             databaseName = f"{self.locationName}-{self.databaseName}{f'-{subsectionName}' if subsectionName else ''}"
 
             try:
-                Logger.info(f"Creating database '{databaseName}'")
+                logging.info(f"Creating database '{databaseName}'")
                 dbs.append(dbType(self.locationName, self.databaseName, subsectionName, datasetID, config))
             except AttributeError as e:
-                Logger.error(f"Error creating database '{databaseName}' - {e}")
-                Logger.error()
+                logging.error(f"Error creating database '{databaseName}' - {e}")
+                logging.error()
                 continue
 
         return dbs

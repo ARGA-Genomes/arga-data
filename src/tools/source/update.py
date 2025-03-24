@@ -1,5 +1,5 @@
 from lib.data.argParser import ArgParser
-from lib.tools.logger import Logger
+import logging
 
 if __name__ == '__main__':
     parser = ArgParser(description="Run update on data source")
@@ -9,7 +9,7 @@ if __name__ == '__main__':
     kwargs = parser.namespaceKwargs(args)
     for source in sources:
         if not source.checkUpdateReady() and not args.force:
-            Logger.info(f"Data source '{source}' is not ready for update.")
+            logging.info(f"Data source '{source}' is not ready for update.")
             continue
 
         source.update()

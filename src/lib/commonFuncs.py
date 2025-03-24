@@ -2,7 +2,7 @@ import csv
 import json
 import pandas as pd
 from typing import Generator
-from lib.tools.logger import Logger
+import logging
 from pathlib import Path
 
 def reverseLookup(lookup: dict) -> dict:
