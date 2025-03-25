@@ -4,27 +4,28 @@ from pathlib import Path
 from datetime import datetime
 import sys
 
-def createLogger(logToConsole: bool = True, logLevel: str = "debug") -> logging.Logger:
-    logLevelLookup = {
-        "debug": logging.DEBUG,
-        "info": logging.INFO,
-        "warning": logging.WARNING,
-        "error": logging.ERROR,
-        "critical": logging.CRITICAL
-    }
+logLevelLookup = {
+    "debug": logging.DEBUG,
+    "info": logging.INFO,
+    "warning": logging.WARNING,
+    "error": logging.ERROR,
+    "critical": logging.CRITICAL
+}
 
+def createLogger(logToConsole: bool = True, logLevel: str = "debug") -> logging.Logger:
+    logger = logging.getLogger()
+    
     level = logLevelLookup.get(logLevel, None)
     if level is None:
         raise Exception(f"Invalid logging level '{logLevel}', please adjust to one of [{', '.join(logLevelLookup.keys())}] in config.toml")
 
-    logFolder: Path = cfg.Folders.logs
-    logFileName = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-    logFilePath = logFolder / f"{logFileName}.log"
+    logger.setLevel(level)
 
     formatter = logging.Formatter("[%(asctime)s] %(levelname)s: %(message)s", "%H:%M:%S")
 
-    logger = logging.getLogger()
-    logger.setLevel(level)
+    logFolder: Path = cfg.Folders.logs
+    logFileName = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    logFilePath = logFolder / f"{logFileName}.log"
 
     fileHandler = logging.FileHandler(filename=logFilePath)
     fileHandler.setFormatter(formatter)
@@ -35,5 +36,5 @@ def createLogger(logToConsole: bool = True, logLevel: str = "debug") -> logging.
         streamHandler = logging.StreamHandler(sys.stdout)
         streamHandler.setFormatter(formatter)
         logger.addHandler(streamHandler)
-    
+
     return logger
