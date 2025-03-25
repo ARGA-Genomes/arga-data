@@ -1,0 +1,27 @@
+{
+    "retrieveType": "url",
+    "downloading": [
+        {
+            "url": "https://www.ncbi.nlm.nih.gov/nuccore/?term=%22+sp.%22+AND+country%3DAustralia+NOT+viruses+NOT+bacteria+NOT+archaea",
+            "name": "sequence.fasta.xml"
+        },
+        {
+            "url": "https://www.ncbi.nlm.nih.gov/biosample/?term=%22+sp.%22+AND+country%3DAustralia+NOT+viruses+NOT+bacteria+NOT+archaea",
+            "name": "biosample_result.xml"
+        }
+    ],
+    "processing": {
+        "linear": [
+            {
+                "path": ".../xml.py",
+                "function": "basicXMLProcessor",
+                "args": [
+                    "{IN-PATH}",
+                    "{OUT-PATH}"
+                ],
+                "output": "sp.csv"
+            }
+        ]
+    },
+    "conversion": {}
+}
