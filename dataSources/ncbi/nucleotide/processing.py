@@ -1,5 +1,5 @@
-from lib.tools.zipping import RepeatExtractor
-from lib.tools.bigFileWriter import BigFileWriter
+from lib.zipping import RepeatExtractor
+from lib.bigFileWriter import BigFileWriter
 from pathlib import Path
 from .. import flatFileParser as ffp
 

@@ -1,5 +1,5 @@
 import pandas as pd
-import lib.commonFuncs as cmn
+import lib.common as cmn
 from pathlib import Path
 from enum import Enum
 from collections.abc import Iterator

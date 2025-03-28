@@ -2,7 +2,7 @@ import requests
 from pathlib import Path
 import pandas as pd
 import json
-import lib.dataframeFuncs as dff
+import lib.dataframes as dff
 
 def getUrl(entryCount: int, page: int) -> str:
     baseURL = "https://api.algaebase.org/v1.3/"

@@ -1,10 +1,10 @@
 from pathlib import Path
 import logging
 from lib.processing.stages import File
-from lib.tools.bigFileWriter import BigFileWriter
+from lib.bigFileWriter import BigFileWriter
 import time
 import pandas as pd
-from lib.tools.progressBar import SteppableProgressBar
+from lib.progressBar import SteppableProgressBar
 from threading import Thread
 from queue import Queue
 from typing import Generator

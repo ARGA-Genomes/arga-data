@@ -1,6 +1,6 @@
 import csv
 from pathlib import Path
-import lib.commonFuncs as cmn
+import lib.common as cmn
 import pandas as pd
 import sys
 from enum import Enum
@@ -8,7 +8,7 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 import logging
 from typing import Iterator
-from lib.tools.progressBar import SteppableProgressBar
+from lib.progressBar import SteppableProgressBar
 
 class Format(Enum):
     CSV = ".csv"

@@ -2,10 +2,9 @@ import pandas as pd
 import json
 from lib.data.argParser import ArgParser
 from lib.processing.stages import File, Step
-from lib.processing.mapping import Remapper
 import random
 import logging
-import lib.dataframeFuncs as dff
+import lib.dataframes as dff
 
 def _collectFields(stageFile: File, entryLimit: int, chunkSize: int, seed: int, offset: int = 0, rows: int = None) -> dict[str, pd.Series]:
     for idx, chunk in enumerate(stageFile.loadDataFrameIterator(chunkSize, offset, rows), start=1):

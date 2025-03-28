@@ -1,5 +1,5 @@
 from lib.data.argParser import ArgParser
-import lib.commonFuncs as cmn
+import lib.common as cmn
 import logging
 
 if __name__ == '__main__':

@@ -2,7 +2,7 @@ from pathlib import Path
 import pandas as pd
 from enum import Enum
 import logging
-from lib.tools.progressBar import SteppableProgressBar
+from lib.progressBar import SteppableProgressBar
 
 class DumpFile(Enum):
     NODES = "nodes.dmp"

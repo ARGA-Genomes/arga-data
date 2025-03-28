@@ -3,7 +3,7 @@ from pathlib import Path
 from requests.auth import HTTPBasicAuth
 from requests.exceptions import HTTPError
 import logging
-from lib.tools.progressBar import ProgressBar
+from lib.progressBar import ProgressBar
 
 class RepeatDownloader:
     def __init__(self, headers: dict = {}, username: str = "", password: str = "", chunkSize: int = 1024*1024, verbose: bool = False):

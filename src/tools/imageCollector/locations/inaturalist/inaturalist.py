@@ -1,7 +1,7 @@
 from pathlib import Path
 import pandas as pd
-import lib.commonFuncs as cmn
-from lib.tools.bigFileWriter import BigFileWriter
+import lib.common as cmn
+from lib.bigFileWriter import BigFileWriter
 import numpy as np
 
 def run():

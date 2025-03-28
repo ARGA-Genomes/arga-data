@@ -1,8 +1,8 @@
 import pandas as pd
 import numpy as np
 from pathlib import Path
-import lib.commonFuncs as cmn
-from lib.tools.bigFileWriter import BigFileWriter
+import lib.common as cmn
+from lib.bigFileWriter import BigFileWriter
 from lib.processing.mapping import Remapper, Event
 from lib.processing.stages import File, StackedFile
 from lib.processing.scripts import FunctionScript
@@ -11,8 +11,7 @@ import logging
 import gc
 import time
 from datetime import datetime
-import lib.tools.zipping as zp
-from typing import Generator
+import lib.zipping as zp
 
 class ConversionManager(SystemManager):
     def __init__(self, dataDir: Path, datasetID: str, location: str, database: str, subsection: str):

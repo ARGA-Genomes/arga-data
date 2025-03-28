@@ -3,7 +3,7 @@ from lib.systemManagers.baseManager import SystemManager, Task
 from lib.processing.stages import File
 from lib.processing.scripts import OutputScript
 import logging
-import lib.tools.downloading as dl
+import lib.downloading as dl
 
 class _Download(Task):
     def __init__(self, filePath: Path, properties: dict):

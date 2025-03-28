@@ -7,7 +7,7 @@ import concurrent.futures
 from pathlib import Path
 import json
 import logging
-import lib.commonFuncs as cmn
+import lib.common as cmn
 
 class Crawler:
     def __init__(self, workingDir: Path, reString: str, downloadLink: str = "", maxDepth: int = -1, maxWorkers: int = 200, retries: int = 5, user: str = "", password: str = ""):

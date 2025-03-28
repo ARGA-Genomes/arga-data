@@ -1,4 +1,4 @@
-import lib.commonFuncs as cmn
+import lib.common as cmn
 from pathlib import Path
 
 baseDir = Path(__file__)

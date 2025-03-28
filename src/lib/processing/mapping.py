@@ -8,7 +8,7 @@ from pathlib import Path
 from enum import Enum
 import logging
 from dataclasses import dataclass
-import lib.commonFuncs as cmn
+import lib.common as cmn
 
 class Event(Enum):
     COLLECTION = "collections"

@@ -9,7 +9,7 @@ from lib.systemManagers.updating import UpdateManager
 
 from lib.processing.stages import Step
 
-from lib.tools.crawler import Crawler
+from lib.crawler import Crawler
 import logging
 
 class Retrieve(Enum):

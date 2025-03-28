@@ -2,7 +2,7 @@ from xml.etree import cElementTree as ET
 from pathlib import Path
 from typing import Generator
 import concurrent.futures as cf
-from lib.tools.bigFileWriter import BigFileWriter
+from lib.bigFileWriter import BigFileWriter
 import pandas as pd
 
 class ElementContainer:

@@ -2,8 +2,8 @@ import json
 import pandas as pd
 import requests
 from pathlib import Path
-import lib.tools.downloading as dl
-import lib.tools.zipping as zp
+import lib.downloading as dl
+import lib.zipping as zp
 from bs4 import BeautifulSoup
 
 def download(url: str, outputDir: Path, overwrite: bool = False) -> Path:

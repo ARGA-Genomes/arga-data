@@ -1,11 +1,11 @@
 import requests
 from pathlib import Path
-import lib.commonFuncs as cmn
+import lib.common as cmn
 import yaml
 import csv
 from yaml.scanner import ScannerError
 import json
-from lib.tools.downloader import Downloader
+import lib.downloading as dl
 
 def build(outputFilePath: Path, savedFilePath: Path) -> None:
     location = "https://42basepairs.com/api/v1/files/s3/genomeark/species/"
@@ -25,7 +25,6 @@ def build(outputFilePath: Path, savedFilePath: Path) -> None:
 
     allData = []
     columns = []
-    downloader = Downloader()
     for species in speciesList:
         name = species.get("name", "")
 
@@ -35,7 +34,7 @@ def build(outputFilePath: Path, savedFilePath: Path) -> None:
         downloadURL = baseDLUrl + name + "metadata.yaml"
         filePath = outputFilePath.parent / f"{name[:-1]}_metadata.yaml"
         if not filePath.exists():
-            success = downloader.download(downloadURL, filePath)
+            success = dl.download(downloadURL, filePath)
             if not success:
                 continue
 
