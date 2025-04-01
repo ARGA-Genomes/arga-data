@@ -1,10 +1,10 @@
 from pathlib import Path
-from lib.tools.logger import Logger
+import logging
 from lib.processing.stages import File
-from lib.tools.bigFileWriter import BigFileWriter
+from lib.bigFileWriter import BigFileWriter
 import time
 import pandas as pd
-from lib.tools.progressBar import SteppableProgressBar
+from lib.progressBar import SteppableProgressBar
 from threading import Thread
 from queue import Queue
 from typing import Generator
@@ -15,12 +15,12 @@ import json
 
 def getStats(summaryFile: File, outputPath: Path, apiKeyPath: Path = None):
     if apiKeyPath is not None and apiKeyPath.exists():
-        Logger.info("Found API key")
+        logging.info("Found API key")
         with open(apiKeyPath) as fp:
             apiKey = fp.read().rstrip("\n")
         maxRequests = 10
     else:
-        Logger.info("No API key found, limiting requests to 3/second")
+        logging.info("No API key found, limiting requests to 3/second")
         apiKey = ""
         maxRequests = 3
 

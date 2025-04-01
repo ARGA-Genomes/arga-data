@@ -1,6 +1,6 @@
 from pathlib import Path
 import pandas as pd
-import lib.commonFuncs as cmn
+import lib.common as cmn
 
 def denormalize(filePath: Path, outputFilePath: Path) -> None:
     df = pd.read_csv(filePath)

@@ -1,6 +1,6 @@
 from pathlib import Path
 from lib.processing.stages import File, Folder
-from lib.tools.logger import Logger
+import logging
 import importlib.util
 from enum import Enum
 import traceback
@@ -44,7 +44,7 @@ class FunctionScript:
         self.kwargs = {key: self._parsePath(arg) for key, arg in self.kwargs.items()}
 
         for parameter in scriptInfo:
-            Logger.debug(f"Unknown script parameter: {parameter}")
+            logging.debug(f"Unknown script parameter: {parameter}")
 
     def _importFunction(self, modulePath: Path, functionName: str) -> callable:
         spec = importlib.util.spec_from_file_location(modulePath.name, modulePath)
@@ -81,8 +81,8 @@ class FunctionScript:
         try:
             processFunction = self._importFunction(self.path, self.function)
         except:
-            Logger.error(f"Error importing function '{self.function}' from path '{self.path}'")
-            Logger.error(traceback.format_exc())
+            logging.error(f"Error importing function '{self.function}' from path '{self.path}'")
+            logging.error(traceback.format_exc())
             return False, None
 
         args = self.args + inputArgs
@@ -96,18 +96,18 @@ class FunctionScript:
                 if self.args:
                     msg += " and"
                 msg += f" with kwargs {kwargs}"
-            Logger.info(msg)
+            logging.info(msg)
         
         try:
             retVal = processFunction(*args, **kwargs)
         except KeyboardInterrupt:
-            Logger.info("Cancelled external script")
+            logging.info("Cancelled external script")
             return False, None
         except PermissionError:
-            Logger.info("External script does not have permission to modify file, potentially open")
+            logging.info("External script does not have permission to modify file, potentially open")
             return False, None
         except:
-            Logger.error(f"Error running external script:\n{traceback.format_exc()}")
+            logging.error(f"Error running external script:\n{traceback.format_exc()}")
             return False, None
                 
         return True, retVal
@@ -147,14 +147,14 @@ class OutputScript(FunctionScript):
         
         parsedArg = self._parseSelectorArg(arg[1:-1])
         if  isinstance(parsedArg, str):
-            Logger.warning(f"Unknown key code: {parsedArg}")
+            logging.warning(f"Unknown key code: {parsedArg}")
             return arg
         
         return parsedArg
 
     def _parseSelectorArg(self, argKey: str) -> Path | str:
         if "-" not in argKey:
-            Logger.warning(f"Both file type and file property not present in arg, deliminate with '-'")
+            logging.warning(f"Both file type and file property not present in arg, deliminate with '-'")
             return argKey
         
         fType, fProperty = argKey.split("-")
@@ -167,16 +167,16 @@ class OutputScript(FunctionScript):
 
         fTypeEnum = FileSelect._value2member_map_.get(fType, None)
         if fTypeEnum is None:
-            Logger.error(f"Invalid file type: '{file}'")
+            logging.error(f"Invalid file type: '{file}'")
             return argKey
 
         files = self.fileLookup.get(fTypeEnum, None)
         if files is None:
-            Logger.error(f"No files provided for file type: '{fType}")
+            logging.error(f"No files provided for file type: '{fType}")
             return argKey
 
         if selection > len(files):
-            Logger.error(f"File selection '{selection}' out of range for file type '{fType}' which has a length of '{len(files)}")
+            logging.error(f"File selection '{selection}' out of range for file type '{fType}' which has a length of '{len(files)}")
             return argKey
         
         file: File = files[selection]
@@ -192,13 +192,13 @@ class OutputScript(FunctionScript):
         if fProperty == _FileProperty.STEM.value:
             return file.filePath.stem
         
-        Logger.error(f"Unable to parse file property: '{fProperty}")
+        logging.error(f"Unable to parse file property: '{fProperty}")
         return argKey
 
     def run(self, overwrite: bool, verbose: bool, inputArgs: list = [], inputKwargs: dict = {}) -> tuple[bool, any]:
         if self.output.exists():
             if not overwrite:
-                Logger.info(f"Output {self.output} exist and not overwriting, skipping '{self.function}'")
+                logging.info(f"Output {self.output} exist and not overwriting, skipping '{self.function}'")
                 return True, None
             
             self.output.backUp(True)
@@ -209,11 +209,11 @@ class OutputScript(FunctionScript):
             return False, retVal
         
         if not self.output.exists():
-            Logger.warning(f"Output {self.output} was not created")
+            logging.warning(f"Output {self.output} was not created")
             self.output.restoreBackUp()
             return False, retVal
         
-        Logger.info(f"Created file {self.output}")
+        logging.info(f"Created file {self.output}")
         self.output.deleteBackup()
         return True, retVal
 

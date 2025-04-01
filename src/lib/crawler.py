@@ -6,8 +6,8 @@ from bs4 import BeautifulSoup
 import concurrent.futures
 from pathlib import Path
 import json
-from lib.tools.logger import Logger
-import lib.commonFuncs as cmn
+import logging
+import lib.common as cmn
 
 class Crawler:
     def __init__(self, workingDir: Path, reString: str, downloadLink: str = "", maxDepth: int = -1, maxWorkers: int = 200, retries: int = 5, user: str = "", password: str = ""):
@@ -33,10 +33,10 @@ class Crawler:
             folderURLs.append(url)
             subDirDepth = 0
         elif not folderURLs: # Found progress but no more folders left to search
-            Logger.info("Nothing left to crawl, exiting...")
+            logging.info("Nothing left to crawl, exiting...")
             return
         
-        Logger.info("Crawling...")
+        logging.info("Crawling...")
         while len(folderURLs):
             newFolders = []
             errorFolders = []

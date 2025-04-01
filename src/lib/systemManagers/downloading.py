@@ -2,8 +2,8 @@ from pathlib import Path
 from lib.systemManagers.baseManager import SystemManager, Task
 from lib.processing.stages import File
 from lib.processing.scripts import OutputScript
-from lib.tools.logger import Logger
-import lib.tools.downloading as dl
+import logging
+import lib.downloading as dl
 
 class _Download(Task):
     def __init__(self, filePath: Path, properties: dict):
@@ -21,7 +21,7 @@ class _URLDownload(_Download):
 
     def runTask(self, overwrite: bool, verbose: bool) -> bool:
         if not overwrite and self.file.exists():
-            Logger.info(f"Output file {self.file.filePath} already exists")
+            logging.info(f"Output file {self.file.filePath} already exists")
             return False
         
         self.file.filePath.unlink(True)
@@ -80,7 +80,7 @@ class DownloadManager(SystemManager):
         try:
             download = _ScriptDownload(self.baseDir, self.downloadDir, scriptInfo)
         except AttributeError as e:
-            Logger.error(f"Invalid download script configuration: {e}")
+            logging.error(f"Invalid download script configuration: {e}")
             return False
         
         self.downloads.append(download)

@@ -6,9 +6,9 @@ import json
 import lib.config as cfg
 from pathlib import Path
 from enum import Enum
-from lib.tools.logger import Logger
+import logging
 from dataclasses import dataclass
-import lib.commonFuncs as cmn
+import lib.common as cmn
 
 class Event(Enum):
     COLLECTION = "collections"
@@ -39,7 +39,7 @@ class Map:
     @classmethod
     def fromFile(cls, filePath: Path) -> Map:
         if not filePath.exists():
-            Logger.warning(f"No DWC map found at path: {filePath}")
+            logging.warning(f"No DWC map found at path: {filePath}")
             return cls()
         
         with open(filePath) as fp:
@@ -48,7 +48,7 @@ class Map:
         mappings = {}
         for event, dwcMap in rawMap.items():
             if event not in Event._value2member_map_:
-                Logger.warning(f"Unknown event: {event}, skipping")
+                logging.warning(f"Unknown event: {event}, skipping")
                 continue
 
             mappings[Event(event)] = dwcMap
@@ -63,7 +63,7 @@ class Map:
         try:
             df = pd.read_csv(retrieveURL, keep_default_na=False)
         except urllib.error.HTTPError:
-            Logger.warning(f"Unable to read sheet with id: {sheetID}")
+            logging.warning(f"Unable to read sheet with id: {sheetID}")
             return cls()
 
         fields = "Field Name"
@@ -203,11 +203,11 @@ class Remapper:
             dwcMap = Map.fromSheets(self.mapID)
 
             if dwcMap.hasMappings():
-                Logger.info("Added sheets map")
+                logging.info("Added sheets map")
                 maps.append(dwcMap)
                 dwcMap.saveToFile(self.localMapPath)
         else:
-            Logger.info("Added local map")
+            logging.info("Added local map")
             maps.append(dwcMap)
         
         if self.customMapPath is not None:
@@ -218,13 +218,13 @@ class Remapper:
                     customMap = Map.fromSheets(self.customMapID)
 
                     if customMap.hasMappings():
-                        Logger.info("Added sheets custom map")
+                        logging.info("Added sheets custom map")
                         maps.append(customMap)
 
                         if self.customMapPath is not None:
                             customMap.saveToFile(self.customMapPath)
             else:
-                Logger.info("Added local custom map")
+                logging.info("Added local custom map")
                 maps.append(customMap)
 
         return maps
@@ -235,7 +235,7 @@ class Remapper:
 
         maps = self._loadMaps(forceRetrieve)
         if not maps:
-            Logger.error("Unable to retrieve any maps")
+            logging.error("Unable to retrieve any maps")
             return False
         
         table = TranslationTable()

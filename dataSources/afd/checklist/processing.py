@@ -3,9 +3,9 @@ import json
 from pathlib import Path
 import pandas as pd
 from io import BytesIO
-from lib.tools.bigFileWriter import BigFileWriter, Format
+from lib.bigFileWriter import BigFileWriter, Format
 from bs4 import BeautifulSoup
-from lib.tools.progressBar import SteppableProgressBar
+from lib.progressBar import SteppableProgressBar
 import re
 import traceback
 

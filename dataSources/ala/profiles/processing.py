@@ -1,7 +1,7 @@
 import json
 import requests
 from pathlib import Path
-import lib.dataframeFuncs as dff
+import lib.dataframes as dff
 import pandas as pd
 
 def collect(outputDir: Path, profile: str, tokenFilePath: Path) -> None:

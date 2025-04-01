@@ -2,7 +2,7 @@ import zipfile
 import shutil
 import gzip
 from pathlib import Path
-from lib.tools.logger import Logger
+import logging
 
 def _gunzip(gzippedFile: Path, outputfilePath: Path) -> None:
     with gzip.open(gzippedFile, "rb") as fpIn:
@@ -24,7 +24,7 @@ class RepeatExtractor:
 
 def extract(filePath: Path, outputDir: Path = None, addSuffix: str = "", overwrite: bool = False, verbose: bool = True) -> Path | None:
     if not filePath.exists():
-        Logger.warning(f"No file exists at path: {filePath}.")
+        logging.warning(f"No file exists at path: {filePath}.")
         return None
     
     if outputDir is None:
@@ -32,10 +32,10 @@ def extract(filePath: Path, outputDir: Path = None, addSuffix: str = "", overwri
     
     outputPath = extractsTo(filePath, outputDir, addSuffix)
     if outputPath.exists() and not overwrite:
-        Logger.info(f"Output {outputPath.name} exists, skipping extraction stage")
+        logging.info(f"Output {outputPath.name} exists, skipping extraction stage")
         return outputPath
 
-    Logger.info(f"Extracting {filePath} to {outputPath}")
+    logging.info(f"Extracting {filePath} to {outputPath}")
     shutil.unpack_archive(filePath, outputPath)
     return outputPath
 

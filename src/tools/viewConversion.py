@@ -1,7 +1,7 @@
 from lib.data.argParser import ArgParser
 from lib.processing.stages import Step
 from lib.processing.mapping import Event
-from lib.tools.logger import Logger
+import logging
 
 if __name__ == '__main__':
     parser = ArgParser(description="View portion of DWC file")
@@ -41,4 +41,4 @@ if __name__ == '__main__':
             fileName = f"{event}{suffix}"
             df[event].to_csv(folderPath / fileName, sep=delim, index=False)
 
-        Logger.info(f"Created folder: {folderPath}")
+        logging.info(f"Created folder: {folderPath}")

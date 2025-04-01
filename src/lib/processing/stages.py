@@ -1,9 +1,9 @@
 import pandas as pd
-import lib.commonFuncs as cmn
+import lib.common as cmn
 from pathlib import Path
 from enum import Enum
 from collections.abc import Iterator
-from lib.tools.logger import Logger
+import logging
 
 class Step(Enum):
     DOWNLOAD   = 0
@@ -31,7 +31,7 @@ class File:
         newPath = self.filePath.parent / f"{self.filePath.stem}_backup{self.filePath.suffix}"
         if newPath.exists():
             if not overwrite:
-                Logger.info("Unable to create new backup as it already exists")
+                logging.info("Unable to create new backup as it already exists")
                 return
         
             newPath.unlink()

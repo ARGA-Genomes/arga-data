@@ -1,7 +1,9 @@
-[files]
-
 [folders]
 src = "./src" # Source folder for all python code
 dataSources = "./dataSources" # Location of all source related files
-mapping = "./mapping" # Location for map files
 logs = "./logs" # Location of all logging files
+package = "" # Location for packaged files to be put in, leave blank to leave in respective dataSource location
+
+[settings]
+logToConsole = true
+logLevel = "debug" # Log levels: debug, info, warning, error, critical

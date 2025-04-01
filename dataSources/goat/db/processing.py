@@ -2,7 +2,7 @@ import requests
 from urllib.parse import quote
 import pandas as pd
 from pathlib import Path
-from lib.tools.downloader import Downloader
+from lib.downloader import Downloader
 
 def buildCall(size: int, query: str, tidy: bool) -> str:
     baseURL = "https://goat.genomehubs.org/api/v2/"

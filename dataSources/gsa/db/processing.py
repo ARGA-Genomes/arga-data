@@ -1,4 +1,4 @@
-from lib.tools.crawler import Crawler
+from lib.crawler import Crawler
 import pandas as pd
 from pathlib import Path
 

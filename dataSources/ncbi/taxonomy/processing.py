@@ -1,8 +1,8 @@
 from pathlib import Path
 import pandas as pd
 from enum import Enum
-from lib.tools.logger import Logger
-from lib.tools.progressBar import SteppableProgressBar
+import logging
+from lib.progressBar import SteppableProgressBar
 
 class DumpFile(Enum):
     NODES = "nodes.dmp"
