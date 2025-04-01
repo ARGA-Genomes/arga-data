@@ -161,7 +161,7 @@ class BasicDB:
             logging.info(f"Process ended early when attempting to execute step '{step.name}' for {self}")
 
     def package(self) -> Path:
-        outputDir = cfg.Settings.package if isinstance(cfg.Settings.package, Path) else self.dataDir
+        outputDir = cfg.Settings.package if isinstance(cfg.Folders.package, Path) else self.dataDir
         outputPath = self.conversionManager.package(outputDir)
         if outputPath is not None:
             logging.info(f"Successfully zipped converted data source file to {outputPath}")

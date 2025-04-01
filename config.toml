@@ -6,4 +6,4 @@ package = "" # Location for packaged files to be put in, leave blank to leave in
 
 [settings]
 logToConsole = true
-logLevel = "debug" # Log levels: debug, info, warning, error, critical
+logLevel = "info" # Log levels: debug, info, warning, error, critical
