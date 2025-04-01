@@ -11,7 +11,10 @@ def _gunzip(gzippedFile: Path, outputfilePath: Path) -> None:
 
 
 extractableSuffixes = (".zip", ".tar", ".gz", ".xz", ".bz2")
-shutil.register_unpack_format("gz", [".gz"], _gunzip)
+try:
+    shutil.register_unpack_format("gz", [".gz"], _gunzip)
+except shutil.RegistryError:
+    pass
 
 class RepeatExtractor:
     def __init__(self, outputDir: str = "", addSuffix: str = "", overwrite: bool = False):
