@@ -5,7 +5,7 @@
     "downloading": {
         "url": "https://db.anemone.bio/dist/",
         "regex": ".*\\.tsv\\.xz",
-        "prefix": true
+        "urlPrefix": 2
     },
     "processing": {
         "parallel": [
