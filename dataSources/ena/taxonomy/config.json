@@ -11,24 +11,22 @@
     "processing": {
         "linear": [
             {
-                "path": "lib/tools/zipping.py",
+                "path": ".../zipping.py",
                 "function": "extract",
                 "args": [
                     "{IN-PATH}",
-                    "{OUTDIR}"
+                    "{OUT-DIR}"
                 ],
                 "output": "taxonomy.xml"
             },
             {
-                "path": "tools/processing/xmlProcess.py",
-                "function": "process",
+                "path": ".../xml.py",
+                "function": "basicXMLProcessor",
                 "args": [
                     "{IN-PATH}",
-                    "{OUT-PATH}"
+                    "{OUT-PATH}",
+                    100000
                 ],
-                "kwargs": {
-                    "subfileRows": 100000
-                },
                 "output": "taxonomy.csv"
             }
         ]

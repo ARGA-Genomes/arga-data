@@ -8,7 +8,7 @@
     "processing": {
         "parallel": [
             {
-                "path": "lib/tools/zipfiles.py",
+                "path": ".../zipping.py",
                 "function": "extract",
                 "args": [
                     "{IN-PATH}",

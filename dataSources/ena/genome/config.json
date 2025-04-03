@@ -10,21 +10,13 @@
     "processing": {
         "linear": [
             {
-                "path": "tools/processing/xmlProcess.py",
-                "function": "process",
+                "path": ".../xml.py",
+                "function": "basicXMLProcessor",
                 "args": [
                     "{IN-PATH}",
-                    "{OUT-PATH}"
+                    "{OUT-PATH}",
+                    150000
                 ],
-                "kwargs": {
-                    "subfileRows": 150000,
-                    "compressChild": [
-                        "CHROMOSOMES",
-                        "ASSEMBLY_LINKS",
-                        "ASSEMBLY_ATTRIBUTES",
-                        "ASSEMBLY"
-                    ]
-                },
                 "output": "genomeCollections.csv"
             }
         ]
