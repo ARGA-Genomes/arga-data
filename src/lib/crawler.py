@@ -38,8 +38,9 @@ class PageData:
     def getFullSubDirs(self) -> list[str]:
         return [urllib.parse.urljoin(self.url, dirLink) for dirLink in self.directoryLinks]
     
-    def getFullFiles(self) -> list[str]:
-        return [urllib.parse.urljoin(self.url, fileLink) for fileLink in self.fileLinks]
+    def getFullFiles(self, altDLURL: str = "") -> list[str]:
+        baseURL = self.url if not altDLURL else altDLURL
+        return [urllib.parse.urljoin(baseURL, fileLink) for fileLink in self.fileLinks]
 
 class Crawler:
     def __init__(self, outputDir: Path, username: str = "", password: str = ""):
@@ -71,6 +72,9 @@ class Crawler:
 
             self.data.append(self._parallelPageLinks(folderURLs, pattern))
             self._save()
+
+    def getFileURLs(self, altDLURL: str = "") -> list[str]:
+        return [fileURL for layer in self.data for pageData in layer for fileURL in pageData.getFullFiles(altDLURL)]
 
     def _parallelPageLinks(self, urlList: list[str], pattern: re.Pattern = None, retries: int = 5,) -> list[PageData]:
         data = []
