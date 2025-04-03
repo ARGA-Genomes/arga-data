@@ -10,6 +10,8 @@ import lib.downloading as dl
 import time
 from lib.progressBar import SteppableProgressBar
 
+depthLimit = 100
+
 class PageData:
 
     _dirStr = "directories"
@@ -54,6 +56,8 @@ class Crawler:
     def run(self, entryURL: str, fileRegex: str = None, maxDepth: int = -1, ignoreProgress: bool = False):
         self.session = requests.Session()
         pattern = re.compile(fileRegex) if fileRegex is not None else None
+        if maxDepth < 0:
+            maxDepth = depthLimit
 
         if not ignoreProgress:
             self.data = self._load()
@@ -65,7 +69,7 @@ class Crawler:
         else:
             logging.info(f"Progress found, resuming crawling at depth: {len(self.data)}")
 
-        while len(self.data) <= maxDepth or maxDepth < 0:
+        while len(self.data) <= maxDepth:
             folderURLs = [subDirURL for pageData in self.data[-1] for subDirURL in pageData.getFullSubDirs()]
             if not folderURLs:
                 break

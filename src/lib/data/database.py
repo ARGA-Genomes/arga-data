@@ -189,14 +189,14 @@ class CrawlDB(BasicDB):
         link = self.downloadConfig.pop("link", "")
         maxDepth = self.downloadConfig.pop("maxDepth", -1)
         properties = self.downloadConfig.pop("properties", {})
-        filenameURLParts = self.downloadConfig.pop("urlPrefix", 0)
+        filenameURLParts = self.downloadConfig.pop("urlPrefix", 1)
 
-        crawler = Crawler(self.downloadManager.downloadDir)
-        crawler.run(url, regex, maxDepth, Flag.PREPARE_OVERWRITE)
+        crawler = Crawler(self.subsectionDir)
+        crawler.run(url, regex, maxDepth, Flag.PREPARE_OVERWRITE in flags)
         urlList = crawler.getFileURLs(link)
 
         for url in urlList:
-            fileName = "_".join(url.split("/")[:filenameURLParts])
+            fileName = "_".join(url.split("/")[-filenameURLParts:])
             self.downloadManager.registerFromURL(url, fileName, properties)
 
 class ScriptDB(BasicDB):
