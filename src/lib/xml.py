@@ -70,20 +70,22 @@ def xmlGenerator(inputPath: Path) -> Generator[ElementContainer, None, None]:
             element.clear()
             root.clear()
 
-def xmlProcessor(inputPath: Path, outputPath: Path, entriesPerSection: int, processFunc: callable = flattenElement) -> None:
+def basicXMLProcessor(inputPath: Path, outputPath: Path, entriesPerSection: int = 0) -> None:
     iterator = xmlGenerator(inputPath)
-    writer = BigFileWriter(outputPath)
+    writer = BigFileWriter(outputPath, "xmlChunks")
     records = []
 
-    with cf.ProcessPoolExecutor() as exector:
-        futures = (exector.submit(processFunc, element) for element in iterator)
-        for idx, future in enumerate(cf.as_completed(futures), start=1):
-            print(f"At record: {idx}", end="\r")
-            records.append(future.result())
+    for idx, element in enumerate(iterator, start=1):
+        print(f"At record: {idx}", end="\r")
+        records.append(flattenElement(element))
 
-            if len(records) == entriesPerSection:
-                writer.writeDF(pd.DataFrame.from_records(records))
-                records.clear()
+        if len(records) == entriesPerSection:
+            writer.writeDF(pd.DataFrame.from_records(records))
+            records.clear()
 
+    if records:
+        writer.writeDF(pd.DataFrame.from_records(records))
+        records.clear()
+        
     print()
     writer.oneFile()
