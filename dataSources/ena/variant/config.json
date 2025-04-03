@@ -1,34 +1,33 @@
 {
+    "datasetID": "ARGA:TL:0002007",
+    "retrieveType": "crawl",
     "downloading": {
-        "retrieveType": "crawl",
-        "tasks": [
+        "url": "https://ftp.ebi.ac.uk/pub/databases/eva/rs_releases/release_4/by_species/",
+        "regex": ".*\\.txt\\.gz"
+    },
+    "processing": {
+        "parallel": [
             {
-                "url": "https://ftp.ebi.ac.uk/pub/databases/eva/rs_releases/release_4/by_species/",
-                "regex": ".*\\.txt\\.gz"
+                "path": ".../zipping.py",
+                "function": "extract",
+                "args": [
+                    "{IN-PATH}",
+                    "{OUT-DIR}"
+                ],
+                "output": "{IN-PATH.}",
+                "properties": {
+                    "sep": "\t"
+                }
             }
         ]
     },
-    "processing": [
-        {
-            "parallel": true,
-            "path": "lib/tools/zipfiles.py",
-            "function": "extract",
-            "args": [
-                "{IN-PATH}",
-                "{OUT-DIR}"
-            ],
-            "outputs": [
-                "{IN-PATH.}"
-            ]
-        }
-    ],
     "conversion": {
-        "datasetID": "ARGA:TL:0002007",
         "mapID": 1058330275
     },
-    "updating": {
+    "update": {
         "type": "weekly",
         "day": "sunday",
-        "interval": 2
+        "time": 9,
+        "repeat": 2
     }
 }

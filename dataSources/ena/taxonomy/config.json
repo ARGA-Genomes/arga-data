@@ -1,47 +1,43 @@
 {
-    "downloading": {
-        "retrieveType": "url",
-        "tasks": [
+    "datasetID": "ARGA:TL:0002004",
+    "retrieveType": "url",
+    "downloading": [
+        {
+            "url": "https://ftp.ebi.ac.uk/pub/databases/ena/taxonomy/taxonomy.xml.gz",
+            "name": "taxonomy.xml.gz"
+        }
+        
+    ],
+    "processing": {
+        "linear": [
             {
-                "url": "https://ftp.ebi.ac.uk/pub/databases/ena/taxonomy/taxonomy.xml.gz",
-                "name": "taxonomy.xml.gz"
+                "path": ".lib/zipping.py",
+                "function": "extract",
+                "args": [
+                    "{IN-PATH}",
+                    "{OUT-DIR}"
+                ],
+                "output": "taxonomy.xml"
+            },
+            {
+                "path": ".../xml.py",
+                "function": "basicXMLProcessor",
+                "args": [
+                    "{IN-PATH}",
+                    "{OUT-PATH}",
+                    100000
+                ],
+                "output": "taxonomy.csv"
             }
         ]
     },
-    "processing": [
-        {
-            "path": ".lib/zipping.py",
-            "function": "extract",
-            "args": [
-                "{IN-PATH}",
-                "{OUT-DIR}"
-            ],
-            "outputs": [
-                "taxonomy.xml"
-            ]
-        },
-        {
-            "path": "tools/processing/xmlProcess.py",
-            "function": "process",
-            "args": [
-                "{IN-PATH}",
-                "{OUT-PATH}"
-            ],
-            "kwargs": {
-                "subfileRows": 100000
-            },
-            "outputs": [
-                "taxonomy.csv"
-            ]
-        }
-    ],
     "conversion": {
-        "datasetID": "ARGA:TL:0002004",
         "mapID": 1058330275
     },
-    "updating": {
+    "update": {
         "type": "weekly",
         "day": "sunday",
-        "interval": 2
+        "time": 9,
+        "repeat": 2
     }
 }
