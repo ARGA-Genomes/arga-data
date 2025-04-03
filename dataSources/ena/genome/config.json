@@ -1,42 +1,33 @@
 {
-    "downloading": {
-        "retrieveType": "url",
-        "tasks": [
+    "datasetID": "ARGA:TL:0002006",
+    "retrieveType": "url",
+    "downloading": [
+        {
+            "url": "https://ftp.ebi.ac.uk/pub/databases/ena/genome_collections/gc.xml",
+            "name": "genomeCollections.xml"
+        }
+    ],
+    "processing": {
+        "linear": [
             {
-                "url": "https://ftp.ebi.ac.uk/pub/databases/ena/genome_collections/gc.xml",
-                "name": "genomeCollections.xml"
+                "path": ".../xml.py",
+                "function": "basicXMLProcessor",
+                "args": [
+                    "{IN-PATH}",
+                    "{OUT-PATH}",
+                    150000
+                ],
+                "output": "genomeCollections.csv"
             }
         ]
     },
-    "processing": [
-        {
-            "path": "tools/processing/xmlProcess.py",
-            "function": "process",
-            "args": [
-                "{IN-PATH}",
-                "{OUT-PATH}"
-            ],
-            "kwargs": {
-                "subfileRows": 150000,
-                "compressChild": [
-                    "CHROMOSOMES",
-                    "ASSEMBLY_LINKS",
-                    "ASSEMBLY_ATTRIBUTES",
-                    "ASSEMBLY"
-                ]
-            },
-            "outputs": [
-                "genomeCollections.csv"
-            ]
-        }
-    ],
     "conversion": {
-        "datasetID": "ARGA:TL:0002006",
         "mapID": 1058330275
     },
-    "updating": {
+    "update": {
         "type": "weekly",
         "day": "sunday",
-        "interval": 2
+        "time": 9,
+        "repeat": 2
     }
 }
