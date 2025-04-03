@@ -184,50 +184,20 @@ class CrawlDB(BasicDB):
     retrieveType = Retrieve.CRAWL
 
     def _prepareDownload(self, flags: list[Flag]) -> None:
-        properties = self.downloadConfig.pop("properties", {})
-        folderPrefix = self.downloadConfig.pop("prefix", False)
-        saveFile = self.downloadConfig.pop("saveFile", "crawl.txt")
-        saveFilePath: Path = self.subsectionDir / saveFile
-
-        if saveFilePath.exists() and not Flag.PREPARE_OVERWRITE in flags:
-            logging.info("Local file found, skipping crawling")
-            with open(saveFilePath) as fp:
-                urls = fp.read().splitlines()
-        else:
-            saveFilePath.unlink(True)
-
-            urls = self._crawl(saveFilePath.parent)
-            saveFilePath.parent.mkdir(parents=True, exist_ok=True) # Create base directory if it doesn't exist to put the file
-            with open(saveFilePath, 'w') as fp:
-                fp.write("\n".join(urls))
-
-        for url in urls:
-            fileName = self._getFileNameFromURL(url, folderPrefix)
-            self.downloadManager.registerFromURL(url, fileName, properties)
-
-    def _crawl(self, crawlerDirectory: Path) -> None:
         url = self.downloadConfig.pop("url", None)
-        regex = self.downloadConfig.pop("regex", ".*")
+        regex = self.downloadConfig.pop("regex", None)
         link = self.downloadConfig.pop("link", "")
         maxDepth = self.downloadConfig.pop("maxDepth", -1)
+        properties = self.downloadConfig.pop("properties", {})
+        filenameURLParts = self.downloadConfig.pop("urlPrefix", 1)
 
-        crawler = Crawler(crawlerDirectory, regex, link, maxDepth, user=self.downloadManager.username, password=self.downloadManager.password)
+        crawler = Crawler(self.subsectionDir)
+        crawler.run(url, regex, maxDepth, Flag.PREPARE_OVERWRITE in flags)
+        urlList = crawler.getFileURLs(link)
 
-        if url is None:
-            raise Exception("No file location for source") from AttributeError
-        
-        crawler.crawl(url, True)
-        return crawler.getURLList()
-    
-    def _getFileNameFromURL(self, url: str, folderPrefix: bool) -> str:
-        urlParts = url.split('/')
-        fileName = urlParts[-1]
-
-        if not folderPrefix:
-            return fileName
-
-        folderName = urlParts[-2]
-        return f"{folderName}_{fileName}"
+        for url in urlList:
+            fileName = "_".join(url.split("/")[-filenameURLParts:])
+            self.downloadManager.registerFromURL(url, fileName, properties)
 
 class ScriptDB(BasicDB):
 

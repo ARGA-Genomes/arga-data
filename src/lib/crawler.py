@@ -1,135 +1,149 @@
 import re
 import requests
 import urllib.parse
-from requests.auth import HTTPBasicAuth
 from bs4 import BeautifulSoup
-import concurrent.futures
+import concurrent.futures as cf
 from pathlib import Path
 import json
 import logging
-import lib.common as cmn
+import lib.downloading as dl
+import time
+from lib.progressBar import SteppableProgressBar
+
+depthLimit = 100
+
+class PageData:
+
+    _dirStr = "directories"
+    _fileStr = "files"
+
+    def __init__(self, url: str, directoryLinks: list[str], fileLinks: list[str]):
+        self.url = url
+        self.directoryLinks = directoryLinks
+        self.fileLinks = fileLinks
+
+    def __eq__(self, other: 'PageData') -> bool:
+        return self.url == other.url
+
+    @classmethod
+    def fromPackage(cls, url: str, links: dict) -> None:
+        return cls(url, links.get(cls._dirStr, []), links.get(cls._fileStr, []))
+
+    def package(self) -> dict[str, dict[str, list[str]]]:
+        return {
+            self.url: {
+                self._dirStr: self.directoryLinks,
+                self._fileStr: self.fileLinks
+            }
+        }
+    
+    def getFullSubDirs(self) -> list[str]:
+        return [urllib.parse.urljoin(self.url, dirLink) for dirLink in self.directoryLinks]
+    
+    def getFullFiles(self, altDLURL: str = "") -> list[str]:
+        baseURL = self.url if not altDLURL else altDLURL
+        return [urllib.parse.urljoin(baseURL, fileLink) for fileLink in self.fileLinks]
 
 class Crawler:
-    def __init__(self, workingDir: Path, reString: str, downloadLink: str = "", maxDepth: int = -1, maxWorkers: int = 200, retries: int = 5, user: str = "", password: str = ""):
-        self.workingDir = workingDir
-        self.reString = reString
-        self.downloadLink = downloadLink
-        self.maxDepth = maxDepth
-        self.maxWorkers = maxWorkers
-        self.retries = retries
+    def __init__(self, outputDir: Path, username: str = "", password: str = ""):
+        self.outputDir = outputDir
+        self.auth = dl.buildAuth(username, password) if username else None
 
-        self.subdir = self.workingDir / "crawlerProgress"
+        self.progressFile = self.outputDir / "crawlerProgress.json"
+        self.session = None
+        self.data = []
 
-        self.regex = re.compile(reString)
-        self.auth = HTTPBasicAuth(user, password) if user else None
+    def run(self, entryURL: str, fileRegex: str = None, maxDepth: int = -1, ignoreProgress: bool = False):
+        self.session = requests.Session()
+        pattern = re.compile(fileRegex) if fileRegex is not None else None
+        if maxDepth < 0:
+            maxDepth = depthLimit
 
-    def crawl(self, url: str, ignoreProgress: bool = False) -> None:
-        if ignoreProgress:
-            self._clearProgress()
+        if not ignoreProgress:
+            self.data = self._load()
 
-        folderURLs, subDirDepth = self._loadProgress() # Load urls from progress
+        if not self.data:
+            self.data.append([self._getPageLinks(entryURL, pattern)])
+            self._save()
+            logging.info(f"Successfully retrieved entry url {entryURL}, crawling subfolders")
+        else:
+            logging.info(f"Progress found, resuming crawling at depth: {len(self.data)}")
 
-        if subDirDepth < 0: # No previous crawler progress
-            folderURLs.append(url)
-            subDirDepth = 0
-        elif not folderURLs: # Found progress but no more folders left to search
-            logging.info("Nothing left to crawl, exiting...")
-            return
-        
-        logging.info("Crawling...")
-        while len(folderURLs):
-            newFolders = []
-            errorFolders = []
-            matchingFiles = []
+        while len(self.data) <= maxDepth:
+            folderURLs = [subDirURL for pageData in self.data[-1] for subDirURL in pageData.getFullSubDirs()]
+            if not folderURLs:
+                break
 
-            with concurrent.futures.ThreadPoolExecutor(max_workers=self.maxWorkers) as executor:
-                futures = [executor.submit(self.getMatches, folderURL) for folderURL in folderURLs]
-                totalFolders = len(folderURLs)
-                try:
-                    for idx, future in enumerate(concurrent.futures.as_completed(futures), start=1):
-                        print(f"At depth: {subDirDepth}, folder: {idx} / {totalFolders}", end="\r")
-                        try:
-                            success, usedFolderURL, newSubFolders, newFiles = future.result(timeout=10)
-                        except concurrent.futures.TimeoutError:
-                            errorFolders.append(usedFolderURL)
-                            continue
+            self.data.append(self._parallelPageLinks(folderURLs, pattern))
+            self._save()
 
-                        if not success:
-                            errorFolders.append(usedFolderURL)
-                            continue
-                        
-                        folderURLs.remove(usedFolderURL)
-                        matchingFiles.extend(newFiles)
+    def getFileURLs(self, altDLURL: str = "") -> list[str]:
+        return [fileURL for layer in self.data for pageData in layer for fileURL in pageData.getFullFiles(altDLURL)]
 
-                        if subDirDepth < self.maxDepth or self.maxDepth < 0:
-                            newFolders.extend(newSubFolders)
+    def _parallelPageLinks(self, urlList: list[str], pattern: re.Pattern = None, retries: int = 5,) -> list[PageData]:
+        data = []
+        progress = SteppableProgressBar(len(urlList), processName=f"Crawler Depth {len(self.data)}")
+        with cf.ThreadPoolExecutor(max_workers=10) as executor:
+            futures = (executor.submit(self._getPageLinks, url, pattern, retries) for url in urlList)
+            for future in cf.as_completed(futures):
+                result = future.result()
+                progress.update()
 
-                except KeyboardInterrupt:
-                    return
+                if result is None:
+                    continue
 
-            folderURLs = newFolders.copy()
-            subDirDepth += 1
-            self.writeProgress(subDirDepth, folderURLs, matchingFiles, errorFolders)
-            print()
+                data.append(result)
 
-    def getURLList(self) -> list[str]:
-        matches = []
-        for idx, file in enumerate(self.subdir.iterdir()):
-            print(f"Collecting url from file: {idx}", end="\r")
-            with open(file) as fp:
-                data = json.load(fp)
+        return data
 
-            matches.extend(data.get("Files", []))
-        print()
-        return matches
-                
-    def getMatches(self, location: str) -> tuple[bool, str, list[str], list[str]]:
-        for attempt in range(self.retries):
+    def _getPageLinks(self, url: str, filePattern: re.Pattern = None, retries: int = 5) -> PageData:
+        if self.session is None:
+            raise Exception("No session started") from ValueError
+
+        for _ in range(retries):
             try:
-                rawHTML = requests.get(location, auth=self.auth)
+                response = self.session.get(url, auth=self.auth)
                 break
             except (ConnectionError, requests.exceptions.ConnectionError):
-                if attempt == self.retries:
-                    return (False, location, [], [])
+                time.sleep(0.5)
+        else:
+            return
+        
+        dirLinks = []
+        fileLinks = []
 
-        soup = BeautifulSoup(rawHTML.text, 'html.parser')
+        soup = BeautifulSoup(response.content, "html.parser")
+        for hyperlink in soup.find_all("a"):
+            link: str = hyperlink.get('href')
 
-        folders = []
-        matches = []
-        for link in soup.find_all('a'):
-            link = link.get('href')
-
-            if link is None:
+            if link is None or any(link.startswith(c) for c in ("/", "?")):
                 continue
-            
-            fullLink = urllib.parse.urljoin(location, link)
-            if fullLink.startswith(location) and fullLink != location and fullLink.endswith('/'): # Folder classification
-                folders.append(fullLink)
 
-            if self.regex.match(link):
-                if self.downloadLink:
-                    matches.append(urllib.parse.urljoin(self.downloadLink, link))
-                else:
-                    matches.append(fullLink)
+            if link.endswith("/"): # Subdirectory link
+                dirLinks.append(link)
+                continue
 
-        return (True, location, folders, matches)
+            # File url
+            if filePattern is None:
+                fileLinks.append(link)
+                continue
+
+            if filePattern.match(link):
+                fileLinks.append(link)
+
+        return PageData(url, dirLinks, fileLinks)
     
-    def writeProgress(self, depth: int, foundFolders: list, foundFiles: list, errorFolders: list):
-        self.subdir.mkdir(parents=True, exist_ok=True)
+    def _save(self) -> None:
+        data = [{key: value for pageData in layer for key, value in pageData.package().items()} for layer in self.data]
 
-        with open(self.subdir / f"crawler_depth_{depth}.json", "w") as fp:
-            json.dump({"Folders": foundFolders, "Files": foundFiles, "Error Folders": errorFolders}, fp, indent=4)
+        with open(self.progressFile, "w") as fp:
+            json.dump(data, fp, indent=4)
+    
+    def _load(self) -> list[list[PageData]]:
+        if not self.progressFile.exists():
+            return []
+        
+        with open(self.progressFile) as fp:
+            data = json.load(fp)
 
-    def _loadProgress(self) -> tuple[list[Path], int]:
-        files = list(self.subdir.glob("crawler_depth_*.json"))
-        sortedFiles = sorted(files, key=lambda x: int(x.stem.split("_")[-1]), reverse=True)
-        for file in sortedFiles:
-            with open(file) as fp:
-                data = json.load(fp)
-
-            if "Folders" in data:
-                return (data["Folders"], len(files))
-        return ([], -1)
-
-    def _clearProgress(self) -> None:
-        cmn.clearFolder(self.subdir, True)
+        return [[PageData.fromPackage(url, links) for url, links in layer.items()] for layer in data]

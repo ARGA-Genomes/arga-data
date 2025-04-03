@@ -3,8 +3,7 @@
     "retrieveType": "crawl",
     "downloading": {
         "url": "https://ftp.ebi.ac.uk/pub/databases/eva/rs_releases/release_4/by_species/",
-        "regex": ".*\\.txt\\.gz",
-        "depth": -1
+        "regex": ".*\\.txt\\.gz"
     },
     "processing": {
         "parallel": [
