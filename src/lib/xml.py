@@ -47,10 +47,12 @@ def xmlGenerator(inputPath: Path) -> Generator[ElementContainer, None, None]:
 
     currentElement = ElementContainer(mainElement)
     mainTag = currentElement.tag
+    depth = 1
 
     for event, element in context:
         if event == "start":
             nextElement = ElementContainer(element, currentElement)
+            depth += 1
 
             if currentElement is not None:
                 currentElement.addChild(nextElement)
@@ -61,12 +63,13 @@ def xmlGenerator(inputPath: Path) -> Generator[ElementContainer, None, None]:
             if element == root:
                 break
 
-            if currentElement.tag == mainTag:
+            if currentElement.tag == mainTag and depth == 1:
                 yield currentElement
                 currentElement = None
             else:
                 currentElement = currentElement.parent
 
+            depth -= 1
             element.clear()
             root.clear()
 
