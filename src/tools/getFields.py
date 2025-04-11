@@ -40,13 +40,13 @@ if __name__ == '__main__':
     parser = ArgParser(description="Get column names of preDwc files")
     parser.add_argument('-e', '--entries', type=int, default=50, help="Number of unique entries to get")
     parser.add_argument('-t', '--tsv', action="store_true", help="Output as tsv instead")
-    parser.add_argument('-u', '--uniques', action="store_true", help="Find unique values only, ignoring record")
+    parser.add_argument('-U', '--uniques', action="store_true", help="Find unique values only, ignoring record")
     parser.add_argument('-c', '--chunksize', type=int, default=128, help="File chunk size to read at a time")
     parser.add_argument('-s', '--seed', type=int, default=-1, help="Specify seed to run")
     parser.add_argument('-f', '--firstrow', type=int, default=0, help="First row offset for reading data")
     parser.add_argument('-r', '--rows', type=int, help="Maximum amount of rows to read from file")
 
-    sources, overwrite, verbose, args = parser.parse_args()
+    sources, flags, args = parser.parse_args()
     entryLimit = args.entries
 
     for source in sources:
@@ -55,8 +55,8 @@ if __name__ == '__main__':
             outputDir.mkdir()
 
         extension = "tsv" if args.tsv else "json"
-        source._prepare(Step.CONVERSION)
-        stageFile = source.processingManager.getLatestNodeFile()[0] # Should be singular stage file before DwC
+        source._prepare(Step.CONVERSION, flags)
+        stageFile = source.processingManager.getLatestNodeFile() # Should be singular stage file before DwC
 
         if not stageFile.filePath.exists():
             print(f"File {stageFile.filePath} does not exist, have you run preDwCCreate.py yet?")
