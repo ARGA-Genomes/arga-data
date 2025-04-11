@@ -1,24 +1,31 @@
 from pathlib import Path
 import requests
-import lib.downloading as dl
+import lib.xml as xml
+from bs4 import BeautifulSoup
+from io import BytesIO
+from lib.bigFileWriter import BigFileWriter
+import pandas as pd
+from lib.progressBar import SteppableProgressBar
+import concurrent.futures as cf
+
+def _worker(ids: list[str]) -> list[dict]:
+    xmlData = requests.get(f"https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?db=nuccore&id={','.join(ids)}&rettype=fasta&retmode=xml")
+    return [xml.flattenElement(element) for element in xml.xmlGenerator(BytesIO(xmlData.content))]
 
 def retrieve(outputFilePath: Path):
-    nucResponse = requests.get("https://www.ncbi.nlm.nih.gov/nuccore/?term=%22+sp.%22+AND+country%3DAustralia+NOT+viruses+NOT+bacteria+NOT+archaea")
-    phid = nucResponse.headers.get("ncbi-phid").split(".")[0]
-    nucFile = outputFilePath.parent / "sequence.fasta.xml"
-
-    if not nucFile.exists():
-        dl.download(f"https://www.ncbi.nlm.nih.gov/sviewer/viewer.cgi?tool=portal&save=file&log$=seqview&db=nuccore&report=fasta_xml&query_key=1&filter=all&extrafeat=undefined&ncbi_phid={phid}", nucFile)
-
+    response = requests.get(f"https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?db=nuccore&term=\"+sp.\"+AND+country%3DAustralia+NOT+viruses+NOT+bacteria+NOT+archaea&retmax=500000")
+    soup = BeautifulSoup(response.content, "xml")
+    ids = [id.text for id in soup.find_all("Id")]
     
+    recordsPerCall = 200
+    totalCalls = (len(ids) / recordsPerCall).__ceil__()
+    progress = SteppableProgressBar(totalCalls)
 
-# "downloading": [
-#         {
-#             "url": ",
-#             "name": "sequence.fasta.xml"
-#         },
-#         {
-#             "url": "https://www.ncbi.nlm.nih.gov/portal/utils/file_backend.cgi?Db=biosample&HistoryId=MCID_67f3130652b4f418ca522321&QueryKey=2&Sort=WITHDATA&Filter=all&CompleteResultCount=1486&Mode=file&View=fullxml&p$l=Email&portalSnapshot=%2Fprojects%2FBioSample%2Fbiosample%401.38&BaseUrl=&PortName=live&RootTag=BioSampleSet&FileName=&ContentType=xml",
-#             "name": "biosample_result.xml"
-#         }
-#     ],
+    records = []
+    with cf.ThreadPoolExecutor() as executor:
+        futures = (executor.submit(_worker, ids[call*recordsPerCall:(call+1)*recordsPerCall]) for call in range(totalCalls))
+        for future in cf.as_completed(futures):
+            records.extend(future.result())
+            progress.update()
+
+    pd.DataFrame.from_dict(records).to_csv(outputFilePath.parent / "nuccore.csv", index=False)
