@@ -118,13 +118,13 @@ class OutputScript(FunctionScript):
         self.outputDir = outputDir
 
         # Output information
-        self.output = scriptInfo.pop("output", None)
-        self.outputProperties = scriptInfo.pop("properties", {})
+        outputName = scriptInfo.pop("output", None)
+        outputProperties = scriptInfo.pop("properties", {})
 
-        if self.output is None:
+        if outputName is None:
             raise Exception("No output specified, please use FunctionScript if intentionally has no output") from AttributeError
 
-        self.output = self._parseOutput(self.outputDir / self.output, self.outputProperties)
+        self.output = self._parseOutput(outputName, outputProperties)
         self.fileLookup |= {FileSelect.OUTPUT: [self.output]}
 
         super().__init__(baseDir, scriptInfo)
@@ -132,9 +132,13 @@ class OutputScript(FunctionScript):
         self.args = [self._parseArg(arg) for arg in self.args]
         self.kwargs = {key: self._parseArg(arg) for key, arg in self.kwargs.items()}
 
-    def _parseOutput(self, outputPath: Path, outputProperties: dict) -> File:
+    def _parseOutput(self, outputName: str, outputProperties: dict) -> File:
+        return self._createFile(self.outputDir / outputName, outputProperties)
+
+    def _createFile(self, outputPath: Path, outputProperties: dict) -> File:
         if not outputPath.suffix:
             return Folder(outputPath)
+        
         return File(outputPath, outputProperties)
     
     def _parseArg(self, arg: Any) -> Path | str:
@@ -228,6 +232,10 @@ class FileScript(OutputScript):
 
         super().__init__(baseDir, scriptInfo, outputDir)
 
-    def _parseOutput(self, output: str, outputProperties: dict) -> File:
-        outputPath = self._parseArg(output)
-        return super()._parseOutput(outputPath, outputProperties)
+    def _parseOutput(self, outputName: str, outputProperties: dict) -> File:
+        parsedValue = self._parseArg(outputName)
+
+        if isinstance(parsedValue, str):
+            return super()._parseOutput(parsedValue, outputProperties)
+        
+        return self._createFile(parsedValue, outputProperties)
