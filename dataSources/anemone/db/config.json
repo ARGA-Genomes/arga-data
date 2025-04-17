@@ -15,7 +15,7 @@
                 "args": [
                     "{IN-PATH}"
                 ],
-                "output": "{IN-STEM}",
+                "output": "{IN-PATH.}",
                 "properties": {
                     "separator": "\t"
                 }

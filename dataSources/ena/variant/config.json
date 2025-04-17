@@ -14,7 +14,7 @@
                     "{IN-PATH}",
                     "{OUTDIR}"
                 ],
-                "output": "{IN-STEM}",
+                "output": "{IN-PATH.}",
                 "properties": {
                     "sep": "\t"
                 }

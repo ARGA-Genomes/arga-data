@@ -20,7 +20,7 @@
                     "{IN-PATH}",
                     "{OUTDIR}"
                 ],
-                "output": "{IN-STEM}"
+                "output": "{IN-PATH.}"
             },
             {
                 "path": "../flatFileParser.py",
@@ -28,7 +28,7 @@
                 "args": [
                     "{IN-PATH}"
                 ],
-                "output": "{IN-STEM}"
+                "output": "{IN-PATH.}"
             }
         ]
     },
