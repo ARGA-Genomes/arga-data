@@ -17,7 +17,6 @@ class _FileProperty(Enum):
     DIR  = "DIR"
     FILE = "FILE"
     PATH = "PATH"
-    STEM = "STEM"
 
 class FunctionScript:
     _libDir = cfg.Folders.src / "lib"
@@ -180,17 +179,23 @@ class OutputScript(FunctionScript):
             return argKey
         
         file: File = files[selection]
-        if fProperty == _FileProperty.DIR.value:
-            return file.filePath.parent
-        
+        fProperty, *suffixes = fProperty.split(".")
+
         if fProperty == _FileProperty.FILE.value:
+            if suffixes:
+                logging.warning("Suffix provided for a file object which cannot be resolved, suffix not applied")
             return file
         
+        if fProperty == _FileProperty.DIR.value:
+            if suffixes:
+                logging.warning("Suffix provided for a parent path which cannot be resolved, suffix not applied")
+            return file.filePath.parent
+
         if fProperty == _FileProperty.PATH.value:
-            return file.filePath
-        
-        if fProperty == _FileProperty.STEM.value:
-            return file.filePath.stem
+            pth = file.filePath
+            for suffix in suffixes:
+                pth = pth.with_suffix(suffix)
+            return pth
         
         logging.error(f"Unable to parse file property: '{fProperty}")
         return argKey
