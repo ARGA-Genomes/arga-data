@@ -29,4 +29,3 @@ The tools currently available are:
 
 ## Issues repository
 - [List of issues](https://github.com/ARGA-Genomes/arga-data/issues)
-- [Kanban Board](https://github.com/ARGA-Genomes/arga-data/projects/1)
