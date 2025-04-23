@@ -3,21 +3,18 @@
     "retrieveType": "crawl",
     "downloading": {
         "url": "https://ftp.ebi.ac.uk/pub/databases/eva/rs_releases/release_7/by_assembly/",
-        "regex": ".*current_ids\\.vcf\\.gz"
+        "regex": ".*current_ids\\.vcf\\.gz(?<!csi)$"
     },
     "processing": {
-        "parallel": [
+        "linear": [
             {
-                "path": ".../zipping.py",
-                "function": "extract",
+                "path": "./processing.py",
+                "function": "combine",
                 "args": [
-                    "{IN-PATH}",
-                    "{OUT-DIR}"
+                    "{IN-DIR}",
+                    "{OUT-PATH}"
                 ],
-                "output": "{IN-PATH.}",
-                "properties": {
-                    "sep": "\t"
-                }
+                "output": "eva.csv"
             }
         ]
     },
