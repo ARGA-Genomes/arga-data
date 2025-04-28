@@ -3,7 +3,6 @@ from lib.bigFileWriter import BigFileWriter
 import lib.zipping as zip
 import pandas as pd
 from lib.progressBar import SteppableProgressBar
-from io import StringIO
 
 def _parseMetadata(line: str) -> tuple[str, dict]:
     key, data = line[2:].split("=", 1)
@@ -33,7 +32,7 @@ def _parseInfoRow(item: str) -> pd.Series:
     
     values = item.split(";")
     splitValues = [v.split("=", 1) for v in values]
-    data = {"info": item}
+    data = {}
     for value in splitValues:
         if len(value) == 1:
             data[value[0]] = True
@@ -47,10 +46,11 @@ def _parseInfoRow(item: str) -> pd.Series:
     
     return pd.Series(data)
 
-def parseVCF(filePath: Path) -> pd.DataFrame:
+def _parseVCF(filePath: Path, outputName: str, writer: BigFileWriter) -> Path:
     metadata = {}
     with open(filePath) as fp:
         line = fp.readline().rstrip("\n")
+        headerLine = 0
         while line.startswith("##"):
             key, fields = _parseMetadata(line)
             key = key.lower()
@@ -60,36 +60,53 @@ def parseVCF(filePath: Path) -> pd.DataFrame:
                 
             metadata[key].append(fields)
 
+            headerLine += 1
             line = fp.readline().rstrip("\n")
 
-        columns = [item.strip("#").lower() for item in line.split("\t")]
-        df = pd.read_csv(fp, sep="\t", names=columns)
+    contig = pd.DataFrame.from_records(metadata.get("contig", []))
 
-    print(df.head(10))
-    contig = pd.DataFrame.from_records(metadata["contig"])
-    info = df["info"].apply(_parseInfoRow)
-    for column in ("LOE", "RS_VALIDATED"):
-        info[column].fillna(False)
+    writtenFilesLen = len(writer.writtenFiles)
+    iterator = pd.read_csv(filePath, sep="\t", header=headerLine, chunksize=500000, skip_blank_lines=True, dtype=object)
+    for idx, df in enumerate(iterator):
+        chunkName = f"{outputName}_{idx}"
+        if chunkName in writer.getSubfileNames():
+            continue
 
-    info.rename({
-        "ALMM": "alleles_mismatch",
-        "ASMM": "assembly_mismatch",
-        "LOE": "lack_of_evidence",
-        "REMAPPED": "remapped",
-        "RS_VALIDATED": "rs_validated",
-        "SID": "study_ids",
-        "SS_VALIDATED": "ss_validated",
-        "VC": "variant_class"
-    })
+        df: pd.DataFrame = df.rename({column: column.strip("#").lower() for column in df.columns}, axis=1)
+        if len(df) == 0:
+            continue
 
-    df = df.merge(info, "left", on="info", copy=False)
-    df = df.merge(contig, "left", left_on="chrom", right_on="ID", copy=False)
-    df = df.drop("ID", axis=1)
+        info = df["info"].apply(_parseInfoRow)
+        for column in ("LOE", "RS_VALIDATED"):
+            if column in info.columns:
+                info[column].fillna(False)
 
-    for key, value in metadata["reference"][0].items():
-        df[f"ref{key.capitalize()}"] = value
+        info = info.rename({
+            "ALMM": "alleles_mismatch",
+            "ASMM": "assembly_mismatch",
+            "LOE": "lack_of_evidence",
+            "REMAPPED": "remapped",
+            "RS_VALIDATED": "rs_validated",
+            "SID": "study_ids",
+            "SS_VALIDATED": "ss_validated",
+            "VC": "variant_class"
+        }, axis=1)
 
-    return df
+        df = pd.concat([df, info], axis=1)
+        df = df.merge(contig, "left", left_on="chrom", right_on="ID", copy=False)
+        df = df.drop("ID", axis=1)
+
+        for key, value in metadata["reference"][0].items():
+            df[f"ref{key.capitalize()}"] = value
+
+        writer.writeDF(df, chunkName)
+
+    if writtenFilesLen == len(writer.writtenFiles):
+        # No files written, likely due to empty vcf file
+        return
+    
+    updateSubfile = writer.writtenFiles[writtenFilesLen]
+    updateSubfile.rename(updateSubfile.filePath.parent / (updateSubfile.filePath.stem[:-2] + updateSubfile.fileFormat.value), updateSubfile.fileFormat)
 
 def combine(inputDir: Path, outputFilePath: Path):
     writer = BigFileWriter(outputFilePath)
@@ -102,8 +119,7 @@ def combine(inputDir: Path, outputFilePath: Path):
 
         if trimmedName not in completedSubfiles:
             extractedFile = zip.extract(file, outputFilePath.parent, verbose=False)
-            vcfDF = parseVCF(extractedFile)
-            writer.writeDF(vcfDF, trimmedName)
+            _parseVCF(extractedFile, trimmedName, writer)
             extractedFile.unlink()
 
         progress.update()
