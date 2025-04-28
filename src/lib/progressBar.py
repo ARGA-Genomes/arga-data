@@ -42,7 +42,7 @@ class UpdatableProgressBar(ProgressBar):
         if self._completed:
             return
         
-        outputLen = super().update(atTask / self.taskCount, extraInfo)
+        outputLen = super().update(atTask / max(1, self.taskCount), extraInfo)
 
         if atTask == self.taskCount:
             self._completed = True

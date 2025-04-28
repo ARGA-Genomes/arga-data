@@ -35,10 +35,14 @@ def extract(filePath: Path, outputDir: Path = None, addSuffix: str = "", overwri
     
     outputPath = extractsTo(filePath, outputDir, addSuffix)
     if outputPath.exists() and not overwrite:
-        logging.info(f"Output {outputPath.name} exists, skipping extraction stage")
+        if verbose:
+            logging.info(f"Output {outputPath.name} exists, skipping extraction stage")
+            
         return outputPath
 
-    logging.info(f"Extracting {filePath} to {outputPath}")
+    if verbose:
+        logging.info(f"Extracting {filePath} to {outputPath}")
+
     shutil.unpack_archive(filePath, outputPath)
     return outputPath
 

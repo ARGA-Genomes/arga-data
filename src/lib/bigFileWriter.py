@@ -132,7 +132,8 @@ class BigFileWriter:
     def populateFromFolder(self, folderPath: Path = None, logIndividually: bool = False) -> None:
         if folderPath is None:
             folderPath = self.subfileDir
-        elif not folderPath.exists():
+            
+        if not folderPath.exists():
             return
         
         fileCount = 0

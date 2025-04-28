@@ -31,7 +31,7 @@ class _ScriptDownload(_Download):
     def __init__(self, baseDir: Path, downloadDir: Path, scriptInfo: dict):
         self.script = OutputScript(baseDir, dict(scriptInfo), downloadDir)      
 
-        super().__init__(self.script.output.filePath, self.script.outputProperties)
+        super().__init__(self.script.output.filePath, self.script.output.fileProperties)
 
     def runTask(self, overwrite: bool, verbose: bool) -> bool:
         return self.script.run(overwrite, verbose)
