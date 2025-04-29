@@ -4,6 +4,7 @@ import logging
 from datetime import datetime
 import time
 from enum import Enum
+from typing import Any
 
 class Metadata(Enum):
     OUTPUT = "output"
@@ -96,8 +97,13 @@ class SystemManager:
         self.metadata[Metadata.TOTAL_TIME.value] = totalTime
         self._syncMetadata()
 
-    def getLastUpdate(self) -> datetime | None:
+    def getMetadata(self, stepIndex: int, property: Metadata) -> None | Any:
         if not self.metadata:
             return None
         
-        return datetime.fromisoformat(self.metadata[self.taskName][0][Metadata.TIMESTAMP.value])
+        return self.metadata[self.taskName][stepIndex][property.value]
+
+    def getLastUpdate(self) -> datetime | None:
+        timestamp = self.getMetadata(0, Metadata.TIMESTAMP)
+        if timestamp is not None:
+            return datetime.fromisoformat(timestamp)
