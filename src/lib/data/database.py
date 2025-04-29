@@ -172,9 +172,13 @@ class BasicDB:
         lastUpdate = self.downloadManager.getLastUpdate()
         return self.updateManager.isUpdateReady(lastUpdate)
     
-    def update(self) -> bool:
+    def update(self, flags: list[Flag]) -> bool:
+        for flag in [Flag.UPDATE, Flag.OUTPUT_OVERWRITE]:
+            if flag not in flags:
+                flags.append(flag)
+
         for step in (Step.DOWNLOAD, Step.PROCESSING, Step.CONVERSION):
-            self.create(step, (True, True), True)
+            self.create(step, flags)
 
         self.package()
 
