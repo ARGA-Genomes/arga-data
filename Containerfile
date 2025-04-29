@@ -13,5 +13,5 @@ RUN mkdir logs data
 
 ENV PYTHONPATH="${PYTHONPATH}:/usr/src/arga-data/src"
 
-VOLUME /usr/src/arga-data/data
+VOLUME /usr/src/arga-data/package
 VOLUME /usr/src/arga-data/logs
