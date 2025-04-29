@@ -176,6 +176,8 @@ class BasicDB:
         for step in (Step.DOWNLOAD, Step.PROCESSING, Step.CONVERSION):
             self.create(step, (True, True), True)
 
+        self.package()
+
     def _verboseFlags(self, flags: list[Flag]) -> str:
         return " | ".join(f"{flag.value}={flag in flags}" for flag in Flag)
 

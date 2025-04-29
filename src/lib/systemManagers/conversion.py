@@ -1,5 +1,4 @@
 import pandas as pd
-import numpy as np
 from pathlib import Path
 import lib.common as cmn
 from lib.bigFileWriter import BigFileWriter
@@ -10,7 +9,7 @@ from lib.systemManagers.baseManager import SystemManager, Metadata
 import logging
 import gc
 import time
-from datetime import datetime
+from datetime import datetime, date
 import lib.zipping as zp
 
 class ConversionManager(SystemManager):
@@ -20,12 +19,23 @@ class ConversionManager(SystemManager):
         super().__init__(dataDir.parent, self.stepName, "tasks")
 
         self.conversionDir = dataDir / self.stepName
-        self.location = location
+
         self.datasetID = datasetID
+        self.location = location
+        self.database = database
+        self.subsection = subsection
 
-        self.output = StackedFile(self.conversionDir / (f"{location}-{database}" + (f"-{subsection}" if subsection else "")))
+        self.file = None
 
-        self.fileLoaded = False
+    def _generateFileName(self, withTimestamp: bool) -> StackedFile:
+        sourceName = f"{self.location}-{self.database}"
+        if self.subsection:
+            sourceName += f"-{self.subsection}"
+        
+        if withTimestamp:
+            sourceName += date.today().strftime("-%Y-%m-%d")
+
+        return StackedFile(self.conversionDir / sourceName)
 
     def loadFile(self, file: File, properties: dict, mapDir: Path) -> None:
         self.file = file
@@ -40,13 +50,16 @@ class ConversionManager(SystemManager):
         self.skipRemap = properties.pop("skipRemap", [])
         self.preserveDwC = properties.pop("preserveDwC", False)
         self.prefixUnmapped = properties.pop("prefixUnmapped", True)
+
+        timestamp = properties.pop("timestamp", True)
+        self.output = self._generateFileName(timestamp)
+
         self.augments = [FunctionScript(self.baseDir, augProperties) for augProperties in properties.pop("augment", [])]
 
         self.remapper = Remapper(mapDir, self.mapID, self.customMapID, self.customMapPath, self.location, self.preserveDwC, self.prefixUnmapped)
-        self.fileLoaded = True
 
     def convert(self, overwrite: bool = False, verbose: bool = True, ignoreRemapErrors: bool = True, forceRetrieve: bool = False) -> bool:
-        if not self.fileLoaded:
+        if self.file is None:
             logging.error("No file loaded for conversion, exiting...")
             return False
 
@@ -145,8 +158,14 @@ class ConversionManager(SystemManager):
             
         return df
     
-    def package(self, compressLocation: Path) -> Path:
-        renamedFile = self.metadataPath.rename(self.output.filePath / self.metadataPath.name)
-        outputPath = zp.compress(self.output.filePath, compressLocation)
+    def package(self, compressLocation: Path) -> Path | None:
+        outputFileName = self.getMetadata(-1, Metadata.OUTPUT)
+        if outputFileName is None:
+            return
+        
+        outputFilePath = self.conversionDir / outputFileName
+        renamedFile = self.metadataPath.rename(outputFilePath / self.metadataPath.name)
+        outputPath = zp.compress(outputFilePath, compressLocation)
         renamedFile.rename(self.metadataPath)
+        
         return outputPath
