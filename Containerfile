@@ -9,9 +9,9 @@ COPY . .
 
 RUN pip install --no-cache-dir -r reqs.txt
 
-RUN mkdir logs data
+RUN mkdir /data /data/package /data/logs
 
 ENV PYTHONPATH="${PYTHONPATH}:/usr/src/arga-data/src"
 
-VOLUME /usr/src/arga-data/package
-VOLUME /usr/src/arga-data/logs
+VOLUME /data/package
+VOLUME /data/logs
