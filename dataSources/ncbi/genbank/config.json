@@ -1,27 +1,35 @@
 {
     "datasetID": "ARGA:TL:0002003",
     "retrieveType": "url",
-    "download": {
-        "files": [
-            {
-                "url": "https://ftp.ncbi.nih.gov/genomes/genbank/assembly_summary_genbank.txt",
-                "name": "assembly_summary_genbank.tsv",
-                "properties": {
-                    "separator": "\t",
-                    "firstrow": 1
-                }
+    "downloading": [
+        {
+            "url": "https://ftp.ncbi.nih.gov/genomes/genbank/assembly_summary_genbank.txt",
+            "name": "assembly_summary_genbank.tsv",
+            "properties": {
+                "separator": "\t",
+                "firstrow": 1
             }
-        ]
-    },
+        }
+    ],
     "processing": {
-        "final": [
+        "linear": [
             {
                 "path": "../sharedProcessing.py",
-                "function": "enrichStats",
+                "function": "getStats",
                 "args": [
-                    "{INFILE}",
-                    "{OUTPATH}",
+                    "{IN-FILE}",
+                    "{OUT-PATH}",
                     "./apikey.txt"
+                ],
+                "output": "apiData.csv"
+            },
+            {
+                "path": "../sharedProcessing.py",
+                "function": "merge",
+                "args": [
+                    "{D0-FILE}",
+                    "{IN-PATH}",
+                    "{OUT-PATH}"
                 ],
                 "output": "genbank.csv"
             }
@@ -29,28 +37,12 @@
     },
     "conversion": {
         "mapID": 2003682060,
-        "customMapPath": "./customColumns.json",
-        "setNA": [
-            "na"
-        ],
-        "fillNA": {
-            "assemblies": {
-                "datasetID": {
-                    "assemblies": [
-                        "sequence_id"
-                    ],
-                    "annotations": [
-                        "sequence_id"
-                    ],
-                    "depositions": [
-                        "sequence_id"
-                    ],
-                    "sequences": [
-                        "record_id"
-                    ]
-                }
+        "augment": [
+            {
+                "path": "../sharedProcessing.py",
+                "function": "genbankAugment"
             }
-        }
+        ]
     },
     "update": {
         "type": "weekly",

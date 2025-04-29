@@ -1,21 +1,20 @@
 {
     "datasetID": "ARGA:TL:0002007",
     "retrieveType": "crawl",
-    "download": {
+    "downloading": {
         "url": "https://ftp.ebi.ac.uk/pub/databases/eva/rs_releases/release_4/by_species/",
-        "regex": ".*\\.txt\\.gz",
-        "depth": -1
+        "regex": ".*\\.txt\\.gz"
     },
     "processing": {
-        "perFile": [
+        "parallel": [
             {
                 "path": "lib/tools/zipfiles.py",
                 "function": "extract",
                 "args": [
-                    "{INPATH}",
+                    "{IN-PATH}",
                     "{OUTDIR}"
                 ],
-                "output": "{INSTEM}",
+                "output": "{IN-PATH.}",
                 "properties": {
                     "sep": "\t"
                 }

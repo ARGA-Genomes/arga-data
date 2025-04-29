@@ -1,10 +1,10 @@
 {
     "retrieveType": "script",
-    "download": {
+    "downloading": {
         "path": "./processing.py",
         "function": "collect",
         "args": [
-            "{OUTPATH}"
+            "{OUT-PATH}"
         ],
         "output": "lists.csv"
     },

@@ -1,8 +1,21 @@
 import zipfile
 import shutil
+import gzip
 from pathlib import Path
-from lib.tools.logger import Logger
-        
+import logging
+
+def _gunzip(gzippedFile: Path, outputfilePath: Path) -> None:
+    with gzip.open(gzippedFile, "rb") as fpIn:
+        with open(outputfilePath, "wb") as fpOut:
+            shutil.copyfileobj(fpIn, fpOut)
+
+
+extractableSuffixes = (".zip", ".tar", ".gz", ".xz", ".bz2")
+try:
+    shutil.register_unpack_format("gz", [".gz"], _gunzip)
+except shutil.RegistryError:
+    pass
+
 class RepeatExtractor:
     def __init__(self, outputDir: str = "", addSuffix: str = "", overwrite: bool = False):
         self.outputDir = outputDir
@@ -14,7 +27,7 @@ class RepeatExtractor:
 
 def extract(filePath: Path, outputDir: Path = None, addSuffix: str = "", overwrite: bool = False, verbose: bool = True) -> Path | None:
     if not filePath.exists():
-        Logger.warning(f"No file exists at path: {filePath}.")
+        logging.warning(f"No file exists at path: {filePath}.")
         return None
     
     if outputDir is None:
@@ -22,10 +35,14 @@ def extract(filePath: Path, outputDir: Path = None, addSuffix: str = "", overwri
     
     outputPath = extractsTo(filePath, outputDir, addSuffix)
     if outputPath.exists() and not overwrite:
-        Logger.info(f"Output {outputPath.name} exists, skipping extraction stage")
+        if verbose:
+            logging.info(f"Output {outputPath.name} exists, skipping extraction stage")
+            
         return outputPath
 
-    Logger.info(f"Extracting {filePath} to {outputPath}")
+    if verbose:
+        logging.info(f"Extracting {filePath} to {outputPath}")
+
     shutil.unpack_archive(filePath, outputPath)
     return outputPath
 
@@ -55,10 +72,10 @@ def compress(filePath: Path, outputDir: Path = None, zipName: str = None) -> Pat
     return outputFile
 
 def canBeExtracted(filePath: Path) -> bool:
-    return any(suffix in (".zip", ".tar", ".gz", ".xz", ".bz2") for suffix in filePath.suffixes)
+    return any(suffix in extractableSuffixes for suffix in filePath.suffixes)
 
 def extractsTo(filePath: Path, outputDir: Path = None, addSuffix: str = "") -> Path:
-    outputPath = outputDir / filePath.name[:-len("".join(filePath.suffixes))]
+    outputPath = outputDir / filePath.name[:-len("".join(suffix for suffix in filePath.suffixes if suffix in extractableSuffixes))]
     if addSuffix:
         outputPath = outputPath.with_suffix(addSuffix)
     

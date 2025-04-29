@@ -57,19 +57,19 @@
         }
     },
     "retrieveType": "crawl",
-    "download": {
+    "downloading": {
         "url": "https://ftp.ncbi.nlm.nih.gov/genbank/",
         "regex": "gb{SUBSECTION:NAME}\\d+\\.seq\\.gz",
         "maxDepth": 0
     },
     "processing": {
-        "final": [
+        "linear": [
             {
                 "path": "./processing.py",
                 "function": "parse",
                 "args": [
-                    "{INDIR}",
-                    "{OUTPATH}"
+                    "{IN-DIR}",
+                    "{OUT-PATH}"
                 ],
                 "output": "{SUBSECTION}.csv"
             }

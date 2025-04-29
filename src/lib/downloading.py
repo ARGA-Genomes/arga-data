@@ -2,8 +2,8 @@ import requests
 from pathlib import Path
 from requests.auth import HTTPBasicAuth
 from requests.exceptions import HTTPError
-from lib.tools.logger import Logger
-from lib.tools.progressBar import ProgressBar
+import logging
+from lib.progressBar import ProgressBar
 
 class RepeatDownloader:
     def __init__(self, headers: dict = {}, username: str = "", password: str = "", chunkSize: int = 1024*1024, verbose: bool = False):
@@ -21,25 +21,24 @@ def buildAuth(username: str, password: str) -> HTTPBasicAuth:
 
 def download(url: str, filePath: Path, chunkSize: int = 1024*1024, verbose: bool = False, headers: dict = {}, auth: HTTPBasicAuth = None) -> bool:
     if chunkSize <= 0:
-        Logger.error(f"Invalid chunk size `{chunkSize}`, value must be greater than 0")
+        logging.error(f"Invalid chunk size `{chunkSize}`, value must be greater than 0")
         return False
     
     if verbose:
-        Logger.info(f"Downloading from {url} to file {filePath.absolute()}")
+        logging.info(f"Downloading from {url} to file {filePath.absolute()}")
         progressBar = ProgressBar(processName="Downloading")
-        
 
     try:
         requests.head(url, auth=auth, headers=headers)
     except requests.exceptions.InvalidSchema as e:
-        Logger.error(f"Schema error: {e}")
+        logging.error(f"Schema error: {e}")
         return False
 
     with requests.get(url, stream=True, auth=auth, headers=headers) as stream:
         try:
             stream.raise_for_status()
         except HTTPError:
-            Logger.error("Received HTTP error")
+            logging.error("Received HTTP error")
             return False
         
         fileSize = int(stream.headers.get("Content-Length", 0))

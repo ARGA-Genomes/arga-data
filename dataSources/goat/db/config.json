@@ -1,22 +1,22 @@
 {
     "datasetID": "ARGA:TL:0000184",
     "retrieveType": "script",
-    "download": {
+    "downloading": {
         "path": "./processing.py",
         "function": "build",
         "args": [
-            "{OUTPATH}"
+            "{OUT-PATH}"
         ],
         "output": "rawgoat.csv"
     },
     "processing": {
-        "perFile": [
+        "parallel": [
             {
                 "path": "./processing.py",
                 "function": "clean",
                 "args": [
-                    "{INPATH}",
-                    "{OUTPATH}"
+                    "{IN-PATH}",
+                    "{OUT-PATH}"
                 ],
                 "output": "cleanedgoat.csv"
             }

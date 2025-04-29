@@ -1,75 +1,80 @@
 from pathlib import Path
 from lib.processing.stages import File
-from lib.processing.scripts import Script
-from lib.tools.logger import Logger
-import time
-from datetime import datetime
+from lib.processing.scripts import FileScript, FileSelect
+from lib.systemManagers.baseManager import SystemManager, Task
+import logging
 
-class _Node:
-    def __init__(self, script: Script, parents: list['_Node']):
+class _Node(Task):
+    def __init__(self, index: str, script: FileScript, parents: list['_Node']):
+        self.index = index
         self.script = script
         self.parents = parents
-        self.executed = False
 
-    def getOutput(self) -> File:
+    def __eq__(self, other: '_Node'):
+        return self.index == other.index
+
+    def getOutputPath(self) -> Path:
+        return self.script.output.filePath
+
+    def getOutputFile(self) -> File:
         return self.script.output
     
-    def getFunction(self) -> str:
-        return self.script.function
+    def getRequirements(self, tasks: list['_Node']) -> list['_Node']:
+        newTasks = []
 
-    def execute(self, overwrite: bool, verbose: bool) -> tuple[bool, list[dict]]:
-        metadata = []
-
-        if self.executed:
-            return True, metadata
-        
-        parentSuccess = True
         for parent in self.parents:
-            success, metadata = parent.execute(overwrite, verbose)
-            parentSuccess = parentSuccess and success
-        
-        if not parentSuccess:
-            return False, metadata
-        
-        stattTime = time.perf_counter()
-        success = self.script.run(overwrite, verbose)
+            if parent not in tasks:
+                newTasks.extend(parent.getRequirements(tasks + newTasks))
 
-        metadata.append({
-            "function": self.getFunction(),
-            "output": self.getOutput().filePath.name,
-            "success": success,
-            "duration": time.perf_counter() - stattTime,
-            "timestamp": datetime.now().isoformat()
-        })
+        newTasks.append(self)
+        return newTasks
 
-        self.executed = success
-        return success, metadata
+    def runTask(self, overwrite: bool, verbose: bool) -> bool:
+        return self.script.run(overwrite, verbose)[0] # No retval for processing tasks, just return success
 
 class _Root(_Node):
-    def __init__(self, file: File):
+    def __init__(self, index: int, file: File):
+        self.index = index
         self.file = file
 
-    def getOutput(self) -> File:
+    def getOutputPath(self) -> Path:
+        return self.file.filePath
+
+    def getOutputFile(self) -> File:
         return self.file
     
-    def execute(self, *args) -> tuple[bool, list]:
-        return True, []
+    def getRequirements(self, *args) -> list[_Node]:
+        return []
+    
+    def runTask(self, *args) -> bool:
+        return True
 
-class ProcessingManager:
-    def __init__(self, baseDir: Path, processingDir: Path):
-        self.baseDir = baseDir
-        self.processingDir = processingDir
-        self.nodes: list[_Node] = []
+class ProcessingManager(SystemManager):
+    def __init__(self, dataDir: Path):
+        self.stepName = "processing"
+
+        super().__init__(dataDir.parent, self.stepName, "steps")
+
+        self.processingDir = dataDir / self.stepName
+        self.nodes: dict[FileSelect, list[_Node]] = {
+            FileSelect.DOWNLOAD: [],
+            FileSelect.PROCESS: []
+        }
+        
+        self._lowestNodes: list[_Node] = []
 
     def _createNode(self, step: dict, parents: list[_Node]) -> _Node | None:
-        inputs = [node.getOutput() for node in parents]
+        inputs = {FileSelect.INPUT: [self.getLatestNodeFile()]} | {select: [node.getOutputFile() for node in nodes] for select, nodes in self.nodes.items()}
+        
         try:
-            script = Script(self.baseDir, self.processingDir, dict(step), inputs)
+            script = FileScript(self.baseDir, dict(step), self.processingDir, inputs)
         except AttributeError as e:
-            Logger.error(f"Invalid processing script configuration: {e}")
+            logging.error(f"Invalid processing script configuration: {e}")
             return None
         
-        return _Node(script, parents)
+        node = _Node(f"P{len(self.nodes[FileSelect.PROCESS])}", script, parents)
+        self.nodes[FileSelect.PROCESS].append(node)
+        return node
     
     def _addProcessing(self, node: _Node, processingSteps: list[dict]) -> _Node:
         for step in processingSteps:
@@ -77,47 +82,34 @@ class ProcessingManager:
             node = subNode
         return node
     
-    def getLatestNodeFiles(self) -> list[File]:
-        return [node.getOutput() for node in self.nodes]
+    def getLatestNodeFile(self) -> File:
+        latestNode = self.nodes[FileSelect.DOWNLOAD][-1] if not self.nodes[FileSelect.PROCESS] else self.nodes[FileSelect.PROCESS][-1]
+        return latestNode.getOutputFile()
 
-    def process(self, overwrite: bool = False, verbose: bool = False) -> tuple[bool, dict]:
-        if all(isinstance(node, _Root) for node in self.nodes): # All root nodes, no processing required
-            Logger.info("No processing required for any nodes")
-            return True, {}
+    def process(self, overwrite: bool = False, verbose: bool = False) -> bool:
+        if all(isinstance(node, _Root) for node in self._lowestNodes): # All root nodes, no processing required
+            logging.info("No processing required for any nodes")
+            return True
 
         if not self.processingDir.exists():
             self.processingDir.mkdir()
 
-        metadata = {"steps": []}
-        allSucceeded = True
+        queuedTasks: list[_Node] = []
+        for node in self._lowestNodes:
+            requirements = node.getRequirements(queuedTasks)
+            queuedTasks.extend(requirements)
 
-        startTime = time.perf_counter()
-        for node in self.nodes:
-            success, stepMetadata = node.execute(overwrite, verbose)
+        return self.runTasks(queuedTasks, overwrite, verbose)
 
-            metadata["steps"].extend(stepMetadata)
-            allSucceeded = allSucceeded and success
+    def registerFile(self, file: File, processingSteps: list[dict]) -> None:
+        node = _Root(f"D{len(self.nodes[FileSelect.DOWNLOAD])}", file)
+        self.nodes[FileSelect.DOWNLOAD].append(node)
+        lowestNode = self._addProcessing(node, list(processingSteps))
+        self._lowestNodes.append(lowestNode)
 
-        metadata["totalTime"] = time.perf_counter() - startTime
-
-        return allSucceeded, metadata
-
-    def registerFile(self, file: File, processingSteps: list[dict]) -> bool:
-        node = _Root(file)
-        node = self._addProcessing(node, processingSteps)
-        self.nodes.append(node)
-
-    def addAllProcessing(self, processingSteps: list[dict]) -> bool:
+    def addFinalProcessing(self, processingSteps: list[dict]) -> None:
         if not processingSteps:
             return
-        
-        for idx, node in enumerate(self.nodes):
-            self.nodes[idx] = self._addProcessing(node, processingSteps)
 
-    def addFinalProcessing(self, processingSteps: list[dict]) -> bool:
-        if not processingSteps:
-            return
-        
-        # First step of final processing should combine all chains to a single file
-        finalNode = self._createNode(processingSteps[0], self.nodes)
-        self.nodes = [self._addProcessing(finalNode, processingSteps[1:])]
+        finalNode = self._createNode(processingSteps[0], self._lowestNodes)
+        self._lowestNodes = [self._addProcessing(finalNode, processingSteps[1:])]

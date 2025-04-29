@@ -1,21 +1,19 @@
 {
     "datasetID": "ARGA:TL:0002000",
     "retrieveType": "url",
-    "download": {
-        "files": [
-            {
-                "url": "https://ftp.ncbi.nlm.nih.gov/pub/taxonomy/taxdmp.zip",
-                "name": "taxdump.zip"
-            }
-        ]
-    },
+    "downloading": [
+        {
+            "url": "https://ftp.ncbi.nlm.nih.gov/pub/taxonomy/taxdmp.zip",
+            "name": "taxdump.zip"
+        }
+    ],
     "processing": {
-        "final": [
+        "linear": [
             {
                 "path": ".../tools/zipping.py",
                 "function": "extract",
                 "args": [
-                    "{INPATH}",
+                    "{IN-PATH}",
                     "{OUTDIR}"
                 ],
                 "output": "taxdump"
@@ -24,8 +22,8 @@
                 "path": "./processing.py",
                 "function": "parse",
                 "args": [
-                    "{INPATH}",
-                    "{OUTPATH}"
+                    "{IN-PATH}",
+                    "{OUT-PATH}"
                 ],
                 "output": "ncbiTaxonomy.csv"
             }

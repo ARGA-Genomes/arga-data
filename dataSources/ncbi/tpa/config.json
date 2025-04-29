@@ -1,36 +1,34 @@
 {
     "datasetID": "ARGA:TL:0000167",
     "retrieveType": "url",
-    "download": {
-        "files": [
-            {
-                "url": "https://ftp.ncbi.nlm.nih.gov/tpa/release/con_tpa_cu.gbff.gz",
-                "name": "con_tpa_cu.gbff.gz"
-            },
-            {
-                "url": "https://ftp.ncbi.nlm.nih.gov/tpa/release/tpa_cu.gbff.gz",
-                "name": "tpa_cu.gbff.gz"
-            }
-        ]
-    },
+    "downloading": [
+        {
+            "url": "https://ftp.ncbi.nlm.nih.gov/tpa/release/con_tpa_cu.gbff.gz",
+            "name": "con_tpa_cu.gbff.gz"
+        },
+        {
+            "url": "https://ftp.ncbi.nlm.nih.gov/tpa/release/tpa_cu.gbff.gz",
+            "name": "tpa_cu.gbff.gz"
+        }
+    ],
     "processing": {
-        "perFile": [
+        "parallel": [
             {
                 "path": "lib/tools/zipping.py",
                 "function": "extract",
                 "args": [
-                    "{INPATH}",
+                    "{IN-PATH}",
                     "{OUTDIR}"
                 ],
-                "output": "{INSTEM}"
+                "output": "{IN-PATH.}"
             },
             {
                 "path": "../flatFileParser.py",
                 "function": "parseFlatfile",
                 "args": [
-                    "{INPATH}"
+                    "{IN-PATH}"
                 ],
-                "output": "{INSTEM}"
+                "output": "{IN-PATH.}"
             }
         ]
     },

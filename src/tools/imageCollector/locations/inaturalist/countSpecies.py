@@ -1,6 +1,6 @@
 import pandas as pd
 from pathlib import Path
-import lib.commonFuncs as cmn
+import lib.common as cmn
 
 def run():
     baseDir = Path(__file__)

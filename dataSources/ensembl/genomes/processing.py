@@ -2,8 +2,8 @@ import json
 import pandas as pd
 import requests
 from pathlib import Path
-from lib.tools.downloader import Downloader
-import lib.tools.zipping as zp
+import lib.downloading as dl
+import lib.zipping as zp
 from bs4 import BeautifulSoup
 
 def download(url: str, outputDir: Path, overwrite: bool = False) -> Path:
@@ -12,7 +12,6 @@ def download(url: str, outputDir: Path, overwrite: bool = False) -> Path:
     if not localFile.exists() or overwrite:
         localFile.unlink(True)
 
-        dl = Downloader()
         success = dl.download(url, localFile, verbose=True)
 
         if not success:

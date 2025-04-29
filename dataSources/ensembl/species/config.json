@@ -1,11 +1,11 @@
 {
     "datasetID": "ARGA:TL:0002013",
     "retrieveType": "script",
-    "download": {
+    "downloading": {
         "path": "sourceProcessing/ensembl.py",
         "function": "speciesDownload",
         "args": [
-            "{OUTPATH}"
+            "{OUT-PATH}"
         ],
         "output": "species.csv"
     }

@@ -1,31 +1,33 @@
 from pathlib import Path
-from lib.tools.logger import Logger
+import logging
 from lib.processing.stages import File
-from lib.tools.bigFileWriter import BigFileWriter
+from lib.bigFileWriter import BigFileWriter
 import time
 import pandas as pd
-from lib.tools.progressBar import ProgressBar
+from lib.progressBar import SteppableProgressBar
 from threading import Thread
 from queue import Queue
 from typing import Generator
 import requests
+import numpy as np
+from lib.processing.mapping import Event
+import json
 
-def enrichStats(summaryFile: File, outputPath: Path, apiKeyPath: Path = None):
+def getStats(summaryFile: File, outputPath: Path, apiKeyPath: Path = None):
     if apiKeyPath is not None and apiKeyPath.exists():
-        Logger.info("Found API key")
+        logging.info("Found API key")
         with open(apiKeyPath) as fp:
             apiKey = fp.read().rstrip("\n")
         maxRequests = 10
     else:
-        Logger.info("No API key found, limiting requests to 3/second")
+        logging.info("No API key found, limiting requests to 3/second")
         apiKey = ""
         maxRequests = 3
 
     accessionCol = "#assembly_accession"
-    df = summaryFile.loadDataFrame(dtype=object)
+    df = summaryFile.loadDataFrame(dtype=object, usecols=[accessionCol])
 
-    subFile = outputPath.parent / "apiData.csv"
-    writer = BigFileWriter(subFile)
+    writer = BigFileWriter(outputPath)
     writer.populateFromFolder(writer.subfileDir)
     writtenFileCount = len(writer.writtenFiles)
 
@@ -44,77 +46,88 @@ def enrichStats(summaryFile: File, outputPath: Path, apiKeyPath: Path = None):
         "non_coding_gene_count": "non_coding_gene_count"
     }
 
-    progress = ProgressBar()
-    totalRecords = len(df)
-
+    recordsPerCall = 200
     recordsPerSubsection = 30000
-    iterations = (totalRecords / recordsPerSubsection).__ceil__()
 
+    totalRecords = len(df)
+    outputSubsections = (totalRecords / recordsPerSubsection).__ceil__()
+
+    progress = SteppableProgressBar(totalRecords - (writtenFileCount * recordsPerSubsection))
     queue = Queue()
-    for iteration in range(writtenFileCount, iterations):
+    for subsection in range(writtenFileCount, outputSubsections):
         workerRecordCount = (recordsPerSubsection / maxRequests).__ceil__()
         workers: dict[int, Thread] = {}
 
-        for i in range(maxRequests):
-            startRange = (i + iteration) * workerRecordCount
-            endRange = (i + iteration + 1) * workerRecordCount
-            accessions = (accession for accession in df[accessionCol][startRange:endRange])
-            worker = Thread(target=apiWorker, args=(i, accessions, apiKey, set(summaryFields), queue), daemon=True)
+        for workerIdx in range(maxRequests):
+            accessions = df[accessionCol].to_list()[(workerIdx + subsection) * workerRecordCount:(workerIdx + subsection + 1) * workerRecordCount]
+            worker = Thread(target=apiWorker, args=(workerIdx, accessions, recordsPerCall, apiKey, set(summaryFields), queue), daemon=True)
             worker.start()
-            workers[i] = worker
+            workers[workerIdx] = worker
             time.sleep(1 / maxRequests)
 
         recordData = []
         failedAccessions = []
         while workers:
             value = queue.get()
-            if isinstance(value, tuple): # Worker done idx and failed entries
-                idx, failed = value
-                worker = workers.pop(idx)
+            if isinstance(value, int): # Worker done idx
+                worker = workers.pop(value)
                 worker.join()
-                failedAccessions.extend(failed)
+                # failedAccessions.extend(failed)
             else: # Record
                 recordData.append(value)
-                
-            progress.update((len(recordData) + len(failedAccessions)) / recordsPerSubsection)
+                progress.update()
 
-        print(f"\nCompleted subsection {iteration}")
         writer.writeDF(pd.DataFrame.from_records(recordData))
 
     writer.oneFile(True)
-    # print(f"Failed: {failedAccessions}")
 
-    df.merge(pd.read_csv(subFile), how="outer", left_on="#assembly_accession", right_on="current_accession").to_csv(outputPath, index=False)
+def merge(summaryFile: File, statsFilePath: Path, outputPath: Path) -> None:
+    df = summaryFile.loadDataFrame(low_memory=False)
+    df2 = pd.read_csv(statsFilePath, low_memory=False)
+    df = df.merge(df2, how="outer", left_on="#assembly_accession", right_on="current_accession")
+    df.to_csv(outputPath, index=False)
 
-def apiWorker(idx: int, accessions: Generator[str, None, None], apiKey: str, dropKeys: set, queue: Queue) -> list[dict]:
+def apiWorker(idx: int, accessions: Generator[str, None, None], recordsPerCall: int, apiKey: str, dropKeys: set, queue: Queue) -> list[dict]:
     session = requests.Session()
     failed = []
-    for accession in accessions:
-        url = f"https://api.ncbi.nlm.nih.gov/datasets/v2alpha/genome/accession/{accession}/dataset_report"
+
+    totalCalls = (len(accessions) / recordsPerCall).__ceil__()
+    for call in range(totalCalls):
+        passAccessions = '%2C'.join(accessions[call*recordsPerCall:(call+1)*recordsPerCall])
+        url = f"https://api.ncbi.nlm.nih.gov/datasets/v2alpha/genome/accession/{passAccessions}/dataset_report?page_size={recordsPerCall}"
         headers = {
             "accept": "application/json",
             "api-key": apiKey
         }
 
-        try:
-            response = session.get(url, headers=headers)
-            data = response.json()
-            reports = data.get("reports", [])
+        for _ in range(5):
+            try:
+                response = session.get(url, headers=headers)
 
-        except: # Failed to retrieve, skip
-            reports = []
+                try:
+                    data = response.json()
+                    break
 
+                except json.JSONDecodeError:
+                    continue
+
+            except requests.ConnectionError:
+                continue
+
+        else:
+            data = {}
+        
+        reports = data.get("reports", [])
         lastRetrieve = time.time()
-        if not reports:
-            failed.append(accession)
-            continue
 
-        record = parseRecord(reports[0])
-        record = {key: value for key, value in record.items() if key not in dropKeys} # Drop duplicate keys with summary
-        queue.put(record)
+        for record in reports:
+            record = parseRecord(record)
+            record = {key: value for key, value in record.items() if key not in dropKeys} # Drop duplicate keys with summary
+            queue.put(record)
+
         time.sleep(1.05 - (time.time() - lastRetrieve))
 
-    queue.put((idx, failed))
+    queue.put(idx)
 
 def parseRecord(record: dict) -> dict:
     def _extractKeys(d: dict, keys: list[str], prefix: str = "", suffix: str = "") -> dict:
@@ -221,7 +234,9 @@ def parseRecord(record: dict) -> dict:
         ]
     }
 
-    assemblyInfo = _extract(assemblyInfo, assemblyFields)
+    assemblyInfo: dict = _extract(assemblyInfo, assemblyFields)
+    assemblyInfo["comments"] = assemblyInfo.get("comments", "").replace("\n", "").replace("\t", "")
+
     assemblyInfo |= _extract(assemblyInfo.pop("paired_assembly", {}), assemblySubFields["paired_assembly"], "pa")
     assemblyInfo |= _extract(assemblyInfo.pop("linked_assemblies", {}), assemblySubFields["linked_assemblies"], "la")
     assemblyInfo |= _extract(assemblyInfo.pop("atypical", {}), assemblySubFields["atypical"], "at")
@@ -250,5 +265,27 @@ def parseRecord(record: dict) -> dict:
     ]
 
     typeMaterial = _extract(typeMaterial, typeMaterialFields)
-
     return annotationInfo | assemblyInfo | assemblyStats | currentAccession | organelleData | typeMaterial
+
+def genbankAugment(df: pd.DataFrame) -> pd.DataFrame:
+    df = df.replace("na", np.NaN)
+    
+    fillNA = {
+        Event.ASSEMBLIES: "sequence_id",
+        Event.ANNOTATION: "sequence_id",
+        Event.DEPOSITION: "sequence_id",
+        Event.SEQUENCE: "record_id"
+    }
+
+    for event, column in fillNA.items():
+        if column not in df[event]:
+            df[(event, column)] = np.NaN
+            
+        df[(event, column)].fillna(df[(Event.ASSEMBLIES, "dataset_id")], inplace=True)
+
+    df[(Event.SEQUENCE, "dna_extract_id")] = df[(Event.DEPOSITION, "dataset_id")]
+    df = df.drop((Event.DEPOSITION, "dataset_id"), axis=1)
+
+    df[(Event.SEQUENCE, "scientific_name")] = df[(Event.COLLECTION, "scientific_name")]
+
+    return df

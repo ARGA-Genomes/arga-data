@@ -5,19 +5,23 @@ from pathlib import Path
 from lib.systemManagers.downloading import DownloadManager
 from lib.systemManagers.processing import ProcessingManager
 from lib.systemManagers.conversion import ConversionManager
-from lib.systemManagers.metadata import MetadataManager
 from lib.systemManagers.updating import UpdateManager
 
 from lib.processing.stages import Step
 
-from lib.tools.crawler import Crawler
-from lib.tools.logger import Logger
-import lib.tools.zipping as zp
+from lib.crawler import Crawler
+import logging
 
 class Retrieve(Enum):
     URL     = "url"
     CRAWL   = "crawl"
     SCRIPT  = "script"
+
+class Flag(Enum):
+    VERBOSE = "verbose"
+    PREPARE_OVERWRITE = "reprepare"
+    OUTPUT_OVERWRITE = "overwrite"
+    UPDATE = "update"
 
 class BasicDB:
 
@@ -32,29 +36,27 @@ class BasicDB:
         # Auth
         self.authFile: str = config.pop("auth", "")
 
-        # Config stages
-        self.downloadConfig: dict = config.pop("download", None)
-        self.processingConfig: dict = config.pop("processing", {})
-        self.conversionConfig: dict = config.pop("conversion", {})
-        self.updateConfig: dict = config.pop("update", {})
-
-        if self.downloadConfig is None:
-            raise Exception("No download config specified as required") from AttributeError
-
         # Relative folders
         self.locationDir = cfg.Folders.dataSources / location
         self.databaseDir = self.locationDir / database
         self.subsectionDir = self.databaseDir / self.subsection # If no subsection, does nothing
         self.dataDir = self.subsectionDir / "data"
-        self.downloadDir = self.dataDir / "download"
-        self.processingDir = self.dataDir / "processing"
-        self.convertedDir = self.dataDir / "converted"
 
         # System Managers
-        self.downloadManager = DownloadManager(self.databaseDir, self.downloadDir, self.authFile)
-        self.processingManager = ProcessingManager(self.databaseDir, self.processingDir)
-        self.conversionManager = ConversionManager(self.databaseDir, self.convertedDir, self.datasetID, location, database, subsection)
-        self.metadataManager = MetadataManager(self.subsectionDir)
+        self.downloadManager = DownloadManager(self.dataDir, self.authFile)
+        self.processingManager = ProcessingManager(self.dataDir)
+        self.conversionManager = ConversionManager(self.dataDir, self.datasetID, location, database, subsection)
+
+        # Config stages
+        self.downloadConfig: dict = config.pop(self.downloadManager.stepName, None)
+        self.processingConfig: dict = config.pop(self.processingManager.stepName, {})
+        self.conversionConfig: dict = config.pop(self.conversionManager.stepName, {})
+
+        if self.downloadConfig is None:
+            raise Exception("No download config specified as required") from AttributeError
+        
+        # Updating
+        self.updateConfig: dict = config.pop("updating", {})
         self.updateManager = UpdateManager(self.updateConfig)
 
         # Report extra config options
@@ -71,12 +73,10 @@ class BasicDB:
     
     def _reportLeftovers(self, properties: dict) -> None:
         for property in properties:
-            Logger.debug(f"{self.location}-{self.database} unknown config item: {property}")
+            logging.debug(f"{self.location}-{self.database} unknown config item: {property}")
 
-    def _prepareDownload(self, overwrite: bool, verbose: bool) -> None:
-        files: list[dict] = self.downloadConfig.pop("files", [])
-
-        for file in files:
+    def _prepareDownload(self, flags: list[Flag]) -> None:
+        for file in self.downloadConfig:
             url = file.get("url", None)
             name = file.get("name", None)
             properties = file.get("properties", {})
@@ -89,27 +89,20 @@ class BasicDB:
             
             self.downloadManager.registerFromURL(url, name, properties)
     
-    def _prepareProcessing(self, overwrite: bool, verbose: bool) -> None:
-        specificProcessing: dict[int, list[dict]] = self.processingConfig.pop("specific", {})
-        perFileProcessing: list[dict] = self.processingConfig.pop("perFile", [])
-        finalProcessing: list[dict] = self.processingConfig.pop("final", [])
+    def _prepareProcessing(self, flags: list[Flag]) -> None:
+        parallelProcessing: list[dict] = self.processingConfig.pop("parallel", [])
+        linearProcessing: list[dict] = self.processingConfig.pop("linear", [])
 
-        for idx, file in enumerate(self.downloadManager.getFiles()):
-            processing = specificProcessing.get(str(idx), [])
-            self.processingManager.registerFile(file, list(processing))
+        for file in self.downloadManager.getFiles():
+            self.processingManager.registerFile(file, parallelProcessing)
 
-        self.processingManager.addAllProcessing(perFileProcessing)
-        self.processingManager.addFinalProcessing(finalProcessing)
+        self.processingManager.addFinalProcessing(linearProcessing)
     
-    def _prepareConversion(self, overwrite: bool, verbose: bool) -> None:
-        filesToConvert = self.processingManager.getLatestNodeFiles()
-        
-        if len(filesToConvert) != 1:
-            raise Exception(f"Unable to prepare conversion, there should be 1 but there is {len(filesToConvert)}")
-        
-        self.conversionManager.loadFile(filesToConvert[0], self.conversionConfig, self.databaseDir)
+    def _prepareConversion(self, flags: list[Flag]) -> None:
+        fileToConvert = self.processingManager.getLatestNodeFile()
+        self.conversionManager.loadFile(fileToConvert, self.conversionConfig, self.databaseDir)
 
-    def _prepare(self, step: Step, overwrite: bool, verbose: bool) -> bool:
+    def _prepare(self, step: Step, flags: list[Flag]) -> bool:
         callbacks = {
             Step.DOWNLOAD: self._prepareDownload,
             Step.PROCESSING: self._prepareProcessing,
@@ -123,11 +116,11 @@ class BasicDB:
             if idx <= self._prepStage:
                 continue
 
-            Logger.info(f"Preparing {self} step '{stepType.name}' with flags: overwrite={overwrite} | verbose={verbose}")
+            logging.info(f"Preparing {self} step '{stepType.name}' with flags: {self._verboseFlags(flags)}")
             try:
-                callback(overwrite if step == stepType else False, verbose)
+                callback(flags)
             except AttributeError as e:
-                Logger.error(f"Error preparing step: {stepType.name} - {e}")
+                logging.error(f"Error preparing step: {stepType.name} - {e}")
                 return False
             
             self._prepStage = idx
@@ -136,105 +129,81 @@ class BasicDB:
             
         return True
 
-    def _execute(self, step: Step, overwrite: bool, verbose: bool, **kwargs: dict) -> bool:
-        Logger.info(f"Executing {self} step '{step.name}' with flags: overwrite={overwrite} | verbose={verbose}")
+    def _execute(self, step: Step, flags: list[Flag], **kwargs: dict) -> bool:
+        overwrite = Flag.OUTPUT_OVERWRITE in flags
+        verbose = Flag.VERBOSE in flags
+
+        logging.info(f"Executing {self} step '{step.name}' with flags: {self._verboseFlags(flags)}")
         if step == Step.DOWNLOAD:
-            success, metadata = self.downloadManager.download(overwrite, verbose, **kwargs)
-            self.metadataManager.update(step, metadata)
-            return success
-        
+            return self.downloadManager.download(overwrite, verbose, **kwargs)
+
         if step == Step.PROCESSING:
-            success, metadata = self.processingManager.process(overwrite, verbose, **kwargs)
-            self.metadataManager.update(step, metadata)
-            return success
+            return self.processingManager.process(overwrite, verbose, **kwargs)
         
         if step == Step.CONVERSION:
-            success, metadata = self.conversionManager.convert(overwrite, verbose, **kwargs)
-            self.metadataManager.update(step, metadata)
-            return success
+            return self.conversionManager.convert(overwrite, verbose, **kwargs)
 
-        Logger.error(f"Unknown step to execute: {step}")
+        logging.error(f"Unknown step to execute: {step}")
         return False
     
-    def create(self, step: Step, overwrite: tuple[bool, bool], verbose: bool, **kwargs: dict) -> None:
-        prepare, reprocess = overwrite
-
+    def create(self, step: Step, flags: list[Flag], **kwargs: dict) -> None:
         try:
-            success = self._prepare(step, prepare, verbose)
+            success = self._prepare(step, flags)
             if not success:
                 return
+            
         except KeyboardInterrupt:
-            Logger.info(f"Process ended early when attempting to prepare step '{step.name}' for {self}")
+            logging.info(f"Process ended early when attempting to prepare step '{step.name}' for {self}")
 
         try:
-            self._execute(step, reprocess, verbose, **kwargs)
+            self._execute(step, flags, **kwargs)
         except KeyboardInterrupt:
-            Logger.info(f"Process ended early when attempting to execute step '{step.name}' for {self}")
+            logging.info(f"Process ended early when attempting to execute step '{step.name}' for {self}")
 
     def package(self) -> Path:
-        renamedFilePath = self.metadataManager.metadataPath.rename(self.conversionManager.output.filePath / self.metadataManager.metadataPath.name)
-        outputPath = zp.compress(self.conversionManager.output.filePath, self.dataDir)
-        renamedFilePath.rename(self.metadataManager.metadataPath)
-        Logger.info(f"Successfully zipped converted data source file to {outputPath}")
+        outputDir = cfg.Settings.package if isinstance(cfg.Folders.package, Path) else self.dataDir
+        outputPath = self.conversionManager.package(outputDir)
+        if outputPath is not None:
+            logging.info(f"Successfully zipped converted data source file to {outputPath}")
+
         return outputPath
 
     def checkUpdateReady(self) -> bool:
-        lastUpdate = self.metadataManager.getLastDownloadUpdate()
+        lastUpdate = self.downloadManager.getLastUpdate()
         return self.updateManager.isUpdateReady(lastUpdate)
+    
+    def update(self) -> bool:
+        for step in (Step.DOWNLOAD, Step.PROCESSING, Step.CONVERSION):
+            self.create(step, (True, True), True)
+
+        self.package()
+
+    def _verboseFlags(self, flags: list[Flag]) -> str:
+        return " | ".join(f"{flag.value}={flag in flags}" for flag in Flag)
 
 class CrawlDB(BasicDB):
 
     retrieveType = Retrieve.CRAWL
 
-    def _prepareDownload(self, overwrite: bool, verbose: bool) -> None:
-        properties = self.downloadConfig.pop("properties", {})
-        folderPrefix = self.downloadConfig.pop("prefix", False)
-        saveFile = self.downloadConfig.pop("saveFile", "crawl.txt")
-        saveFilePath: Path = self.subsectionDir / saveFile
-
-        if saveFilePath.exists() and not overwrite:
-            Logger.info("Local file found, skipping crawling")
-            with open(saveFilePath) as fp:
-                urls = fp.read().splitlines()
-        else:
-            saveFilePath.unlink(True)
-
-            urls = self._crawl(saveFilePath.parent)
-            saveFilePath.parent.mkdir(parents=True, exist_ok=True) # Create base directory if it doesn't exist to put the file
-            with open(saveFilePath, 'w') as fp:
-                fp.write("\n".join(urls))
-
-        for url in urls:
-            fileName = self._getFileNameFromURL(url, folderPrefix)
-            self.downloadManager.registerFromURL(url, fileName, properties)
-
-    def _crawl(self, crawlerDirectory: Path) -> None:
+    def _prepareDownload(self, flags: list[Flag]) -> None:
         url = self.downloadConfig.pop("url", None)
-        regex = self.downloadConfig.pop("regex", ".*")
+        regex = self.downloadConfig.pop("regex", None)
         link = self.downloadConfig.pop("link", "")
         maxDepth = self.downloadConfig.pop("maxDepth", -1)
+        properties = self.downloadConfig.pop("properties", {})
+        filenameURLParts = self.downloadConfig.pop("urlPrefix", 1)
 
-        crawler = Crawler(crawlerDirectory, regex, link, maxDepth, user=self.downloadManager.username, password=self.downloadManager.password)
+        crawler = Crawler(self.subsectionDir)
+        crawler.run(url, regex, maxDepth, Flag.PREPARE_OVERWRITE in flags)
+        urlList = crawler.getFileURLs(link)
 
-        if url is None:
-            raise Exception("No file location for source") from AttributeError
-        
-        crawler.crawl(url, True)
-        return crawler.getURLList()
-    
-    def _getFileNameFromURL(self, url: str, folderPrefix: bool) -> str:
-        urlParts = url.split('/')
-        fileName = urlParts[-1]
-
-        if not folderPrefix:
-            return fileName
-
-        folderName = urlParts[-2]
-        return f"{folderName}_{fileName}"
+        for url in urlList:
+            fileName = "_".join(url.split("/")[-filenameURLParts:])
+            self.downloadManager.registerFromURL(url, fileName, properties)
 
 class ScriptDB(BasicDB):
 
     retrieveType = Retrieve.SCRIPT
 
-    def _prepareDownload(self, overwrite: bool, verbose: bool) -> None:
+    def _prepareDownload(self, flags: list[Flag]) -> None:
         self.downloadManager.registerFromScript(self.downloadConfig)

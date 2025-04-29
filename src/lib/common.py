@@ -2,7 +2,6 @@ import csv
 import json
 import pandas as pd
 from typing import Generator
-from lib.tools.logger import Logger
 from pathlib import Path
 
 def reverseLookup(lookup: dict) -> dict:
@@ -105,3 +104,18 @@ def clearFolder(folderPath: Path, delete: bool = False) -> None:
     
     if delete:
         folderPath.rmdir()
+
+def toSnakeCase(s: str) -> str:
+    ret = ""
+    upperCount = 0
+    for char in s:
+        if char.isalpha() and char.upper() == char:
+            if upperCount == 0:
+                ret += "_"
+            ret += char.lower()
+            upperCount += 1
+        else:
+            upperCount = 0
+            ret += char
+
+    return ret

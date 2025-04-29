@@ -1,20 +1,18 @@
 {
     "retrieveType": "url",
-    "download": {
-        "files": [
-            {
-                "url": "https://ftp.ncbi.nlm.nih.gov/biosample/biosample_set.xml.gz",
-                "name": "biosample_set.xml.gz"
-            }
-        ]
-    },
+    "downloading": [
+        {
+            "url": "https://ftp.ncbi.nlm.nih.gov/biosample/biosample_set.xml.gz",
+            "name": "biosample_set.xml.gz"
+        }
+    ],
     "processing": {
-        "final": [
+        "linear": [
             {
                 "path": "lib/tools/zipping.py",
                 "function": "extract",
                 "args": [
-                    "{INPATH}",
+                    "{IN-PATH}",
                     "{OUTDIR}"
                 ],
                 "output": "biosample_set.xml"
@@ -23,8 +21,8 @@
                 "path": "tools/processing/xmlProcess.py",
                 "function": "process",
                 "args": [
-                    "{INPATH}",
-                    "{OUTPATH}"
+                    "{IN-PATH}",
+                    "{OUT-PATH}"
                 ],
                 "kwargs": {
                     "subfileRows": 150000,

@@ -1,22 +1,20 @@
 {
     "datasetID": "",
     "retrieveType": "url",
-    "download": {
-        "files": [
-            {
-                "url": "https://biodiversity.org.au/nsl/services/export/taxonCsv",
-                "name": "apc.csv"
-            }
-        ]
-    },
+    "downloading": [
+        {
+            "url": "https://biodiversity.org.au/nsl/services/export/taxonCsv",
+            "name": "apc.csv"
+        }
+    ],
     "processing": {
-        "final": [
+        "linear": [
             {
                 "path": "./processing.py",
                 "function": "denormalize",
                 "args": [
-                    "{INPATH}",
-                    "{OUTPATH}"
+                    "{IN-PATH}",
+                    "{OUT-PATH}"
                 ],
                 "output": "demormalized.csv"
             },
@@ -24,8 +22,8 @@
                 "path": "./processing.py",
                 "function": "cleanup",
                 "args": [
-                    "{INPATH}",
-                    "{OUTPATH}"
+                    "{IN-PATH}",
+                    "{OUT-PATH}"
                 ],
                 "output": "all-taxa.csv"
             }

@@ -1,11 +1,11 @@
 {
     "datasetID": "ARGA:TL:0000185",
     "retrieveType": "script",
-    "download": {
+    "downloading": {
         "path": "./processing.py",
         "function": "retrieve",
         "args": [
-            "{OUTPATH}"
+            "{OUT-PATH}"
         ],
         "output": "i5k.csv"
     },

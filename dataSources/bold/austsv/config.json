@@ -1,18 +1,16 @@
 {
     "datasetID": "ARGA:TL:0000175",
     "retrieveType": "url",
-    "download": {
-        "files": [
-            {
-                "url": "http://v4.boldsystems.org/index.php/API_Public/combined?geo=Australia&format=tsv",
-                "name": "bold_data.tsv",
-                "properties": {
-                    "separator": "\t",
-                    "encoding": "iso-8859-1"
-                }
+    "downloading": [
+        {
+            "url": "http://v4.boldsystems.org/index.php/API_Public/combined?geo=Australia&format=tsv",
+            "name": "bold_data.tsv",
+            "properties": {
+                "separator": "\t",
+                "encoding": "iso-8859-1"
             }
-        ]
-    },
+        }
+    ],
     "conversion": {
         "mapID": 78385490
     },

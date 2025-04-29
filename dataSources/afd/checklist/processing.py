@@ -3,9 +3,9 @@ import json
 from pathlib import Path
 import pandas as pd
 from io import BytesIO
-from lib.tools.bigFileWriter import BigFileWriter, Format
+from lib.bigFileWriter import BigFileWriter, Format
 from bs4 import BeautifulSoup
-from lib.tools.progressBar import SteppableProgressBar
+from lib.progressBar import SteppableProgressBar
 import re
 import traceback
 
@@ -82,19 +82,8 @@ def cleanup(filePath: Path, outputFilePath: Path) -> None:
     df = df.drop([
         "CAVS_CODE",
         "CAAB_CODE",
-        "PUB_PUB_AUTHOR",
-        "PUB_PUB_YEAR",
-        "PUB_PUB_TITLE",
-        "PUB_PUB_PAGES",
-        "PUB_PUB_PARENT_BOOK_TITLE",
-        "PUB_PUB_PARENT_JOURNAL_TITLE",
-        "PUB_PUB_PARENT_ARTICLE_TITLE",
-        "PUB_PUB_PUBLICATION_DATE",
-        "PUB_PUB_PUBLISHER",
         "PUB_PUB_FORMATTED",
         "PUB_PUB_QUALIFICATION",
-        "PUB_PUB_TYPE",
-        "PUBLICATION_GUID",
         "PUBLICATION_LAST_UPDATE",
         "PARENT_PUBLICATION_GUID"
     ], axis=1)
@@ -105,8 +94,23 @@ def cleanup(filePath: Path, outputFilePath: Path) -> None:
         "NAME_GUID": "name_id",
         "TAXON_GUID": "taxon_id",
         "TAXON_LAST_UPDATE": "updated_at",
-        "PARENT_TAXON_GUID": "parent_taxon_id"
+        "PARENT_TAXON_GUID": "parent_taxon_id",
+        "PUB_PUB_AUTHOR": "publication_author",
+        "PUB_PUB_YEAR": "publication_year",
+        "PUB_PUB_TITLE": "publication_title",
+        "PUB_PUB_PAGES": "publication_pages",
+        "PUB_PUB_PUBLICATION_DATE": "publication_date",
+        "PUB_PUB_PUBLISHER": "publisher",
+        "PUB_PUB_TYPE": "publication_type",
+        "PUBLICATION_GUID": "publication_id"
     })
+
+    df["published_media_title"] = df["PUB_PUB_PARENT_BOOK_TITLE"] + df["PUB_PUB_PARENT_JOURNAL_TITLE"] + df["PUB_PUB_PARENT_ARTICLE_TITLE"]
+    df = df.drop([
+        "PUB_PUB_PARENT_BOOK_TITLE",
+        "PUB_PUB_PARENT_JOURNAL_TITLE",
+        "PUB_PUB_PARENT_ARTICLE_TITLE"
+    ], axis=1)
 
     df = df.rename(columns={column: column.lower() for column in df.columns})
     df = df.rename(columns={"qualification": "notes"})
@@ -147,7 +151,7 @@ def cleanup(filePath: Path, outputFilePath: Path) -> None:
     df["canonical_name"] = df.apply(lambda row: f"{row['canonical_genus']} {row['species']}" if row["taxon_rank"] == "Species" else f"{row['canonical_genus']} {row['species']} {row['subspecies']}" if row["taxon_rank"] == "subspecies" else row["names_various"], axis=1)
     df["authorship"] = df.apply(lambda row: f"{row['author']}, {row['year']}" if row["author"] not in ("", "NaN", "nan") else "", axis=1)
     df["scientific_name_authorship"] = df.apply(lambda row: f"({row['authorship']})" if row['orig_combination'] == 'N' and row["authorship"] not in ("", "NaN", "nan") else row["authorship"], axis=1)
-    
+
     df.to_csv(outputFilePath, index=False)
 
 def addParents(filePath: Path, outputFilePath: Path) -> None:
@@ -187,36 +191,35 @@ def enrich(filePath: Path, outputFilePath: Path) -> None:
         subDF = df[df["taxon_rank"] == rank]
 
         enrichmentPath = outputFilePath.parent / f"{rank}.csv"
-        if enrichmentPath.exists():
-            continue
+        if not enrichmentPath.exists():
+            writer = BigFileWriter(enrichmentPath, rank, subfileType=Format.CSV)
+            writer.populateFromFolder(writer.subfileDir)
+            subfileNames = [file.fileName for file in writer.writtenFiles]
 
-        writer = BigFileWriter(enrichmentPath, rank, subfileType=Format.CSV)
-        writer.populateFromFolder(writer.subfileDir)
-        subfileNames = [file.fileName for file in writer.writtenFiles]
-
-        uniqueSeries = subDF["taxon_id"].unique()
-        uniqueSeries = [item for item in uniqueSeries if item not in subfileNames]
-        
-        bar = SteppableProgressBar(len(uniqueSeries), processName=f"{rank} Progress")
-        for taxonID in uniqueSeries:
-            bar.update()
-
-            response = session.get(f"https://biodiversity.org.au/afd/taxa/{taxonID}/complete")
-            try:
-                records = _parseContent(response.text, taxonID, rank.lower())
-            except:
-                print(taxonID)
-                print(traceback.format_exc())
-                return
+            uniqueSeries = subDF["taxon_id"].unique()
+            uniqueSeries = [item for item in uniqueSeries if item not in subfileNames]
             
-            recordDF = pd.DataFrame.from_records(records)
-            writer.writeDF(recordDF, taxonID)
+            bar = SteppableProgressBar(50, len(uniqueSeries), f"{rank} Progress")
+            for taxonID in uniqueSeries:
+                bar.update()
 
-        writer.oneFile(False)
+                response = session.get(f"https://biodiversity.org.au/afd/taxa/{taxonID}/complete")
+                try:
+                    records = _parseContent(response.text, taxonID, rank.lower())
+                except:
+                    print(taxonID)
+                    print(traceback.format_exc())
+                    return
+                
+                recordDF = pd.DataFrame.from_records(records)
+                writer.writeDF(recordDF, taxonID)
+
+            writer.oneFile(False)
+
         enrichmentDF = pd.read_csv(enrichmentPath, dtype=object)
-        df = df.merge(enrichmentDF, "left", ["taxon_id", rank.lower()])
+        df = df.merge(enrichmentDF, "left", left_on=["taxon_id", "canonical_name"], right_on=["taxon_id", rank.lower()])
 
-    df.to_csv(outputFilePath)
+    df.to_csv(outputFilePath, index=False)
 
 def _parseContent(content: str, taxonID: str, rank: str) -> list[dict]:
     soup = BeautifulSoup(content, "html.parser")
@@ -285,7 +288,7 @@ def _parseContent(content: str, taxonID: str, rank: str) -> list[dict]:
         for typeData in synonymData.find_all("div"):
             data[typeData.find("h5").text.lower().replace(" ", "_")[:-1]] = synonymData.find("span").text
 
-        record = {"taxon_id": taxonID, rank: synonymTitle.find("strong").text.split()[-1]} | data
+        record = {"taxon_id": taxonID, rank: synonymTitle.find("strong").text} | data
         records.append(record | distributionData | descriptorData)
 
     return records

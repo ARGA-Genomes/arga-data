@@ -7,13 +7,13 @@
         "mangrovewatch": {},
         "weeds-australia": {}
     },
-    "download": {
-        "path": "sourceProcessing/ala.py",
+    "downloading": {
+        "path": "../processing.py",
         "function": "collect",
         "args": [
-            "{OUTDIR}",
+            "{OUT-DIR}",
             "{SUBSECTION}",
-            "./token.json"
+            "../token.json"
         ],
         "output": "{SUBSECTION}.csv"
     },

@@ -2,20 +2,20 @@
     "datasetID": "ARGA:TL:0000174",
     "retrieveType": "crawl",
     "auth": "auth.txt",
-    "download": {
+    "downloading": {
         "url": "https://db.anemone.bio/dist/",
         "regex": ".*\\.tsv\\.xz",
-        "prefix": true
+        "urlPrefix": 2
     },
     "processing": {
-        "perFile": [
+        "parallel": [
             {
                 "path": "lib/tools/zipping.py",
                 "function": "extract",
                 "args": [
-                    "{INPATH}"
+                    "{IN-PATH}"
                 ],
-                "output": "{INSTEM}",
+                "output": "{IN-PATH.}",
                 "properties": {
                     "separator": "\t"
                 }

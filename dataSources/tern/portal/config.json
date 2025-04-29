@@ -1,11 +1,11 @@
 {
     "datasetID": "ARGA:TL:0000188",
     "retrieveType": "script",
-    "download": {
+    "downloading": {
         "path": "./processing.py",
         "function": "build",
         "args": [
-            "{OUTPATH}"
+            "{OUT-PATH}"
         ],
         "output": "tern.csv"
     },

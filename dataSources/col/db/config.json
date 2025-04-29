@@ -1,31 +1,29 @@
 {
     "retrieveType": "url",
     "datasetID": "ARGA:TL:0001018",
-    "download": {
-        "files": [
-            {
-                "url": "https://api.checklistbank.org/dataset/304708/export.zip?extended=true&format=DwCA",
-                "name": "catalogueOfLife.zip"
-            }
-        ]
-    },
+    "downloading": [
+        {
+            "url": "https://api.checklistbank.org/dataset/304708/export.zip?extended=true&format=DwCA",
+            "name": "catalogueOfLife.zip"
+        }
+    ],
     "processing": {
-        "final": [
+        "linear": [
             {
                 "path": ".../tools/zipping.py",
                 "function": "extract",
                 "args": [
-                    "{INPATH}",
+                    "{IN-PATH}",
                     "{OUTDIR}"
                 ],
-                "output": "{INSTEM}"
+                "output": "{IN-PATH.}"
             },
             {
                 "path": "./processing.py",
                 "function": "process",
                 "args": [
-                    "{INPATH}",
-                    "{OUTPATH}"
+                    "{IN-PATH}",
+                    "{OUT-PATH}"
                 ],
                 "output": "col.csv"
             }

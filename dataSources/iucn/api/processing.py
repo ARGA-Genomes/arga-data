@@ -1,9 +1,9 @@
 import requests
 from pathlib import Path
 import pandas as pd
-from lib.tools.bigFileWriter import BigFileWriter
+from lib.bigFileWriter import BigFileWriter
 import time
-import lib.dataframeFuncs as dff
+import lib.dataframes as dff
 
 def retrieve(apiKeyPath: Path, outputFilePath: Path):
     with open(apiKeyPath) as fp:

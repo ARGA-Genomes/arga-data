@@ -18,7 +18,7 @@ class ProgressBar:
     def _getBar(self, completion: int) -> str:
         # completion = atTask / self.taskCount
         length = min(int(self.barLength * completion), self.barLength)
-        percentage = f"{completion*100:.02f}%"
+        percentage = f"{min(100, completion*100):.02f}%"
         percentageLength = len(percentage)
         percentagePos = (self.barLength - percentageLength + 1) // 2
         secondHalfStart = percentageLength + percentagePos
@@ -42,7 +42,7 @@ class UpdatableProgressBar(ProgressBar):
         if self._completed:
             return
         
-        outputLen = super().update(atTask / self.taskCount, extraInfo)
+        outputLen = super().update(atTask / max(1, self.taskCount), extraInfo)
 
         if atTask == self.taskCount:
             self._completed = True

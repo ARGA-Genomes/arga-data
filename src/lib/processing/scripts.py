@@ -1,27 +1,29 @@
 from pathlib import Path
 from lib.processing.stages import File, Folder
-from lib.tools.logger import Logger
+import logging
 import importlib.util
 from enum import Enum
 import traceback
 import lib.config as cfg
+from typing import Any
 
-class Key(Enum):
-    INPUT_FILE  = "INFILE"
-    INPUT_PATH  = "INPATH"
-    INPUT_STEM  = "INSTEM"
-    INPUT_DIR   = "INDIR"
-    OUTPUT_FILE = "OUTFILE"
-    OUTPUT_DIR  = "OUTDIR"
-    OUTPUT_PATH = "OUTPATH"
+class FileSelect(Enum):
+    INPUT    = "IN"
+    OUTPUT   = "OUT"
+    DOWNLOAD = "D"
+    PROCESS  = "P"
 
-class Script:
+class _FileProperty(Enum):
+    DIR  = "DIR"
+    FILE = "FILE"
+    PATH = "PATH"
+
+class FunctionScript:
     _libDir = cfg.Folders.src / "lib"
 
-    def __init__(self, baseDir: Path, outputDir: Path, scriptInfo: dict, inputs: list[File]):
+    def __init__(self, baseDir: Path, scriptInfo: dict):
         self.baseDir = baseDir
-        self.outputDir = outputDir
-        self.inputs = inputs
+        self.scriptInfo = scriptInfo
 
         # Script information
         self.path: str = scriptInfo.pop("path", None)
@@ -35,163 +37,24 @@ class Script:
         if self.function is None:
             raise Exception("No script function specified") from AttributeError
         
-        # Output information
-        self.output = scriptInfo.pop("output", "")
-        self.outputProperties = scriptInfo.pop("properties", {})
+        self.path = self._parsePath(self.path, True)
+
+        self.args = [self._parsePath(arg) for arg in self.args]
+        self.kwargs = {key: self._parsePath(arg) for key, arg in self.kwargs.items()}
 
         for parameter in scriptInfo:
-            Logger.debug(f"Unknown step parameter: {parameter}")
+            logging.debug(f"Unknown script parameter: {parameter}")
 
-        # Parsing
-        self.path = self._parseArg(self.path)
-        if not isinstance(self.path, Path): # If not path after parsing due to relative import, convert to path
-            self.path = Path(self.path)
-
-        self.output = self._parseArg(self.output, [Key.OUTPUT_DIR, Key.OUTPUT_PATH])
-        if isinstance(self.output, str):
-            self.output = self.outputDir / self.output
-
-        if not self.output.suffix:
-            self.output = Folder(self.output)
-        else:
-            self.output: File = File(self.output, self.outputProperties)
-
-        self.args = [self._parseArg(arg) for arg in self.args]
-        self.kwargs = {key: self._parseArg(arg) for key, arg in self.kwargs.items()}
-
-    def run(self, overwrite: bool = False, verbose: bool = False, args: list = [], kwargs: dict = {}) -> bool:
-        if isinstance(self.output, File) and self.output.exists():
-            if not overwrite:
-                Logger.info(f"Output {self.output} exist and not overwriting, skipping '{self.function}'")
-                return True
-            
-            self.output.backUp(True)
-
-        try:
-            processFunction = self._importFunction(self.path, self.function)
-        except:
-            Logger.error(f"Error importing function '{self.function}' from path '{self.path}'")
-            Logger.error(traceback.format_exc())
-            self.output.restoreBackUp()
-            return False
-
-        args = self.args + args
-        kwargs = self.kwargs | kwargs
-
-        if verbose:
-            msg = f"Running {self.path} function '{self.function}'"
-            if self.args:
-                msg += f" with args {args}"
-            if self.kwargs:
-                if self.args:
-                    msg += " and"
-                msg += f" with kwargs {kwargs}"
-            Logger.info(msg)
-
-        try:
-            processFunction(*args, **kwargs)
-        except KeyboardInterrupt:
-            Logger.info("Cancelled external script")
-            self.output.restoreBackUp()
-            return False
-        except PermissionError:
-            Logger.info("External script does not have permission to modify file, potentially open")
-            self.output.restoreBackUp()
-            return False
-        except:
-            Logger.error(f"Error running external script:\n{traceback.format_exc()}")
-            self.output.restoreBackUp()
-            return False
-
-        if not self.output.exists():
-            Logger.warning(f"Output {self.output} was not created")
-            self.output.restoreBackUp()
-            return False
-
-        Logger.info(f"Created file {self.output}")
-        self.output.deleteBackup()
-        return True
-    
     def _importFunction(self, modulePath: Path, functionName: str) -> callable:
         spec = importlib.util.spec_from_file_location(modulePath.name, modulePath)
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)
         return getattr(module, functionName)
 
-    def _parseArg(self, arg: any, excludeKeys: list[Key] = []) -> Path | str:
+    def _parsePath(self, arg: Any, forceOutput: bool = False) -> Path | Any:
         if not isinstance(arg, str):
             return arg
         
-        if arg.startswith("."):
-            arg = self._parsePath(arg)
-            if isinstance(arg, str):
-                Logger.warning(f"Argument {arg} starts with '.' but is not a path")
-                
-            return arg
-        
-        if not (arg.startswith("{") and arg.endswith("}")):
-            return arg
-        
-        argValue = arg[1:-1].split("_")
-        if len(argValue) == 1:
-            selection = 0
-        elif len(argValue) == 2:
-            if argValue[1].isdigit():
-                selection = int(argValue[1])
-            else:
-                Logger.warning(f"Invalid selection number: {argValue[1]}")
-                return arg
-        else:
-            Logger.warning(f"Cannot interpret input: {arg}")
-            return arg
-
-        argValue = argValue[0]
-        if argValue not in Key._value2member_map_:
-            Logger.warning(f"Unknown key code: {argValue}")
-            return arg
-        
-        key = Key._value2member_map_[argValue]
-        if key in excludeKeys:
-            Logger.warning(f"Disallowed key code: {argValue}")
-            return arg
-        
-        # Parsing key
-        if key == Key.OUTPUT_FILE:
-            return self.output
-            
-        if key == Key.OUTPUT_DIR:
-            return self.outputDir
-        
-        if key == Key.OUTPUT_PATH:
-            if not isinstance(self.output, File):
-                Logger.warning("No output path found")
-                return None
-            
-            return self.output.filePath
-
-        if key == Key.INPUT_DIR:
-            if not self.inputs:
-                Logger.warning("No inputs to get directory from")
-                return None
-            
-            return self.inputs[selection].filePath.parent
-        
-        if key in (Key.INPUT_FILE, Key.INPUT_PATH, Key.INPUT_STEM):
-            if not self.inputs:
-                Logger.warning("No inputs to get path from")
-                return None
-            
-            file = self.inputs[selection]
-            if key == Key.INPUT_FILE:
-                return file
-
-            path = file.filePath
-            if key == Key.INPUT_PATH:
-                return path
-            
-            return path.stem
-
-    def _parsePath(self, arg: str) -> Path | str:
         if arg.startswith("./"):
             workingDir = self.baseDir
             return workingDir / arg[2:]
@@ -208,5 +71,171 @@ class Script:
         if arg.startswith(".../"):
             return self._libDir / arg[4:]
 
-        Logger.warning(f"Unable to parse suspected path: {arg}")
+        if forceOutput:
+            return Path(arg)
+        
         return arg
+    
+    def run(self, verbose: bool, inputArgs: list = [], inputKwargs: dict = {}) -> tuple[bool, any]:
+        try:
+            processFunction = self._importFunction(self.path, self.function)
+        except:
+            logging.error(f"Error importing function '{self.function}' from path '{self.path}'")
+            logging.error(traceback.format_exc())
+            return False, None
+
+        args = self.args + inputArgs
+        kwargs = self.kwargs | inputKwargs
+
+        if verbose:
+            msg = f"Running {self.path} function '{self.function}'"
+            if self.args:
+                msg += f" with args {args}"
+            if self.kwargs:
+                if self.args:
+                    msg += " and"
+                msg += f" with kwargs {kwargs}"
+            logging.info(msg)
+        
+        try:
+            retVal = processFunction(*args, **kwargs)
+        except KeyboardInterrupt:
+            logging.info("Cancelled external script")
+            return False, None
+        except PermissionError:
+            logging.info("External script does not have permission to modify file, potentially open")
+            return False, None
+        except:
+            logging.error(f"Error running external script:\n{traceback.format_exc()}")
+            return False, None
+                
+        return True, retVal
+
+class OutputScript(FunctionScript):
+    fileLookup = {}
+    
+    def __init__(self, baseDir: Path, scriptInfo: dict, outputDir: Path):
+        self.outputDir = outputDir
+
+        # Output information
+        outputName = scriptInfo.pop("output", None)
+        outputProperties = scriptInfo.pop("properties", {})
+
+        if outputName is None:
+            raise Exception("No output specified, please use FunctionScript if intentionally has no output") from AttributeError
+
+        self.output = self._parseOutput(outputName, outputProperties)
+        self.fileLookup |= {FileSelect.OUTPUT: [self.output]}
+
+        super().__init__(baseDir, scriptInfo)
+
+        self.args = [self._parseArg(arg) for arg in self.args]
+        self.kwargs = {key: self._parseArg(arg) for key, arg in self.kwargs.items()}
+
+    def _parseOutput(self, outputName: str, outputProperties: dict) -> File:
+        return self._createFile(self.outputDir / outputName, outputProperties)
+
+    def _createFile(self, outputPath: Path, outputProperties: dict) -> File:
+        if not outputPath.suffix:
+            return Folder(outputPath)
+        
+        return File(outputPath, outputProperties)
+    
+    def _parseArg(self, arg: Any) -> Path | str:
+        if not isinstance(arg, str):
+            return arg
+        
+        if not (arg.startswith("{") and arg.endswith("}")):
+            return arg
+        
+        parsedArg = self._parseSelectorArg(arg[1:-1])
+        if  isinstance(parsedArg, str):
+            logging.warning(f"Unknown key code: {parsedArg}")
+            return arg
+        
+        return parsedArg
+
+    def _parseSelectorArg(self, argKey: str) -> Path | str:
+        if "-" not in argKey:
+            logging.warning(f"Both file type and file property not present in arg, deliminate with '-'")
+            return argKey
+        
+        fType, fProperty = argKey.split("-")
+
+        if fType[-1].isdigit():
+            selection = int(fType[-1])
+            fType = fType[:-1]
+        else:
+            selection = 0
+
+        fTypeEnum = FileSelect._value2member_map_.get(fType, None)
+        if fTypeEnum is None:
+            logging.error(f"Invalid file type: '{file}'")
+            return argKey
+
+        files = self.fileLookup.get(fTypeEnum, None)
+        if files is None:
+            logging.error(f"No files provided for file type: '{fType}")
+            return argKey
+
+        if selection > len(files):
+            logging.error(f"File selection '{selection}' out of range for file type '{fType}' which has a length of '{len(files)}")
+            return argKey
+        
+        file: File = files[selection]
+        fProperty, *suffixes = fProperty.split(".")
+
+        if fProperty == _FileProperty.FILE.value:
+            if suffixes:
+                logging.warning("Suffix provided for a file object which cannot be resolved, suffix not applied")
+            return file
+        
+        if fProperty == _FileProperty.DIR.value:
+            if suffixes:
+                logging.warning("Suffix provided for a parent path which cannot be resolved, suffix not applied")
+            return file.filePath.parent
+
+        if fProperty == _FileProperty.PATH.value:
+            pth = file.filePath
+            for suffix in suffixes:
+                pth = pth.with_suffix(suffix)
+            return pth
+        
+        logging.error(f"Unable to parse file property: '{fProperty}")
+        return argKey
+
+    def run(self, overwrite: bool, verbose: bool, inputArgs: list = [], inputKwargs: dict = {}) -> tuple[bool, any]:
+        if self.output.exists():
+            if not overwrite:
+                logging.info(f"Output {self.output} exist and not overwriting, skipping '{self.function}'")
+                return True, None
+            
+            self.output.backUp(True)
+
+        success, retVal = super().run(verbose, inputArgs, inputKwargs)
+        if not success:
+            self.output.restoreBackUp()
+            return False, retVal
+        
+        if not self.output.exists():
+            logging.warning(f"Output {self.output} was not created")
+            self.output.restoreBackUp()
+            return False, retVal
+        
+        logging.info(f"Created file {self.output}")
+        self.output.deleteBackup()
+        return True, retVal
+
+class FileScript(OutputScript):
+    def __init__(self, baseDir: Path, scriptInfo: dict, outputDir: Path, inputs: dict[str, File]):
+        self.fileLookup |= inputs
+
+        super().__init__(baseDir, scriptInfo, outputDir)
+
+    def _parseOutput(self, outputName: str, outputProperties: dict) -> File:
+        parsedValue = self._parseArg(outputName)
+
+        if isinstance(parsedValue, str):
+            return super()._parseOutput(parsedValue, outputProperties)
+        
+        return self._createFile(parsedValue, outputProperties)

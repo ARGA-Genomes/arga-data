@@ -1,11 +1,11 @@
 {
     "datasetID": "ARGA:TL:0000178",
     "retrieveType": "script",
-    "download": {
+    "downloading": {
         "path": "./processing.py",
         "function": "getPortalData",
         "args": [
-            "{OUTPATH}"
+            "{OUT-PATH}"
         ],
         "output": "portalData.csv"
     },
