@@ -22,7 +22,7 @@ def _parseMetadata(line: str) -> tuple[str, dict]:
         value = data[:commaPos] if commaPos >= 0 else data
         data = data[commaPos+1:] if commaPos >= 0 else ""
 
-        pairs.append(value.replace('"', "").split("="))
+        pairs.append(value.replace('"', "").split("=", 1))
 
     return key, {k: v for k, v in pairs}
 
