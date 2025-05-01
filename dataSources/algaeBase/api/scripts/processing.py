@@ -3,6 +3,7 @@ from pathlib import Path
 import pandas as pd
 import json
 import lib.dataframes as dff
+from lib.progressBar import SteppableProgressBar
 
 def getUrl(entryCount: int, page: int) -> str:
     baseURL = "https://api.algaebase.org/v1.3/"
@@ -25,8 +26,9 @@ def build(outputFile: Path, apiKeyPath: Path) -> None:
     records = data["result"]
     totalCalls = data["_pagination"]["_total_number_of_pages"]
 
+    progress = SteppableProgressBar(totalCalls)
+
     for call in range(1, totalCalls):
-        print(f"At call: {call} / {totalCalls - 1}", end="\r")
         response = requests.get(getUrl(entriesPerCall, call), headers=headers)
 
         try:
@@ -36,6 +38,7 @@ def build(outputFile: Path, apiKeyPath: Path) -> None:
             continue
 
         records.extend(data["result"])
+        progress.update()
 
     df = pd.DataFrame.from_records(records)
     df = dff.removeSpaces(df)
