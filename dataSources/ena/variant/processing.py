@@ -124,4 +124,4 @@ def combine(inputDir: Path, outputFilePath: Path):
 
         progress.update()
     
-    writer.oneFile()
+    writer.oneFile(False)
