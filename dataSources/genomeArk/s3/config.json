@@ -1,0 +1,21 @@
+{
+    "datasetID": "ARGA:TL:0000193",
+    "retrieveType": "script",
+    "downloading": {
+        "path": "./processing.py",
+        "function": "collect",
+        "args": [
+            "{OUT-DIR}"
+        ],
+        "output": "genomeArk.csv"
+    },
+    "conversion": {
+        "mapID": 84855374
+    },
+    "update": {
+        "type": "weekly",
+        "day": "sunday",
+        "time": 9,
+        "repeat": 2
+    }
+}
