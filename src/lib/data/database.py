@@ -40,7 +40,7 @@ class BasicDB:
         self.locationDir = cfg.Folders.dataSources / location
         self.databaseDir = self.locationDir / database
         self.subsectionDir = self.databaseDir / self.subsection # If no subsection, does nothing
-        self.dataDir = self.subsectionDir / "data"
+        self.dataDir = self.subsectionDir / "data" if not cfg.Folders.storage else cfg.Folders.storage / location / database / self.subsection / "data"
 
         # System Managers
         self.downloadManager = DownloadManager(self.dataDir, self.authFile)

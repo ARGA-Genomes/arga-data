@@ -25,7 +25,8 @@ class ConfigMeta(type):
             if isinstance(v, str):
                 if v.startswith("./"):
                     v = rootDir / Path(v)
-                elif v.startswith("/"):
+
+                elif v.startswith("/") or v[1:].startswith(":/"):
                     v = Path(v)
                     
             attrs[k] = v
