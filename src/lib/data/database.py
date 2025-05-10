@@ -1,4 +1,4 @@
-import lib.config as cfg
+from lib.config import globalConfig as cfg
 from enum import Enum
 from pathlib import Path
 
@@ -37,10 +37,17 @@ class BasicDB:
         self.authFile: str = config.pop("auth", "")
 
         # Relative folders
-        self.locationDir = cfg.Folders.dataSources / location
+        self.locationDir = cfg.folders.dataSources / location
         self.databaseDir = self.locationDir / database
         self.subsectionDir = self.databaseDir / self.subsection # If no subsection, does nothing
-        self.dataDir = self.subsectionDir / "data" if not cfg.Folders.storage else cfg.Folders.storage / location / database / self.subsection / "data"
+
+        self.localConfig = cfg
+        for dir in (self.locationDir, self.databaseDir, self.subsectionDir):
+            subdirConfig = Path(dir / "config.toml")
+            if subdirConfig.exists():
+                self.localConfig = self.localConfig.createChildConfigs(subdirConfig)
+
+        self.dataDir = self.subsectionDir / "data" if not self.localConfig.folders.storage else self.localConfigfolders.storage / location / database / self.subsection / "data"
 
         # System Managers
         self.downloadManager = DownloadManager(self.dataDir, self.authFile)
@@ -161,7 +168,7 @@ class BasicDB:
             logging.info(f"Process ended early when attempting to execute step '{step.name}' for {self}")
 
     def package(self) -> Path:
-        outputDir = cfg.Folders.package if isinstance(cfg.Folders.package, Path) else self.dataDir
+        outputDir = self.localConfigfolders.package if isinstance(self.localConfigfolders.package, Path) else self.dataDir
         outputPath = self.conversionManager.package(outputDir)
         if outputPath is not None:
             logging.info(f"Successfully zipped converted data source file to {outputPath}")

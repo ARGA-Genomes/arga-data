@@ -1,4 +1,4 @@
 import lib.logger as lg
-import lib.config as cfg
+from lib.config import globalConfig as cfg
 
-lg.createLogger(logToConsole=cfg.Settings.logToConsole, logLevel=cfg.Settings.logLevel)
+lg.createLogger(logToConsole=cfg.settings.logToConsole, logLevel=cfg.settings.logLevel)
