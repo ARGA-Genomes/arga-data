@@ -7,7 +7,7 @@
         "args": [
             "{OUT-PATH}"
         ],
-        "output": "avh.csv"
+        "output": "ozcam.csv"
     },
     "conversion": {
         "mapID": 404635334
