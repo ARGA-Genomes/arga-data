@@ -5,7 +5,7 @@ from lib.progressBar import SteppableProgressBar
 from lib.bigFileWriter import BigFileWriter
 
 def build(outputFilePath: Path) -> None:
-    baseURL = "https://biocache-ws.ala.org.au/ws/occurrences/search?"
+    baseURL = "https://biocache-ws.ala.org.au/occurrences/occurrences/offline/download?"
     fields = {
         "q": "basis_of_record%3AOCCURRENCE%20PRESERVED_SPECIMEN%20MATERIAL_SAMPLE%20LIVING_SPECIMEN%20MATERIAL_CITATION",
         "qualityProfile": "ALA",
@@ -39,18 +39,24 @@ def build(outputFilePath: Path) -> None:
     recordsPerPage = 10000
 
     response = requests.get(firstCall)
+    print(response.content)
     data = response.json()
 
     totalRecords = data["totalRecords"]
     totalCalls = (totalRecords / recordsPerPage).__ceil__()
 
     writer = BigFileWriter(outputFilePath)
-    progress = SteppableProgressBar(totalCalls)
+    # progress = SteppableProgressBar(totalCalls)
 
     records = []
     for call in range(totalCalls):
-        response = requests.get(f"{fullURL}&pageSize={recordsPerPage}&startIndex={call*recordsPerPage}")
+        if call == 10:
+            return
+            
+        response = requests.get(f"{fullURL}&pageSize={recordsPerPage}&start={call*recordsPerPage}")
         data = response.json()
+        print(len(data["occurrences"]))
+        continue
         records.extend(data.get("occurrences", []))
 
         if len(records) >= 1000000:
