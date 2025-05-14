@@ -1,5 +1,5 @@
 from pathlib import Path
-from lib.processing.stages import File
+from lib.processing.files import File, Step
 from lib.processing.scripts import FileScript, FileSelect
 from lib.systemManagers.baseManager import SystemManager, Task
 import logging
@@ -51,11 +51,8 @@ class _Root(_Node):
 
 class ProcessingManager(SystemManager):
     def __init__(self, dataDir: Path):
-        self.stepName = "processing"
+        super().__init__(dataDir, Step.PROCESSING, "steps")
 
-        super().__init__(dataDir.parent, self.stepName, "steps")
-
-        self.processingDir = dataDir / self.stepName
         self.nodes: dict[FileSelect, list[_Node]] = {
             FileSelect.DOWNLOAD: [],
             FileSelect.PROCESS: []
@@ -67,7 +64,7 @@ class ProcessingManager(SystemManager):
         inputs = {FileSelect.INPUT: [self.getLatestNodeFile()]} | {select: [node.getOutputFile() for node in nodes] for select, nodes in self.nodes.items()}
         
         try:
-            script = FileScript(self.baseDir, dict(step), self.processingDir, inputs)
+            script = FileScript(self.baseDir, dict(step), self.workingDir, inputs)
         except AttributeError as e:
             logging.error(f"Invalid processing script configuration: {e}")
             return None
@@ -91,8 +88,8 @@ class ProcessingManager(SystemManager):
             logging.info("No processing required for any nodes")
             return True
 
-        if not self.processingDir.exists():
-            self.processingDir.mkdir()
+        if not self.workingDir.exists():
+            self.workingDir.mkdir()
 
         queuedTasks: list[_Node] = []
         for node in self._lowestNodes:

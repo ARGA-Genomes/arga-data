@@ -1,5 +1,5 @@
 from lib.data.argParser import ArgParser
-from lib.processing.stages import Step
+from lib.processing.files import Step
 from lib.processing.mapping import Event
 import logging
 

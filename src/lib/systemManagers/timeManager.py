@@ -1,6 +1,6 @@
 import json
 from datetime import datetime
-from lib.processing.stages import Step
+from lib.processing.files import Step
 import json
 from pathlib import Path
 
@@ -15,8 +15,8 @@ class TimeManager:
         with open(self.timeFile) as fp:
             self.timeData = json.load(fp)
 
-    def update(self, stageFileStep: Step):
-        self.timeData[stageFileStep.name.lower()] = datetime.now().isoformat()
+    def update(self, fileStep: Step):
+        self.timeData[fileStep.name.lower()] = datetime.now().isoformat()
         
         with open(self.timeFile, "w") as fp:
             json.dump(self.timeData, fp, indent=4)

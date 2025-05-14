@@ -6,9 +6,9 @@ from collections.abc import Iterator
 import logging
 
 class Step(Enum):
-    DOWNLOAD   = 0
-    PROCESSING = 1
-    CONVERSION = 2
+    DOWNLOADING = "downloading"
+    PROCESSING  = "processing"
+    CONVERSION  = "conversion"
 
 class File:
     def __init__(self, filePath: Path, fileProperties: dict = {}):

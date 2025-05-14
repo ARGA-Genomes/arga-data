@@ -1,7 +1,7 @@
 import pandas as pd
 import json
 from lib.data.argParser import ArgParser
-from lib.processing.stages import File, Step
+from lib.processing.files import File, Step
 import random
 import logging
 import lib.dataframes as dff
@@ -64,7 +64,6 @@ if __name__ == '__main__':
 
         seed = args.seed if args.seed >= 0 else random.randrange(2**32 - 1) # Max value for pandas seed
         random.seed(seed)
-
 
         columns = stageFile.getColumns()
         mappingSuccess = source.conversionManager.remapper.buildTable(columns)

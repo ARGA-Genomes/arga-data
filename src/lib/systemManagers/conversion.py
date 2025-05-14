@@ -3,7 +3,7 @@ from pathlib import Path
 import lib.common as cmn
 from lib.bigFileWriter import BigFileWriter
 from lib.processing.mapping import Remapper, Event
-from lib.processing.stages import File, StackedFile
+from lib.processing.files import File, StackedFile, Step
 from lib.processing.scripts import FunctionScript
 from lib.systemManagers.baseManager import SystemManager, Metadata
 import logging
@@ -14,11 +14,7 @@ import lib.zipping as zp
 
 class ConversionManager(SystemManager):
     def __init__(self, dataDir: Path, datasetID: str, location: str, database: str, subsection: str):
-        self.stepName = "conversion"
-
-        super().__init__(dataDir.parent, self.stepName, "tasks")
-
-        self.conversionDir = dataDir / self.stepName
+        super().__init__(dataDir, Step.CONVERSION, "tasks")
 
         self.datasetID = datasetID
         self.location = location
@@ -35,7 +31,7 @@ class ConversionManager(SystemManager):
         if withTimestamp:
             sourceName += date.today().strftime("-%Y-%m-%d")
 
-        return StackedFile(self.conversionDir / sourceName)
+        return StackedFile(self.workingDir / sourceName)
 
     def loadFile(self, file: File, properties: dict, mapDir: Path) -> None:
         self.file = file
@@ -163,7 +159,7 @@ class ConversionManager(SystemManager):
         if outputFileName is None:
             return
         
-        outputFilePath = self.conversionDir / outputFileName
+        outputFilePath = self.workingDir / outputFileName
         renamedFile = self.metadataPath.rename(outputFilePath / self.metadataPath.name)
         outputPath = zp.compress(outputFilePath, compressLocation)
         renamedFile.rename(self.metadataPath)

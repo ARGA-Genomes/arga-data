@@ -1,6 +1,6 @@
 from pathlib import Path
 from lib.systemManagers.baseManager import SystemManager, Task
-from lib.processing.stages import File
+from lib.processing.files import File, Step
 from lib.processing.scripts import OutputScript
 import logging
 import lib.downloading as dl
@@ -38,11 +38,8 @@ class _ScriptDownload(_Download):
 
 class DownloadManager(SystemManager):
     def __init__(self, dataDir: Path, authFile: str):
-        self.stepName = "downloading"
+        super().__init__(dataDir, Step.DOWNLOADING, "files")
 
-        super().__init__(dataDir.parent, self.stepName, "files")
-
-        self.downloadDir = dataDir / self.stepName
         self.authFile = authFile
 
         authPath = self.baseDir / self.authFile
@@ -66,19 +63,19 @@ class DownloadManager(SystemManager):
         return self.files[-1].file
 
     def download(self, overwrite: bool = False, verbose: bool = False) -> bool:
-        if not self.downloadDir.exists():
-            self.downloadDir.mkdir(parents=True)
+        if not self.workingDir.exists():
+            self.workingDir.mkdir(parents=True)
 
         return self.runTasks(self.downloads, overwrite, verbose)
 
     def registerFromURL(self, url: str, fileName: str, fileProperties: dict = {}) -> bool:
-        download = _URLDownload(url, self.downloadDir / fileName, fileProperties, self.username, self.password)
+        download = _URLDownload(url, self.workingDir / fileName, fileProperties, self.username, self.password)
         self.downloads.append(download)
         return True
 
     def registerFromScript(self, scriptInfo: dict) -> bool:
         try:
-            download = _ScriptDownload(self.baseDir, self.downloadDir, scriptInfo)
+            download = _ScriptDownload(self.baseDir, self.workingDir, scriptInfo)
         except AttributeError as e:
             logging.error(f"Invalid download script configuration: {e}")
             return False

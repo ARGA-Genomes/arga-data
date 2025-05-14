@@ -1,5 +1,4 @@
 from lib.data.argParser import ArgParser
-from lib.processing.stages import Step
 
 if __name__ == '__main__':
     parser = ArgParser(description="Package converted data")

@@ -7,7 +7,7 @@ from lib.systemManagers.processing import ProcessingManager
 from lib.systemManagers.conversion import ConversionManager
 from lib.systemManagers.updating import UpdateManager
 
-from lib.processing.stages import Step
+from lib.processing.files import Step
 
 from lib.crawler import Crawler
 import logging
@@ -102,15 +102,15 @@ class BasicDB:
         fileToConvert = self.processingManager.getLatestNodeFile()
         self.conversionManager.loadFile(fileToConvert, self.conversionConfig, self.databaseDir)
 
-    def _prepare(self, step: Step, flags: list[Flag]) -> bool:
+    def _prepare(self, fileStep: Step, flags: list[Flag]) -> bool:
         callbacks = {
             Step.DOWNLOAD: self._prepareDownload,
             Step.PROCESSING: self._prepareProcessing,
             Step.CONVERSION: self._prepareConversion
         }
 
-        if step not in callbacks:
-            raise Exception(f"Uknown step to prepare: {step}")
+        if fileStep not in callbacks:
+            raise Exception(f"Uknown step to prepare: {fileStep}")
 
         for idx, (stepType, callback) in enumerate(callbacks.items()):
             if idx <= self._prepStage:
@@ -124,41 +124,41 @@ class BasicDB:
                 return False
             
             self._prepStage = idx
-            if step == stepType:
+            if fileStep == stepType:
                 break
             
         return True
 
-    def _execute(self, step: Step, flags: list[Flag], **kwargs: dict) -> bool:
+    def _execute(self, fileStep: Step, flags: list[Flag], **kwargs: dict) -> bool:
         overwrite = Flag.OUTPUT_OVERWRITE in flags
         verbose = Flag.VERBOSE in flags
 
-        logging.info(f"Executing {self} step '{step.name}' with flags: {self._verboseFlags(flags)}")
-        if step == Step.DOWNLOAD:
+        logging.info(f"Executing {self} step '{fileStep.name}' with flags: {self._verboseFlags(flags)}")
+        if fileStep == Step.DOWNLOAD:
             return self.downloadManager.download(overwrite, verbose, **kwargs)
 
-        if step == Step.PROCESSING:
+        if fileStep == Step.PROCESSING:
             return self.processingManager.process(overwrite, verbose, **kwargs)
         
-        if step == Step.CONVERSION:
+        if fileStep == Step.CONVERSION:
             return self.conversionManager.convert(overwrite, verbose, **kwargs)
 
-        logging.error(f"Unknown step to execute: {step}")
+        logging.error(f"Unknown step to execute: {fileStep}")
         return False
     
-    def create(self, step: Step, flags: list[Flag], **kwargs: dict) -> None:
+    def create(self, fileStep: Step, flags: list[Flag], **kwargs: dict) -> None:
         try:
-            success = self._prepare(step, flags)
+            success = self._prepare(fileStep, flags)
             if not success:
                 return
             
         except KeyboardInterrupt:
-            logging.info(f"Process ended early when attempting to prepare step '{step.name}' for {self}")
+            logging.info(f"Process ended early when attempting to prepare step '{fileStep.name}' for {self}")
 
         try:
-            self._execute(step, flags, **kwargs)
+            self._execute(fileStep, flags, **kwargs)
         except KeyboardInterrupt:
-            logging.info(f"Process ended early when attempting to execute step '{step.name}' for {self}")
+            logging.info(f"Process ended early when attempting to execute step '{fileStep.name}' for {self}")
 
     def package(self) -> Path:
         outputDir = cfg.Folders.package if isinstance(cfg.Folders.package, Path) else self.dataDir

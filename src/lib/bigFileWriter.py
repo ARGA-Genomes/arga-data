@@ -24,20 +24,13 @@ class Subfile:
         subclass = subclassMap.get(args[-1], cls)
         return super().__new__(subclass)
 
-    def __init__(self, location: Path, fileName: str, format: Format) -> 'Subfile':
+    def __init__(self, filePath: Path, fileName: str) -> 'Subfile':
         self.fileName = fileName
         self.filePath = location / f"{fileName}{Format(format).value}"
         self.size = self.filePath.stat().st_size if self.filePath.exists() else 0
 
     def __repr__(self) -> str:
         return f"{self.filePath}"
-    
-    @classmethod
-    def fromFilePath(cls, filePath: Path) -> 'Subfile':
-        location = filePath.parent
-        fileName = filePath.stem
-        fileFormat = Format(filePath.suffix.lower())
-        return cls(location, fileName, fileFormat)
     
     def write(self, df: pd.DataFrame) -> None:
         df.to_csv(self.filePath, index=False)
@@ -163,31 +156,28 @@ class BigFileWriter:
     def getSubfileNames(self) -> list[str]:
         return [subfile.fileName for subfile in self.writtenFiles]
 
-    def writeDF(self, df: pd.DataFrame, customName: str = "", format: Format = None) -> None:
+    def writeDF(self, df: pd.DataFrame, customName: str = "") -> None:
         if not self.subfileDir.exists():
             self.subfileDir.mkdir(parents=True)
-
-        if format is None:
-            format = self.subfileType
 
         if customName:
             fileName = customName
             suffix = 0
 
             while fileName in self.getSubfileNames():
-                fileName = f"{customName}_{suffix}"
+                fileName = f"{customName}_{suffix}{self.subfileType}"
                 suffix += 1
 
         else:
-            fileName = f"{self.sectionPrefix}_{len(self.writtenFiles)}"
+            fileName = f"{self.sectionPrefix}_{len(self.writtenFiles)}{self.subfileType}"
 
-        subfile = Subfile(self.subfileDir, fileName, format)
+        subfile = Subfile(self.subfileDir, fileName)
         subfile.write(df)
 
         self.writtenFiles.append(subfile)
         self.globalColumns = cmn.extendUnique(self.globalColumns, df.columns)
 
-    def oneFile(self, removeOld: bool = True) -> None:
+    def oneFile(self, cleanUp: bool = True) -> None:
         if self.outputFile.exists():
             logging.info(f"Removing old file {self.outputFile}")
             self.outputFile.unlink()
@@ -201,16 +191,16 @@ class BigFileWriter:
 
         logging.info("Combining into one file")
         if self.outputFileType in (Format.CSV, Format.TSV):
-            self._oneCSV(removeOld)
+            self._oneCSV(cleanUp)
         elif self.outputFileType == Format.PARQUET:
-            self._oneParquet(removeOld)
+            self._oneParquet(cleanUp)
 
         logging.info(f"\nCreated a single file at {self.outputFile}")
-        if removeOld:
+        if cleanUp:
             self.subfileDir.rmdir()
             self.writtenFiles.clear()
 
-    def _oneCSV(self, removeOld: bool = True):
+    def _oneCSV(self, cleanUp: bool = True):
         delim = "\t" if self.outputFileType == Format.TSV else ","
         chunkSize = 1024
 
@@ -227,10 +217,10 @@ class BigFileWriter:
                     chunk = chunk.reindex(self.globalColumns, axis=1, fill_value="")
                     chunk.to_csv(self.outputFile, mode="a", sep=delim, index=False, header=False)
 
-            if removeOld:
+            if cleanUp:
                 file.remove()
         
-    def _oneParquet(self, removeOld: bool = True):
+    def _oneParquet(self, cleanUp: bool = True):
         schema = pa.schema([(column, pa.string()) for column in self.globalColumns])
         with pq.ParquetWriter(self.outputFile, schema=schema) as writer:
             progress = SteppableProgressBar(len(self.writtenFiles), processName="Writing")
@@ -239,5 +229,5 @@ class BigFileWriter:
                 
                 writer.write_table(pq.read_table(str(file)))
 
-                if removeOld:
+                if cleanUp:
                     file.remove()

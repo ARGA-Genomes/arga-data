@@ -1,6 +1,6 @@
 from pathlib import Path
 import logging
-from lib.processing.stages import File
+from lib.processing.files import File
 from lib.bigFileWriter import BigFileWriter
 import time
 import pandas as pd

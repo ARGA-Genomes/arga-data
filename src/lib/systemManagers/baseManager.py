@@ -5,6 +5,7 @@ from datetime import datetime
 import time
 from enum import Enum
 from typing import Any
+from lib.processing.files import Step
 
 class Metadata(Enum):
     OUTPUT = "output"
@@ -22,11 +23,13 @@ class Task:
         raise NotImplementedError
 
 class SystemManager:
-    def __init__(self, baseDir: Path, stepKey: str, taskName: str):
-        self.baseDir = baseDir
-        self.stepKey = stepKey
+    def __init__(self, parentDir: Path, stepType: Step, taskName: str):
+        self.parentDir = parentDir
+        self.stepType = stepType
         self.taskName = taskName
-        self.metadataPath = baseDir / "metadata.json"
+
+        self.workingDir = parentDir / stepType.value
+        self.metadataPath = parentDir.parent / "metadata.json"
         self._loadMetadata()
 
     def _getFileMetadata(self) -> dict:
