@@ -2,12 +2,25 @@
     "datasetID": "0007001",
     "retrieveType": "script",
     "downloading": {
-        "path": "./processing.py",
-        "function": "build",
+        "path": "../sharedProcessing.py",
+        "function": "buildOzcam",
         "args": [
             "{OUT-PATH}"
         ],
-        "output": "ozcam.csv"
+        "output": "ozcam.zip"
+    },
+    "processing": {
+        "linear": [
+            {
+                "path": ".../zipping.py",
+                "function": "extract",
+                "args": [
+                    "{IN-PATH}",
+                    "{OUT-DIR}"
+                ],
+                "output": "ozcam"
+            }
+        ]
     },
     "conversion": {
         "mapID": 404635334
