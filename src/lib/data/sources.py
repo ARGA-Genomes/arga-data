@@ -1,5 +1,5 @@
 import json
-import lib.config as cfg
+from lib.config import globalConfig as gcfg
 from pathlib import Path
 from lib.data.database import BasicDB, CrawlDB, ScriptDB, Retrieve
 import logging
@@ -8,7 +8,7 @@ class SourceManager:
     def __init__(self):
         self.locations: dict[str, Location] = {}
         
-        for locationPath in cfg.Folders.dataSources.iterdir():
+        for locationPath in gcfg.folders.dataSources.iterdir():
             locationObj = Location(locationPath)
             self.locations[locationObj.locationName] = locationObj
     

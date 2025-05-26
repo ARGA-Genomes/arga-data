@@ -1,5 +1,5 @@
 import logging
-import lib.config as cfg
+from lib.config import globalConfig as gcfg
 from pathlib import Path
 from datetime import datetime
 import sys
@@ -23,7 +23,7 @@ def createLogger(logToConsole: bool = True, logLevel: str = "debug") -> logging.
 
     formatter = logging.Formatter("[%(asctime)s] %(levelname)s: %(message)s", "%H:%M:%S")
 
-    logFolder: Path = cfg.Folders.logs
+    logFolder: Path = gcfg.folders.logs
     logFileName = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
     logFilePath = logFolder / f"{logFileName}.log"
 

@@ -3,7 +3,6 @@ import numpy as np
 import pandas as pd
 import urllib.error
 import json
-import lib.config as cfg
 from pathlib import Path
 from enum import Enum
 import logging
