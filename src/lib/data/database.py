@@ -1,4 +1,4 @@
-from lib.config import globalConfig as cfg
+from lib.config import globalConfig as gcfg
 from enum import Enum
 from pathlib import Path
 
@@ -37,17 +37,17 @@ class BasicDB:
         self.authFile: str = config.pop("auth", "")
 
         # Relative folders
-        self.locationDir = cfg.folders.dataSources / location
+        self.locationDir = gcfg.folders.dataSources / location
         self.databaseDir = self.locationDir / database
         self.subsectionDir = self.databaseDir / self.subsection # If no subsection, does nothing
 
-        self.localConfig = cfg
+        self.config = gcfg
         for dir in (self.locationDir, self.databaseDir, self.subsectionDir):
             subdirConfig = Path(dir / "config.toml")
             if subdirConfig.exists():
-                self.localConfig = self.localConfig.createChild(subdirConfig)
+                self.config = self.config.createChild(subdirConfig)
 
-        self.dataDir = self.subsectionDir / "data" if not self.localConfig.folders.storage else self.localConfigfolders.storage / location / database / self.subsection / "data"
+        self.dataDir = self.subsectionDir / "data" if not self.config.overwrites.storage else self.config.overwrites.storage / location / database / self.subsection / "data"
 
         # System Managers
         self.downloadManager = DownloadManager(self.dataDir, self.authFile)

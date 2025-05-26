@@ -1,4 +1,4 @@
-from lib.config import globalConfig as cfg
+from lib.config import globalConfig as gcfg
 from pathlib import Path
 import zipfile
 
@@ -20,7 +20,7 @@ def getDatabaseFiles(folderPath: Path) -> list[Path]:
     return localFiles
 
 if __name__ == "__main__":
-    data: Path = cfg.folders.dataSources
+    data: Path = gcfg.folders.dataSources
     localFilesFolder = data.parent / "localFiles.zip"
 
     if localFilesFolder.exists():

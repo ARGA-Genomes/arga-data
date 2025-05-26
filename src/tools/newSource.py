@@ -1,4 +1,4 @@
-from lib.config import globalConfig as cfg
+from lib.config import globalConfig as gcfg
 import argparse
 from lib.data.sources import SourceManager
 from pathlib import Path
@@ -54,7 +54,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     sourceManager = SourceManager()
-    locationFolder: Path = cfg.folders.dataSources / args.location
+    locationFolder: Path = gcfg.folders.dataSources / args.location
     databaseFolder: Path = locationFolder / args.database
 
     if databaseFolder.exists():
