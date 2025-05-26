@@ -207,7 +207,9 @@ class BigFileWriter:
 
         logging.info(f"\nCreated a single file at {self.outputFile}")
         if removeOld:
-            self.subfileDir.rmdir()
+            if self.subfileDir.exists():
+                self.subfileDir.rmdir()
+                
             self.writtenFiles.clear()
 
     def _oneCSV(self, removeOld: bool = True):
