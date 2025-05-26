@@ -6,6 +6,7 @@ from urllib.parse import quote
 import logging
 from lib.secrets import secrets
 import lib.common as cmn
+from lib.bigFileWriter import BigFileWriter
 
 def buildAVH(outputFilePath: Path) -> None:
     baseURL = "https://api.ala.org.au/occurrences/occurrences/offline/download?"
@@ -89,9 +90,19 @@ def biocacheDownload(url: str, updateDelay: int, outputFilePath: Path) -> bool:
     return dl.download(downloadURL, outputFilePath, verbose=True)
 
 def cleanup(folderPath: Path, outputFilePath: Path) -> None:
-    filePath = folderPath / "data.csv"
-    filePath.rename(outputFilePath)
-    cmn.clearFolder(folderPath, True)
+    extraFiles = [
+        "citation.csv",
+        "headings.csv",
+        "README.html"
+    ]
+
+    for fileName in extraFiles:
+        path = folderPath / fileName
+        path.unlink(missing_ok=True)
+
+    writer = BigFileWriter(outputFilePath)
+    writer.populateFromFolder(folderPath)
+    writer.oneFile()
 
 # status = {
 #     "inQueue": [
