@@ -45,7 +45,7 @@ class BasicDB:
         for dir in (self.locationDir, self.databaseDir, self.subsectionDir):
             subdirConfig = Path(dir / "config.toml")
             if subdirConfig.exists():
-                self.localConfig = self.localConfig.createChildConfigs(subdirConfig)
+                self.localConfig = self.localConfig.createChild(subdirConfig)
 
         self.dataDir = self.subsectionDir / "data" if not self.localConfig.folders.storage else self.localConfigfolders.storage / location / database / self.subsection / "data"
 
