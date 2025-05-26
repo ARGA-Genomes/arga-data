@@ -19,6 +19,15 @@
                     "{OUT-DIR}"
                 ],
                 "output": "avh"
+            },
+            {
+                "path": "../sharedProcessing.py",
+                "function": "cleanup",
+                "args": [
+                    "{IN-PATH}",
+                    "{OUT-PATH}"
+                ],
+                "output": "avh.csv"
             }
         ]
     },
