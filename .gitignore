@@ -62,3 +62,4 @@ src/tools/updateBot/*.txt
 
 # devenv
 .devenv
+/secrets.toml
