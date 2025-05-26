@@ -4,11 +4,13 @@ import lib.downloading as dl
 import time
 from urllib.parse import quote
 import logging
+from lib.secrets import secrets
+import lib.common as cmn
 
 def buildAVH(outputFilePath: Path) -> None:
     baseURL = "https://api.ala.org.au/occurrences/occurrences/offline/download?"
     fields = {
-        "email": getEmail(),
+        "email": secrets.general.email,
         "emailNotify": False,
         "q": "*:*",
         "disableAllQualityFilters": True,
@@ -26,7 +28,7 @@ def buildAVH(outputFilePath: Path) -> None:
 def buildOzcam(outputFilePath: Path) -> None:
     baseURL = "https://api.ala.org.au/occurrences/occurrences/offline/download?"
     fields = {
-        "email": getEmail(),
+        "email": secrets.general.email,
         "emailNotify": False,
         "q": "basis_of_record:OCCURRENCE PRESERVED_SPECIMEN MATERIAL_SAMPLE LIVING_SPECIMEN MATERIAL_CITATION",
         "disableAllQualityFilters": True,
@@ -35,10 +37,6 @@ def buildOzcam(outputFilePath: Path) -> None:
 
     url = buildURL(baseURL, fields)
     biocacheDownload(url, 10, outputFilePath)
-
-def getEmail() -> str:
-    with open(Path(__file__).parent / "email.txt") as fp:
-        return fp.read().rstrip("\n")
 
 def buildURL(baseURL: str, fields: dict) -> str:
     def encode(key: str, value: any) -> str:
@@ -89,6 +87,11 @@ def biocacheDownload(url: str, updateDelay: int, outputFilePath: Path) -> bool:
     
     downloadURL = statusData["downloadUrl"]
     return dl.download(downloadURL, outputFilePath, verbose=True)
+
+def cleanup(folderPath: Path, outputFilePath: Path) -> None:
+    filePath = folderPath / "data.csv"
+    filePath.rename(outputFilePath)
+    cmn.clearFolder(folderPath, True)
 
 # status = {
 #     "inQueue": [
