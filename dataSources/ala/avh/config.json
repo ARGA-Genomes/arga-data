@@ -3,8 +3,9 @@
     "retrieveType": "script",
     "downloading": {
         "path": "../sharedProcessing.py",
-        "function": "buildAVH",
+        "function": "collect",
         "args": [
+            "avh",
             "{OUT-PATH}"
         ],
         "output": "avh.zip"
