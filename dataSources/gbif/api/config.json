@@ -1,0 +1,12 @@
+{
+    "retrieveType": "script",
+    "downloading": {
+        "path": "./processing.py",
+        "function": "collect",
+        "args": [
+            "{OUT-PATH}"
+        ],
+        "output": "gbif.zip"
+    },
+    "conversion": {}
+}
