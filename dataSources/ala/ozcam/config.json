@@ -3,8 +3,9 @@
     "retrieveType": "script",
     "downloading": {
         "path": "../sharedProcessing.py",
-        "function": "buildOzcam",
+        "function": "collect",
         "args": [
+            "ozcam",
             "{OUT-PATH}"
         ],
         "output": "ozcam.zip"
