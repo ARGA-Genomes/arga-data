@@ -63,7 +63,7 @@ def download(url: str, filePath: Path, chunkSize: int = 1024*1024, verbose: bool
 
     return True
 
-def parameterBuilder(url: str, parameters: dict) -> str:
+def urlBuilder(url: str, parameters: dict) -> str:
     def encode(key: str, value: any) -> str:
         if isinstance(value, bool):
             value = str(value).lower()
@@ -112,4 +112,4 @@ def asyncRunner(checkURL: str, statusField: str, completedStr: str, downloadFiel
 
         completed, status, downloadURL = getCompleted()
 
-    download(downloadURL, outputFilePath, verbose=True)
+    return download(downloadURL, outputFilePath, verbose=True)

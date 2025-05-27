@@ -8,9 +8,8 @@ from lib.secrets import secrets
 import lib.common as cmn
 from lib.bigFileWriter import BigFileWriter
 
-def buildAVH(outputFilePath: Path) -> None:
-    baseURL = "https://api.ala.org.au/occurrences/occurrences/offline/download?"
-    fields = {
+paramterSets = {
+    "avh": {
         "email": secrets.general.email,
         "emailNotify": False,
         "q": "*:*",
@@ -21,73 +20,32 @@ def buildAVH(outputFilePath: Path) -> None:
             'country:"Australia"'
         ],
         "qc": "data_hub_uid:dh9"
-    }
-
-    url = buildURL(baseURL, fields)
-    biocacheDownload(url, 10, outputFilePath)
-
-def buildOzcam(outputFilePath: Path) -> None:
-    baseURL = "https://api.ala.org.au/occurrences/occurrences/offline/download?"
-    fields = {
+    },
+    "ozcam": {
         "email": secrets.general.email,
         "emailNotify": False,
         "q": "basis_of_record:OCCURRENCE PRESERVED_SPECIMEN MATERIAL_SAMPLE LIVING_SPECIMEN MATERIAL_CITATION",
         "disableAllQualityFilters": True,
         "qualityProfile": "ALA"
     }
+}
 
-    url = buildURL(baseURL, fields)
-    biocacheDownload(url, 10, outputFilePath)
+def collect(parameterSet: str, outputFilePath: Path) -> None:
+    paramters = paramterSets.get(parameterSet, None)
+    if paramters is None:
+        raise Exception(f"Unspecified paramter set: {parameterSet}") from AttributeError
 
-def buildURL(baseURL: str, fields: dict) -> str:
-    def encode(key: str, value: any) -> str:
-        if isinstance(value, bool):
-            value = str(value).lower()
+    baseURL = "https://api.ala.org.au/occurrences/occurrences/offline/download?"
+    url = dl.urlBuilder(baseURL, paramters)
 
-        if isinstance(value, int):
-            value = str(value)
+    response = requests.get(url)
+    data = response.json()
 
-        return f"{key}={quote(value)}"
-
-    flatFields = []
-    for fieldName, value in fields.items():
-        if isinstance(value, list):
-            for item in value:
-                flatFields.append(encode(fieldName, item))
-            continue
-
-        flatFields.append(encode(fieldName, value))
-
-    return f"{baseURL}" + "&".join(flatFields)
-
-def biocacheDownload(url: str, updateDelay: int, outputFilePath: Path) -> bool:
-    session = requests.Session()
-
-    def getJson(url: str) -> dict:
-        response = session.get(url)
-        return response.json()
-    
-    initialData = getJson(url)
-    statusURL = initialData["statusUrl"]
-    totalRecords = initialData["totalRecords"]
+    statusURL = data["statusUrl"]
+    totalRecords = data["totalRecords"]
     logging.info(f"Found {totalRecords} total records")
 
-    updateDelay = max(updateDelay, 5)
-    loading = "|/-\\"
-    ttl = 0
-    
-    statusData = getJson(statusURL)
-    while statusData["status"] != "finished":
-        for _ in range(updateDelay):
-            for _ in range(2):
-                print(f"> ({loading[ttl % len(loading)]}) Status: {statusData['status']}", end="\r")
-            time.sleep(1)
-            ttl += 1
-        
-        statusData = getJson(statusURL)
-    
-    downloadURL = statusData["downloadUrl"]
-    return dl.download(downloadURL, outputFilePath, verbose=True)
+    dl.asyncRunner(statusURL, "status", "finished", "downloadUrl", outputFilePath)
 
 def cleanup(folderPath: Path, outputFilePath: Path) -> None:
     extraFiles = [
