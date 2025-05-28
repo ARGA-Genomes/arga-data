@@ -35,6 +35,7 @@ dataSources/**/data
 dataSources/**/examples
 dataSources/**/crawlerProgress
 dataSources/**/*.json
+dataSources/**/*.toml
 !dataSources/**/config.json
 
 # Data Files #
@@ -52,6 +53,7 @@ dataSources/**/*.json
 .env
 *.DS_Store
 *.code-workspace
+secrets.toml
 
 # Cached Files #
 *__pycache__
@@ -62,4 +64,3 @@ src/tools/updateBot/*.txt
 
 # devenv
 .devenv
-/secrets.toml
