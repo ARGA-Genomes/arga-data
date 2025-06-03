@@ -50,10 +50,11 @@ class _Root(_Node):
         return True
 
 class ProcessingManager(SystemManager):
-    def __init__(self, dataDir: Path):
+    def __init__(self, baseDir: Path, dataDir: Path, importDir: Path):
         self.stepName = "processing"
+        self.importDir = importDir
 
-        super().__init__(dataDir.parent, self.stepName, "steps")
+        super().__init__(baseDir, self.stepName, "steps")
 
         self.processingDir = dataDir / self.stepName
         self.nodes: dict[FileSelect, list[_Node]] = {
@@ -67,7 +68,7 @@ class ProcessingManager(SystemManager):
         inputs = {FileSelect.INPUT: [self.getLatestNodeFile()]} | {select: [node.getOutputFile() for node in nodes] for select, nodes in self.nodes.items()}
         
         try:
-            script = FileScript(self.baseDir, dict(step), self.processingDir, inputs)
+            script = FileScript(self.baseDir, dict(step), self.processingDir, inputs, [str(self.importDir)])
         except AttributeError as e:
             logging.error(f"Invalid processing script configuration: {e}")
             return None

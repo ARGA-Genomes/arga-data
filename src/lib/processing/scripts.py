@@ -6,6 +6,7 @@ from enum import Enum
 import traceback
 from lib.config import globalConfig as gcfg
 from typing import Any
+import sys
 
 class FileSelect(Enum):
     INPUT    = "IN"
@@ -21,9 +22,10 @@ class _FileProperty(Enum):
 class FunctionScript:
     _libDir = gcfg.folders.src / "lib"
 
-    def __init__(self, baseDir: Path, scriptInfo: dict):
+    def __init__(self, baseDir: Path, scriptInfo: dict, extendRunPath: list[str] = []):
         self.baseDir = baseDir
         self.scriptInfo = scriptInfo
+        self.extendRunPath = extendRunPath
 
         # Script information
         self.path: str = scriptInfo.pop("path", None)
@@ -78,7 +80,9 @@ class FunctionScript:
     
     def run(self, verbose: bool, inputArgs: list = [], inputKwargs: dict = {}) -> tuple[bool, any]:
         try:
+            sys.path.extend(self.extendRunPath)
             processFunction = self._importFunction(self.path, self.function)
+            sys.path = sys.path[:-len(self.extendRunPath)]
         except:
             logging.error(f"Error importing function '{self.function}' from path '{self.path}'")
             logging.error(traceback.format_exc())
@@ -114,7 +118,7 @@ class FunctionScript:
 class OutputScript(FunctionScript):
     fileLookup = {}
     
-    def __init__(self, baseDir: Path, scriptInfo: dict, outputDir: Path):
+    def __init__(self, baseDir: Path, scriptInfo: dict, outputDir: Path, extendRunPath: list[str] = []):
         self.outputDir = outputDir
 
         # Output information
@@ -127,7 +131,7 @@ class OutputScript(FunctionScript):
         self.output = self._parseOutput(outputName, outputProperties)
         self.fileLookup |= {FileSelect.OUTPUT: [self.output]}
 
-        super().__init__(baseDir, scriptInfo)
+        super().__init__(baseDir, scriptInfo, extendRunPath)
 
         self.args = [self._parseArg(arg) for arg in self.args]
         self.kwargs = {key: self._parseArg(arg) for key, arg in self.kwargs.items()}
@@ -227,10 +231,10 @@ class OutputScript(FunctionScript):
         return True, retVal
 
 class FileScript(OutputScript):
-    def __init__(self, baseDir: Path, scriptInfo: dict, outputDir: Path, inputs: dict[str, File]):
+    def __init__(self, baseDir: Path, scriptInfo: dict, outputDir: Path, inputs: dict[str, File], extendRunPath: list[str] = []):
         self.fileLookup |= inputs
 
-        super().__init__(baseDir, scriptInfo, outputDir)
+        super().__init__(baseDir, scriptInfo, outputDir, extendRunPath)
 
     def _parseOutput(self, outputName: str, outputProperties: dict) -> File:
         parsedValue = self._parseArg(outputName)

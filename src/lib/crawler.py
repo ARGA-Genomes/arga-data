@@ -54,6 +54,9 @@ class Crawler:
         self.data = []
 
     def run(self, entryURL: str, fileRegex: str = None, maxDepth: int = -1, ignoreProgress: bool = False):
+        if not self.outputDir.exists():
+            self.outputDir.mkdir(parents=True)
+
         self.session = requests.Session()
         pattern = re.compile(fileRegex) if fileRegex is not None else None
         if maxDepth < 0:

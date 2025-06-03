@@ -13,10 +13,10 @@ from datetime import datetime, date
 import lib.zipping as zp
 
 class ConversionManager(SystemManager):
-    def __init__(self, dataDir: Path, datasetID: str, location: str, database: str, subsection: str):
+    def __init__(self, baseDir: Path, dataDir: Path, datasetID: str, location: str, database: str, subsection: str):
         self.stepName = "conversion"
 
-        super().__init__(dataDir.parent, self.stepName, "tasks")
+        super().__init__(baseDir, self.stepName, "tasks")
 
         self.conversionDir = dataDir / self.stepName
 

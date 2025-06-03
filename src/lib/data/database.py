@@ -50,9 +50,9 @@ class BasicDB:
         self.dataDir = self.subsectionDir / "data" if not self.config.overwrites.storage else self.config.overwrites.storage / location / database / self.subsection / "data"
 
         # System Managers
-        self.downloadManager = DownloadManager(self.dataDir, self.authFile)
-        self.processingManager = ProcessingManager(self.dataDir)
-        self.conversionManager = ConversionManager(self.dataDir, self.datasetID, location, database, subsection)
+        self.downloadManager = DownloadManager(self.subsectionDir, self.dataDir, self.authFile)
+        self.processingManager = ProcessingManager(self.subsectionDir, self.dataDir, self.locationDir)
+        self.conversionManager = ConversionManager(self.subsectionDir, self.dataDir, self.datasetID, location, database, subsection)
 
         # Config stages
         self.downloadConfig: dict = config.pop(self.downloadManager.stepName, None)

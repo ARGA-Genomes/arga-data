@@ -34,29 +34,15 @@ class _ScriptDownload(_Download):
         super().__init__(self.script.output.filePath, self.script.output.fileProperties)
 
     def runTask(self, overwrite: bool, verbose: bool) -> bool:
-        return self.script.run(overwrite, verbose)
+        return self.script.run(overwrite, verbose)[0] # No retval for downloading tasks, just return success
 
 class DownloadManager(SystemManager):
-    def __init__(self, dataDir: Path, authFile: str):
+    def __init__(self, baseDir: Path, dataDir: Path):
         self.stepName = "downloading"
 
-        super().__init__(dataDir.parent, self.stepName, "files")
+        super().__init__(baseDir, self.stepName, "files")
 
         self.downloadDir = dataDir / self.stepName
-        self.authFile = authFile
-
-        authPath = self.baseDir / self.authFile
-        if authFile and authPath.exists():
-            with open(authPath) as fp:
-                data = fp.read().rstrip("\n").split()
-
-            self.username = data[0]
-            self.password = data[1]
-
-        else:
-            self.username = ""
-            self.password = ""
-
         self.downloads: list[_Download] = []
 
     def getFiles(self) -> list[File]:
