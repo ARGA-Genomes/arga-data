@@ -4,11 +4,8 @@ from pathlib import Path
 from typing import Any
 
 class _AttrDict:
-    def __init__(self, data: dict[str, any], _depth: int = 0):
-        self._data = {}
-        self._depth = _depth
-
-        self.update(data)
+    def __init__(self, data: dict[str, any]):
+        self._data = data
 
     def __str__(self) -> str:
         return str(self._data)
@@ -22,31 +19,38 @@ class _AttrDict:
             logging.warning(f"No attribute found: {name}")
 
         return value
-    
-    def copy(self) -> '_AttrDict':
-        return _AttrDict(dict(self._data), self._depth)
-    
-    def update(self, data: dict[str, any]) -> None:
-        for key, value in data.items():
-            if isinstance(value, dict):
-                value = _AttrDict(value)
-
-            self._data[key] = value
 
 class TomlLoader(_AttrDict):
-    def __init__(self, path: Path):
-        super().__init__(self._loadToml(path))
-    
+    def __init__(self, path: Path, _inheritedData: dict = {}, _skipLoad: bool = False):
+        self._path = path
+        data = {} if _skipLoad else self._loadToml(path)
+
+        super().__init__(self._parseData(_inheritedData | data))
+
     def _loadToml(self, path: Path) -> dict:
+        if not isinstance(path, Path):
+            raise Exception(f"'{path}' is not a valid path") from AttributeError
+
         if not path.exists():
-            raise AttributeError from Exception(f"No toml file found at specified path")
+            raise Exception(f"No file found at path: {path}") from AttributeError
 
         with open(path) as fp:
             return toml.load(fp)
+    
+    def _parseData(self, data: dict) -> dict:
+        res = {}
+        for key, value in data.items():
+            value = self.parse(value)
+
+            if isinstance(value, dict):
+                value = self.__class__(self._path, value, True)
+
+            res[key] = value
+
+        return res
+    
+    def parse(self, value: any) -> Any:
+        return value
 
     def createChild(self, childPath: Path) -> 'TomlLoader':
-        childData = self._loadToml(childPath)
-
-        newChild = self.copy()
-        newChild.update(childData)
-        return newChild
+        return self.__class__(childPath, self._data)
