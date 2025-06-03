@@ -1,4 +1,5 @@
 from lib.config import globalConfig as gcfg
+from lib.secrets import secrets
 from enum import Enum
 from pathlib import Path
 
@@ -33,9 +34,6 @@ class BasicDB:
         self.subsection = subsection
         self.datasetID = datasetID
 
-        # Auth
-        self.authFile: str = config.pop("auth", "")
-
         # Relative folders
         self.locationDir = gcfg.folders.dataSources / location
         self.databaseDir = self.locationDir / database
@@ -49,8 +47,13 @@ class BasicDB:
 
         self.dataDir = self.subsectionDir / "data" if not self.config.overwrites.storage else self.config.overwrites.storage / location / database / self.subsection / "data"
 
+        # Username/Password
+        sourceSecrets = secrets[self.location]
+        username = sourceSecrets.username if sourceSecrets is not None else ""
+        password = sourceSecrets.password if sourceSecrets is not None else ""
+
         # System Managers
-        self.downloadManager = DownloadManager(self.subsectionDir, self.dataDir, self.authFile)
+        self.downloadManager = DownloadManager(self.subsectionDir, self.dataDir, username, password)
         self.processingManager = ProcessingManager(self.subsectionDir, self.dataDir, self.locationDir)
         self.conversionManager = ConversionManager(self.subsectionDir, self.dataDir, self.datasetID, location, database, subsection)
 

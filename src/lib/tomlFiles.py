@@ -14,11 +14,10 @@ class _AttrDict:
         return str(self)
 
     def __getattr__(self, name: str) -> Any | None:
-        value = self._data.get(name, None)
-        if value is None:
-            logging.warning(f"No attribute found: {name}")
-
-        return value
+        return self._data.get(name, None)
+    
+    def __getitem__(self, name: str) -> Any | None:
+        return getattr(self, name)
 
 class TomlLoader(_AttrDict):
     def __init__(self, path: Path, _inheritedData: dict = {}, _skipLoad: bool = False):
