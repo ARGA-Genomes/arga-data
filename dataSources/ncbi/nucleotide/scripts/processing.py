@@ -3,7 +3,7 @@ from lib.bigFiles import DFWriter
 from pathlib import Path
 from llib import flatFileParser as ffp
 
-def parseNucleotide(folderPath: Path, outputFilePath: Path, verbose: bool = True) -> None:
+def parse(folderPath: Path, outputFilePath: Path, verbose: bool = True) -> None:
     extractor = RepeatExtractor(outputFilePath.parent)
     writer = DFWriter(outputFilePath)
 
