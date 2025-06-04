@@ -1,9 +1,9 @@
 from lib.zipping import RepeatExtractor
 from lib.bigFileWriter import BigFileWriter
 from pathlib import Path
-from .. import flatFileParser as ffp
+import flatFileParser as ffp
 
-def parseNucleotide(folderPath: Path, outputFilePath: Path, verbose: bool = True) -> None:
+def parse(folderPath: Path, outputFilePath: Path, verbose: bool = True) -> None:
     extractor = RepeatExtractor(outputFilePath.parent)
     writer = BigFileWriter(outputFilePath, "seqChunks", "chunk")
 
