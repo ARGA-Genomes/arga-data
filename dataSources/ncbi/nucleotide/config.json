@@ -65,7 +65,7 @@
     "processing": {
         "linear": [
             {
-                "path": "./processing.py",
+                "path": "../processing.py",
                 "function": "parse",
                 "args": [
                     "{IN-DIR}",
