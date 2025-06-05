@@ -24,9 +24,11 @@ paramterSets = {
     "ozcam": {
         "email": secrets.general.email,
         "emailNotify": False,
-        "q": "basis_of_record:OCCURRENCE PRESERVED_SPECIMEN MATERIAL_SAMPLE LIVING_SPECIMEN MATERIAL_CITATION",
+        "q": "data_provider_uid:dp20",
+        "fq": '(basis_of_record:"PRESERVED_SPECIMEN" OR basis_of_record:"MATERIAL_SAMPLE" OR basis_of_record:"LIVING_SPECIMEN" OR basis_of_record:"MATERIAL_CITATION")',
         "disableAllQualityFilters": True,
-        "qualityProfile": "ALA"
+        "qualityProfile": "ALA",
+        "qc": "-_nest_parent_:*"
     }
 }
 
