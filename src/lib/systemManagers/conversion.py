@@ -2,7 +2,7 @@ import pandas as pd
 from pathlib import Path
 import lib.common as cmn
 from lib.bigFileWriter import BigFileWriter
-from lib.processing.mapping import Remapper, Event
+import lib.processing.mapping as mapping
 from lib.processing.stages import File, StackedFile
 from lib.processing.scripts import FunctionScript
 from lib.systemManagers.baseManager import SystemManager, Metadata
@@ -13,7 +13,7 @@ from datetime import datetime, date
 import lib.zipping as zp
 
 class ConversionManager(SystemManager):
-    def __init__(self, baseDir: Path, dataDir: Path, datasetID: str, location: str, database: str, subsection: str):
+    def __init__(self, baseDir: Path, dataDir: Path, mapDir: Path, datasetID: str, prefix: str, name: str):
         self.stepName = "conversion"
 
         super().__init__(baseDir, self.stepName, "tasks")
@@ -21,45 +21,44 @@ class ConversionManager(SystemManager):
         self.conversionDir = dataDir / self.stepName
 
         self.datasetID = datasetID
-        self.location = location
-        self.database = database
-        self.subsection = subsection
+        self.prefix = prefix
+        self.name = name
 
-        self.file = None
+        self.inputFile = None
+        self.mapFile = mapDir / "map.json"
+        self.map = {}
 
     def _generateFileName(self, withTimestamp: bool) -> StackedFile:
-        sourceName = f"{self.location}-{self.database}"
-        if self.subsection:
-            sourceName += f"-{self.subsection}"
+        outputName = f"{self.name}{date.today().strftime('-%Y-%m-%d') if withTimestamp else ''}"
+        return StackedFile(self.conversionDir / outputName)
+    
+    def _getMap(self, mapID: int, mapColumnName: str, forceRetrieve: bool) -> mapping.Map:
+        if self.mapFile.exists() and not forceRetrieve:
+            return mapping.loadFromFile(self.mapFile)
         
-        if withTimestamp:
-            sourceName += date.today().strftime("-%Y-%m-%d")
+        if mapColumnName:
+            return mapping.loadFromModernSheet(mapID, self.mapFile)
 
-        return StackedFile(self.conversionDir / sourceName)
+        if mapID > 0:
+            return mapping.loadFromSheets(mapID, self.mapFile)
+        
+        logging.warning(f"No mapping found for dataset {self.name}")
+        return mapping.Map()
 
-    def loadFile(self, file: File, properties: dict, mapDir: Path) -> None:
-        self.file = file
+    def prepare(self, file: File, properties: dict, forceRetrieve: bool) -> None:
+        self.inputFile = file
 
-        self.mapID = properties.pop("mapID", -1)
-        self.customMapID = properties.pop("customMapID", -1)
-        self.customMapPath = properties.pop("customMapPath", None)
-        if self.customMapPath is not None:
-            self.customMapPath = Path(self.customMapPath)
-
-        self.chunkSize = properties.pop("chunkSize", 1024)
-        self.skipRemap = properties.pop("skipRemap", [])
-        self.preserveDwC = properties.pop("preserveDwC", False)
-        self.prefixUnmapped = properties.pop("prefixUnmapped", True)
+        map = self._getMap(properties.pop("mapID", -1), properties.pop("mapColName", ""), forceRetrieve)
+        self.remapper = mapping.RepeatRemapper(map, self.prefix)
 
         timestamp = properties.pop("timestamp", True)
         self.output = self._generateFileName(timestamp)
 
+        self.chunkSize = properties.pop("chunkSize", 1024)
         self.augments = [FunctionScript(self.baseDir, augProperties) for augProperties in properties.pop("augment", [])]
 
-        self.remapper = Remapper(mapDir, self.mapID, self.customMapID, self.customMapPath, self.location, self.preserveDwC, self.prefixUnmapped)
-
     def convert(self, overwrite: bool = False, verbose: bool = True, ignoreRemapErrors: bool = True, forceRetrieve: bool = False) -> bool:
-        if self.file is None:
+        if self.inputFile is None:
             logging.error("No file loaded for conversion, exiting...")
             return False
 
@@ -74,24 +73,11 @@ class ConversionManager(SystemManager):
         # Get columns and create mappings
         logging.info("Getting column mappings")
         columns = cmn.getColumns(self.file.filePath, self.file.separator, self.file.firstRow)
-
-        success = self.remapper.buildTable(columns, self.skipRemap, forceRetrieve)
-        if not success:
-            return False
-        
-        if not self.remapper.table.allUniqueColumns(): # If there are non unique columns
-            if not ignoreRemapErrors:
-                for event, firstCol, matchingCols in self.remapper.table.getNonUnique():
-                    for col in matchingCols:
-                        logging.warning(f"Found mapping for column '{col}' that matches initial mapping '{firstCol}' under event '{event.value}'")
-                return False
-            
-            self.remapper.table.forceUnique()
         
         logging.info("Resolving events")
         writers: dict[str, BigFileWriter] = {}
-        for event in self.remapper.table.getEventCategories():
-            cleanedName = event.value.lower().replace(" ", "_")
+        for event in self.remapper.map.events:
+            cleanedName = event.replace(" ", "_")
             writers[event] = BigFileWriter(self.output.filePath / f"{cleanedName}.csv", f"{cleanedName}_chunks")
 
         logging.info("Processing chunks for conversion")
@@ -104,7 +90,7 @@ class ConversionManager(SystemManager):
             if verbose:
                 print(f"At chunk: {idx}", end='\r')
 
-            df = self.remapper.applyTranslation(df) # Returns a multi-index dataframe
+            df = self.remapper.applyMapping(df) # Returns a multi-index dataframe
             df = self.applyAugments(df)
 
             if df is None:
@@ -114,12 +100,14 @@ class ConversionManager(SystemManager):
             scientificName = "scientific_name"
             entityID = "entity_id"
 
-            if scientificName not in df[Event.COLLECTION].columns:
-                logging.error(f"Unable to generate '{entityID}' as dataset is missing field '{scientificName}' in event '{Event.COLLECTION.value}'")
+            collection = "collection"
+
+            if scientificName not in df[collection].columns:
+                logging.error(f"Unable to generate '{entityID}' as dataset is missing field '{scientificName}' in event '{collection}'")
                 return False
             
-            df[(Event.COLLECTION, datasetID)] = self.datasetID
-            df[(Event.COLLECTION, entityID)] = df[(Event.COLLECTION, datasetID)] + df[(Event.COLLECTION, scientificName)]
+            df[(collection, datasetID)] = self.datasetID
+            df[(collection, entityID)] = df[(collection, datasetID)] + df[(collection, scientificName)]
 
             for eventColumn in df.columns.levels[0]:
                 writers[eventColumn].writeDF(df[eventColumn])
