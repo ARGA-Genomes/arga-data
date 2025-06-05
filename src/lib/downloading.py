@@ -89,6 +89,10 @@ def asyncRunner(checkURL: str, statusField: str, completedStr: str, downloadFiel
 
     def getCompleted() -> tuple[bool, str, str]:
         response = session.get(checkURL)
+        if response.status_code != 200:
+            logging.warning(f"Failed to retrieve {checkURL}, received status code {response.status_code}. Reason: {response.reason}")
+            return True, None, None
+        
         data = response.json()
 
         statusValue = data.get(statusField, "Unknown")
@@ -101,6 +105,7 @@ def asyncRunner(checkURL: str, statusField: str, completedStr: str, downloadFiel
     recheckDelay = max(recheckDelay, 5)
     reprintsPerSecond = 2
 
+    logging.info(f"Polling {checkURL} for status...")
     completed, status, downloadURL = getCompleted()
     while not completed:
         for _ in range(recheckDelay):
@@ -111,5 +116,9 @@ def asyncRunner(checkURL: str, statusField: str, completedStr: str, downloadFiel
             totalChecks += 1
 
         completed, status, downloadURL = getCompleted()
+
+    if status is None:
+        logging.error("Failed to check status of download.")
+        return False
 
     return download(downloadURL, outputFilePath, verbose=True)
