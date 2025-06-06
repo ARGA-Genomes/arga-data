@@ -2,7 +2,7 @@ import pandas as pd
 from pathlib import Path
 import lib.common as cmn
 from lib.bigFileWriter import BigFileWriter
-import lib.processing.mapping as mapping
+from lib.processing.mapping import Map, RepeatRemapper
 from lib.processing.stages import File, StackedFile
 from lib.processing.scripts import FunctionScript
 from lib.systemManagers.baseManager import SystemManager, Metadata
@@ -32,24 +32,24 @@ class ConversionManager(SystemManager):
         outputName = f"{self.name}{date.today().strftime('-%Y-%m-%d') if withTimestamp else ''}"
         return StackedFile(self.conversionDir / outputName)
     
-    def _getMap(self, mapID: int, mapColumnName: str, forceRetrieve: bool) -> mapping.Map:
+    def _getMap(self, mapID: int, mapColumnName: str, forceRetrieve: bool) -> Map:
         if self.mapFile.exists() and not forceRetrieve:
-            return mapping.loadFromFile(self.mapFile)
+            return Map.fromFile(self.mapFile)
         
         if mapColumnName:
-            return mapping.loadFromModernSheet(mapID, self.mapFile)
+            return Map.fromModernSheet(mapID, self.mapFile)
 
         if mapID > 0:
-            return mapping.loadFromSheets(mapID, self.mapFile)
+            return Map.fromSheets(mapID, self.mapFile)
         
         logging.warning(f"No mapping found for dataset {self.name}")
-        return mapping.Map()
+        return Map()
 
     def prepare(self, file: File, properties: dict, forceRetrieve: bool) -> None:
         self.inputFile = file
 
         map = self._getMap(properties.pop("mapID", -1), properties.pop("mapColName", ""), forceRetrieve)
-        self.remapper = mapping.RepeatRemapper(map, self.prefix)
+        self.remapper = RepeatRemapper(map, self.prefix)
 
         timestamp = properties.pop("timestamp", True)
         self.output = self._generateFileName(timestamp)
