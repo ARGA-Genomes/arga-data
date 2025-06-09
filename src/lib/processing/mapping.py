@@ -7,6 +7,8 @@ import logging
 import lib.common as cmn
 
 class Map:
+    _unmappedLabel = "unmapped"
+
     def __init__(self, translationData: dict[str, tuple[str, str, list[str]]]):
         self.translation = translationData
         self.events = []
@@ -15,6 +17,8 @@ class Map:
             event, mappedName, fallbacks = mappingData
             if event not in self.events:
                 self.events.append(event)
+
+        self.events.append(self._unmappedLabel)
 
     @classmethod
     def fromFile(cls, filePath: Path) -> 'Map':
@@ -107,6 +111,9 @@ class Map:
             if oldNamesCell.startswith('"'):
                 continue
 
+            if not row[event]:
+                continue
+
             oldNames = [subName.strip() for subName in oldNamesCell.split(";")]
             mapping[oldNames[0]] = (row[event], row[argaSchema], oldNames[1:])
 
@@ -134,30 +141,23 @@ class Map:
 
         logging.info(f"Saved map data to local file: {filePath}")
 
-def applyMap(map: Map, df: pd.DataFrame, unmappedPrefix: str = "") -> pd.DataFrame:
-    eventCollections: dict[str, list[pd.Series]] = {}
+    def applyTo(self, df: pd.DataFrame, unmappedPrefix: str = "") -> pd.DataFrame:
+        eventCollections: dict[str, list[pd.Series]] = {}
 
-    for column in df.columns:
-        event, newName, fallbacks = map.translation.get(column, ("unmapped", f"{unmappedPrefix}{'_' if unmappedPrefix else ''}{column}", []))
+        for column in df.columns:
+            event, newName, fallbacks = self.translation.get(column, (self._unmappedLabel, f"{unmappedPrefix}{'_' if unmappedPrefix else ''}{column}", []))
 
-        if event not in eventCollections:
-            eventCollections[event] = []
+            if event not in eventCollections:
+                eventCollections[event] = []
 
-        series = df[column]
-        for fallback in fallbacks:
-            series = series.fillna(df[fallback])
+            series = df[column]
+            for fallback in fallbacks:
+                if fallback in df.columns:
+                    series = series.fillna(df[fallback])
 
-        eventCollections[event].append(series.rename(newName))
+            eventCollections[event].append(series.rename(newName))
 
-    for event, seriesList in eventCollections.items():
-        eventCollections[event] = pd.concat(seriesList, axis=1) # Convert list of series to dataframe
+        for event, seriesList in eventCollections.items():
+            eventCollections[event] = pd.concat(seriesList, axis=1) # Convert list of series to dataframe
 
-    return pd.concat(eventCollections.values(), keys=eventCollections.keys(), axis=1)
-
-class RepeatRemapper:
-    def __init__(self, map: Map, unmappedPrefix: str = ""):
-        self.map = map
-        self.unmappedPrefix = unmappedPrefix
-
-    def applyMapping(self, df: pd.DataFrame) -> pd.DataFrame:
-        return applyMap(self.map, df, self.unmappedPrefix)
+        return pd.concat(eventCollections.values(), keys=eventCollections.keys(), axis=1)

@@ -192,6 +192,10 @@ class BigFileWriter:
             logging.info(f"Removing old file {self.outputFile}")
             self.outputFile.unlink()
 
+        if len(self.writtenFiles) == 0:
+            logging.warning(f"No files written, unable to create output file")
+            return
+
         if len(self.writtenFiles) == 1:
             logging.info(f"Only single subfile, moving {self.writtenFiles[0]} to {self.outputFile}")
 

@@ -59,7 +59,7 @@ class File:
     def loadDataFrame(self, offset: int = 0, rows: int = None, **kwargs: dict) -> pd.DataFrame:
         return pd.read_csv(self.filePath, sep=self.separator, header=self.firstRow + offset, encoding=self.encoding, nrows=rows, **kwargs)
     
-    def loadDataFrameIterator(self, chunkSize: int = 1024, offset: int = 0, rows: int = -1) -> Iterator[pd.DataFrame]:
+    def loadDataFrameIterator(self, chunkSize: int = 1024, offset: int = 0, rows: int = None) -> Iterator[pd.DataFrame]:
         return cmn.chunkGenerator(self.filePath, chunkSize, self.separator, self.firstRow + offset, self.encoding, nrows=rows)
 
     def getColumns(self) -> list[str]:

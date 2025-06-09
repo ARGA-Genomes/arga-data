@@ -1,8 +1,7 @@
 import pandas as pd
 from pathlib import Path
-import lib.common as cmn
 from lib.bigFileWriter import BigFileWriter
-from lib.processing.mapping import Map, RepeatRemapper
+from lib.processing.mapping import Map
 from lib.processing.stages import File, StackedFile
 from lib.processing.scripts import FunctionScript
 from lib.systemManagers.baseManager import SystemManager, Metadata
@@ -37,7 +36,7 @@ class ConversionManager(SystemManager):
             return Map.fromFile(self.mapFile)
         
         if mapColumnName:
-            return Map.fromModernSheet(mapID, self.mapFile)
+            return Map.fromModernSheet(mapColumnName, self.mapFile)
 
         if mapID > 0:
             return Map.fromSheets(mapID, self.mapFile)
@@ -48,8 +47,9 @@ class ConversionManager(SystemManager):
     def prepare(self, file: File, properties: dict, forceRetrieve: bool) -> None:
         self.inputFile = file
 
-        map = self._getMap(properties.pop("mapID", -1), properties.pop("mapColName", ""), forceRetrieve)
-        self.remapper = RepeatRemapper(map, self.prefix)
+        mapID = properties.pop("mapID", -1)
+        mapColumnName = properties.pop("mapColumnName", "")
+        self.map = self._getMap(mapID, mapColumnName, forceRetrieve)
 
         timestamp = properties.pop("timestamp", True)
         self.output = self._generateFileName(timestamp)
@@ -57,7 +57,7 @@ class ConversionManager(SystemManager):
         self.chunkSize = properties.pop("chunkSize", 1024)
         self.augments = [FunctionScript(self.baseDir, augProperties) for augProperties in properties.pop("augment", [])]
 
-    def convert(self, overwrite: bool = False, verbose: bool = True, ignoreRemapErrors: bool = True, forceRetrieve: bool = False) -> bool:
+    def convert(self, overwrite: bool = False, verbose: bool = True) -> bool:
         if self.inputFile is None:
             logging.error("No file loaded for conversion, exiting...")
             return False
@@ -72,11 +72,11 @@ class ConversionManager(SystemManager):
         
         # Get columns and create mappings
         logging.info("Getting column mappings")
-        columns = cmn.getColumns(self.file.filePath, self.file.separator, self.file.firstRow)
+        columns = self.inputFile.getColumns()
         
         logging.info("Resolving events")
         writers: dict[str, BigFileWriter] = {}
-        for event in self.remapper.map.events:
+        for event in self.map.events:
             cleanedName = event.replace(" ", "_")
             writers[event] = BigFileWriter(self.output.filePath / f"{cleanedName}.csv", f"{cleanedName}_chunks")
 
@@ -85,12 +85,12 @@ class ConversionManager(SystemManager):
         totalRows = 0
         startTime = time.perf_counter()
 
-        chunks = cmn.chunkGenerator(self.file.filePath, self.chunkSize, self.file.separator, self.file.firstRow, self.file.encoding)
+        chunks = self.inputFile.loadDataFrameIterator(self.chunkSize)
         for idx, df in enumerate(chunks, start=1):
             if verbose:
                 print(f"At chunk: {idx}", end='\r')
 
-            df = self.remapper.applyMapping(df) # Returns a multi-index dataframe
+            df = self.map.applyTo(df, self.prefix) # Returns a multi-index dataframe
             df = self.applyAugments(df)
 
             if df is None:
@@ -98,13 +98,18 @@ class ConversionManager(SystemManager):
 
             datasetID = "dataset_id"
             scientificName = "scientific_name"
+            canonicalName = "canonical_name"
             entityID = "entity_id"
 
             collection = "collection"
 
             if scientificName not in df[collection].columns:
-                logging.error(f"Unable to generate '{entityID}' as dataset is missing field '{scientificName}' in event '{collection}'")
-                return False
+                if canonicalName in df[collection].columns:
+                    scientificName = canonicalName
+
+                else:
+                    logging.error(f"Unable to generate '{entityID}' as dataset is missing field '{scientificName}' in event '{collection}'")
+                    return False
             
             df[(collection, datasetID)] = self.datasetID
             df[(collection, entityID)] = df[(collection, datasetID)] + df[(collection, scientificName)]
@@ -116,7 +121,9 @@ class ConversionManager(SystemManager):
             del df
             gc.collect()
 
+        totalUnmapped = 0
         for writer in writers.values():
+            totalUnmapped += sum(1 for column in writer.globalColumns if column not in self.map.translation)
             writer.oneFile()
 
         self.updateMetadata(0, {
@@ -126,7 +133,7 @@ class ConversionManager(SystemManager):
             Metadata.TIMESTAMP: datetime.now().isoformat(),
             Metadata.CUSTOM: {
                 "columns": len(columns),
-                "unmappedColumns": len(self.remapper.table.getUnmapped()),
+                "unmappedColumns": totalUnmapped,
                 "rows": totalRows
             }
         })

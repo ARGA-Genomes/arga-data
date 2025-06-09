@@ -59,7 +59,7 @@ class BasicDB:
         # System Managers
         self.downloadManager = DownloadManager(self.subsectionDir, self.dataDir, username, password)
         self.processingManager = ProcessingManager(self.subsectionDir, self.dataDir, self.locationDir)
-        self.conversionManager = ConversionManager(self.subsectionDir, self.dataDir, self.databaseDir, self.datasetID, self.name)
+        self.conversionManager = ConversionManager(self.subsectionDir, self.dataDir, self.databaseDir, self.datasetID, self.location, self.name)
 
         # Config stages
         self.downloadConfig: dict = config.pop(self.downloadManager.stepName, None)
