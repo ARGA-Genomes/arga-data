@@ -39,12 +39,11 @@ class _ScriptDownload(_Download):
 class DownloadManager(SystemManager):
     def __init__(self, baseDir: Path, dataDir: Path, username: str, password: str):
         self.stepName = "downloading"
+        super().__init__(baseDir, dataDir, self.stepName, "files")
+
         self.username = username
         self.password = password
 
-        super().__init__(baseDir, self.stepName, "files")
-
-        self.downloadDir = dataDir / self.stepName
         self.downloads: list[_Download] = []
 
     def getFiles(self) -> list[File]:
@@ -54,19 +53,16 @@ class DownloadManager(SystemManager):
         return self.files[-1].file
 
     def download(self, overwrite: bool = False, verbose: bool = False) -> bool:
-        if not self.downloadDir.exists():
-            self.downloadDir.mkdir(parents=True)
-
         return self.runTasks(self.downloads, overwrite, verbose)
 
     def registerFromURL(self, url: str, fileName: str, fileProperties: dict = {}) -> bool:
-        download = _URLDownload(url, self.downloadDir / fileName, fileProperties, self.username, self.password)
+        download = _URLDownload(url, self.workingDir / fileName, fileProperties, self.username, self.password)
         self.downloads.append(download)
         return True
 
     def registerFromScript(self, scriptInfo: dict) -> bool:
         try:
-            download = _ScriptDownload(self.baseDir, self.downloadDir, scriptInfo)
+            download = _ScriptDownload(self.baseDir, self.workingDir, scriptInfo)
         except AttributeError as e:
             logging.error(f"Invalid download script configuration: {e}")
             return False

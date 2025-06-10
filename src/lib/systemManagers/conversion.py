@@ -14,10 +14,7 @@ import lib.zipping as zp
 class ConversionManager(SystemManager):
     def __init__(self, baseDir: Path, dataDir: Path, mapDir: Path, datasetID: str, prefix: str, name: str):
         self.stepName = "conversion"
-
-        super().__init__(baseDir, self.stepName, "tasks")
-
-        self.conversionDir = dataDir / self.stepName
+        super().__init__(baseDir, dataDir, self.stepName, "tasks")
 
         self.datasetID = datasetID
         self.prefix = prefix
@@ -29,7 +26,7 @@ class ConversionManager(SystemManager):
 
     def _generateFileName(self, withTimestamp: bool) -> StackedFile:
         outputName = f"{self.name}{date.today().strftime('-%Y-%m-%d') if withTimestamp else ''}"
-        return StackedFile(self.conversionDir / outputName)
+        return StackedFile(self.workingDir / outputName)
     
     def _getMap(self, mapID: int, mapColumnName: str, forceRetrieve: bool) -> Map:
         if self.mapFile.exists() and not forceRetrieve:
@@ -154,11 +151,11 @@ class ConversionManager(SystemManager):
         return df
     
     def package(self, compressLocation: Path) -> Path | None:
-        outputFileName = self.getMetadata(-1, Metadata.OUTPUT)
+        outputFileName = self.getLastOutput()
         if outputFileName is None:
             return
         
-        outputFilePath = self.conversionDir / outputFileName
+        outputFilePath = self.workingDir / outputFileName
         renamedFile = self.metadataPath.rename(outputFilePath / self.metadataPath.name)
         outputPath = zp.compress(outputFilePath, compressLocation)
         renamedFile.rename(self.metadataPath)
