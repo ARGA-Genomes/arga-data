@@ -38,9 +38,10 @@ class BasicDB:
         self.name = f"{self.location}-{self.database}" + (f"-{self.subsection}" if self.subsection else "")
 
         # Relative folders
-        self.locationDir = gcfg.folders.dataSources / location
+        self.locationDir: Path = gcfg.folders.dataSources / location
         self.databaseDir = self.locationDir / database
         self.subsectionDir = self.databaseDir / self.subsection # If no subsection, does nothing
+        self.exampleDir = self.subsectionDir / "examples"
 
         # Local configs
         self.config = gcfg

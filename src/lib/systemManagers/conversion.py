@@ -28,7 +28,7 @@ class ConversionManager(SystemManager):
         outputName = f"{self.name}{date.today().strftime('-%Y-%m-%d') if withTimestamp else ''}"
         return StackedFile(self.workingDir / outputName)
     
-    def _getMap(self, mapID: int, mapColumnName: str, forceRetrieve: bool) -> Map:
+    def _getMap(self, mapID: int, mapColumnName: str, forceRetrieve: bool) -> Map | None:
         if self.mapFile.exists() and not forceRetrieve:
             return Map.fromFile(self.mapFile)
         
@@ -39,7 +39,7 @@ class ConversionManager(SystemManager):
             return Map.fromSheets(mapID, self.mapFile)
         
         logging.warning(f"No mapping found for dataset {self.name}")
-        return Map()
+        return None
 
     def prepare(self, file: File, properties: dict, forceRetrieve: bool) -> None:
         self.inputFile = file
@@ -67,18 +67,17 @@ class ConversionManager(SystemManager):
             logging.info(f"{self.output.filePath} already exists, exiting...")
             return True
         
-        # Get columns and create mappings
-        logging.info("Getting column mappings")
-        columns = self.inputFile.getColumns()
+        if self.map is None:
+            logging.error("No map found, exiting...")
+            return False
         
-        logging.info("Resolving events")
         writers: dict[str, BigFileWriter] = {}
         for event in self.map.events:
             cleanedName = event.replace(" ", "_")
             writers[event] = BigFileWriter(self.output.filePath / f"{cleanedName}.csv", f"{cleanedName}_chunks")
 
         logging.info("Processing chunks for conversion")
-
+        
         totalRows = 0
         startTime = time.perf_counter()
 
@@ -129,7 +128,7 @@ class ConversionManager(SystemManager):
             Metadata.DURATION: time.perf_counter() - startTime,
             Metadata.TIMESTAMP: datetime.now().isoformat(),
             Metadata.CUSTOM: {
-                "columns": len(columns),
+                "columns": len(self.inputFile.getColumns()),
                 "unmappedColumns": totalUnmapped,
                 "rows": totalRows
             }

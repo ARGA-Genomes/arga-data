@@ -5,7 +5,7 @@ from lib.processing.stages import StackedFile
 import logging
 
 if __name__ == '__main__':
-    parser = ArgParser(description="View portion of DWC file")
+    parser = ArgParser(description="View portion of Converted file")
     parser.add_argument("-e", "--entries", type=int, default=100, help="Amount of entries to view")
     parser.add_argument("-t", "--tsv", action="store_true", help="Output file as TSV instead")
     columnGroup = parser.add_mutually_exclusive_group()
@@ -35,7 +35,7 @@ if __name__ == '__main__':
         stackedFile = StackedFile(lastConversionFile)
         df = next(stackedFile.loadDataFrameIterator(rows=args.entries))
 
-        folderPath = source.conversionManager.baseDir / "examples" / outputFolder
+        folderPath = source.exampleDir / outputFolder
         folderPath.mkdir(exist_ok=True)
 
         dummpyMap = Map({})
