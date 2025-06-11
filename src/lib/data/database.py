@@ -34,11 +34,16 @@ class BasicDB:
         self.subsection = subsection
         self.datasetID = datasetID
 
+        # Database reference name
+        self.name = f"{self.location}-{self.database}" + (f"-{self.subsection}" if self.subsection else "")
+
         # Relative folders
-        self.locationDir = gcfg.folders.dataSources / location
+        self.locationDir: Path = gcfg.folders.dataSources / location
         self.databaseDir = self.locationDir / database
         self.subsectionDir = self.databaseDir / self.subsection # If no subsection, does nothing
+        self.exampleDir = self.subsectionDir / "examples"
 
+        # Local configs
         self.config = gcfg
         for dir in (self.locationDir, self.databaseDir, self.subsectionDir):
             subdirConfig = Path(dir / "config.toml")
@@ -55,7 +60,7 @@ class BasicDB:
         # System Managers
         self.downloadManager = DownloadManager(self.subsectionDir, self.dataDir, username, password)
         self.processingManager = ProcessingManager(self.subsectionDir, self.dataDir, self.locationDir)
-        self.conversionManager = ConversionManager(self.subsectionDir, self.dataDir, self.datasetID, location, database, subsection)
+        self.conversionManager = ConversionManager(self.subsectionDir, self.dataDir, self.databaseDir, self.datasetID, self.location, self.name)
 
         # Config stages
         self.downloadConfig: dict = config.pop(self.downloadManager.stepName, None)
@@ -76,14 +81,14 @@ class BasicDB:
         self._prepStage = -1
 
     def __str__(self):
-        return f"{self.location}-{self.database}{'-' + self.subsection if self.subsection else ''}"
+        return self.name
 
     def __repr__(self):
         return str(self)
     
     def _reportLeftovers(self, properties: dict) -> None:
         for property in properties:
-            logging.debug(f"{self.location}-{self.database} unknown config item: {property}")
+            logging.debug(f"{self.name} unknown config item: {property}")
 
     def _prepareDownload(self, flags: list[Flag]) -> None:
         for file in self.downloadConfig:
@@ -110,7 +115,7 @@ class BasicDB:
     
     def _prepareConversion(self, flags: list[Flag]) -> None:
         fileToConvert = self.processingManager.getLatestNodeFile()
-        self.conversionManager.loadFile(fileToConvert, self.conversionConfig, self.databaseDir)
+        self.conversionManager.prepare(fileToConvert, self.conversionConfig, Flag.PREPARE_OVERWRITE in flags)
 
     def _prepare(self, step: Step, flags: list[Flag]) -> bool:
         callbacks = {

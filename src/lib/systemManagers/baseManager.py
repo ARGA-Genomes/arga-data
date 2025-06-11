@@ -22,8 +22,9 @@ class Task:
         raise NotImplementedError
 
 class SystemManager:
-    def __init__(self, baseDir: Path, stepKey: str, taskName: str):
+    def __init__(self, baseDir: Path, dataDir: Path, stepKey: str, taskName: str):
         self.baseDir = baseDir
+        self.workingDir = dataDir / stepKey
         self.stepKey = stepKey
         self.taskName = taskName
         self.metadataPath = baseDir / "metadata.json"
@@ -50,6 +51,9 @@ class SystemManager:
             json.dump(data, fp, indent=4)
 
     def runTasks(self, tasks: list[Task], *args) -> bool:
+        if not self.workingDir.exists():
+            self.workingDir.mkdir()
+
         allSucceeded = False
         startTime = time.perf_counter()
         for idx, task in enumerate(tasks):
@@ -107,3 +111,10 @@ class SystemManager:
         timestamp = self.getMetadata(0, Metadata.TIMESTAMP)
         if timestamp is not None:
             return datetime.fromisoformat(timestamp)
+
+    def getLastOutput(self) -> Path | None:
+        outputFileName = self.getMetadata(-1, Metadata.OUTPUT)
+        if outputFileName is None:
+            return None
+        
+        return self.workingDir / outputFileName
