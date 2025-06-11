@@ -9,9 +9,14 @@ from typing import Any
 class Metadata(Enum):
     OUTPUT = "output"
     SUCCESS = "success"
-    DURATION = "duration"
-    TIMESTAMP = "timestamp"
-    TOTAL_TIME = "totalTime"
+    TASK_START = "task started"
+    TASK_END = "task completed"
+    TASK_DURATION = "duration"
+    LAST_SUCCESS_START = "last success started"
+    LAST_SUCCESS_END = "last success completed"
+    LAST_SUCCESS_DURATION = "last success duration"
+    TOTAL_DURATION = "total duration"
+    LAST_SUCCESS_TOTAL_DURATION = "last success total duration"
     CUSTOM = ""
 
 class Task:
@@ -30,7 +35,7 @@ class SystemManager:
         self.metadataPath = baseDir / "metadata.json"
         self._loadMetadata()
 
-    def _getFileMetadata(self) -> dict:
+    def _getFileMetadata(self) -> dict[str, dict]:
         if not self.metadataPath.exists():
             return {}
         
@@ -57,19 +62,33 @@ class SystemManager:
         allSucceeded = False
         startTime = time.perf_counter()
         for idx, task in enumerate(tasks):
-            taskStart = time.perf_counter()
+            taskStartTime = time.perf_counter()
+            taskStartDate = datetime.now().isoformat()
+
             success = task.runTask(*args)
 
-            self.updateMetadata(idx, {
+            duration = time.perf_counter() - taskStartTime
+            taskEndDate = datetime.now().isoformat()
+
+            packet = {
                 Metadata.OUTPUT: task.getOutputPath().name,
                 Metadata.SUCCESS: success,
-                Metadata.DURATION: time.perf_counter() - taskStart,
-                Metadata.TIMESTAMP: datetime.now().isoformat()
-            })
+                Metadata.TASK_START: taskStartDate,
+                Metadata.TASK_END: taskEndDate,
+                Metadata.TASK_DURATION: duration,
+            }
 
+            if success:
+                packet |= {
+                    Metadata.LAST_SUCCESS_START: taskStartDate,
+                    Metadata.LAST_SUCCESS_END: taskEndDate,
+                    Metadata.LAST_SUCCESS_DURATION: duration
+                }
+
+            self.updateMetadata(idx, packet)
             allSucceeded = allSucceeded and success
 
-        self.updateTotalTime(time.perf_counter() - startTime)
+        self.updateTotalTime(time.perf_counter() - startTime, allSucceeded)
         return allSucceeded
 
     def updateMetadata(self, stepIndex: int, metadata: dict[Metadata, any]) -> None:
@@ -88,7 +107,7 @@ class SystemManager:
 
         taskMetadata: list[dict] = self.metadata.get(self.taskName, [])
         if stepIndex < len(taskMetadata):
-            taskMetadata[stepIndex] = parsedMetadata
+            taskMetadata[stepIndex] |= parsedMetadata
         else:
             taskMetadata.append(parsedMetadata)
 
@@ -97,8 +116,11 @@ class SystemManager:
 
         logging.info(f"Updated {self.stepKey} metadata and saved to file")
 
-    def updateTotalTime(self, totalTime: float) -> None:
-        self.metadata[Metadata.TOTAL_TIME.value] = totalTime
+    def updateTotalTime(self, totalTime: float, allSucceeded) -> None:
+        self.metadata[Metadata.TOTAL_DURATION.value] = totalTime
+        if allSucceeded:
+            self.metadata[Metadata.LAST_SUCCESS_TOTAL_DURATION.value] = totalTime
+
         self._syncMetadata()
 
     def getMetadata(self, stepIndex: int, property: Metadata) -> None | Any:
@@ -108,7 +130,7 @@ class SystemManager:
         return self.metadata[self.taskName][stepIndex][property.value]
 
     def getLastUpdate(self) -> datetime | None:
-        timestamp = self.getMetadata(0, Metadata.TIMESTAMP)
+        timestamp = self.getMetadata(0, Metadata.LAST_SUCCESS_START)
         if timestamp is not None:
             return datetime.fromisoformat(timestamp)
 
