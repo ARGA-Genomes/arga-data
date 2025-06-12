@@ -20,11 +20,20 @@ class Metadata(Enum):
     CUSTOM = ""
 
 class Task:
+    def __init__(self):
+        self._runMetadata = {}
+
     def getOutputPath(self) -> Path:
         raise NotImplementedError
 
     def runTask(self) -> bool:
         raise NotImplementedError
+    
+    def setAdditionalMetadata(self, metadata: dict) -> None:
+        self._runMetadata = metadata
+
+    def getRunMetadata(self) -> dict:
+        return self._runMetadata
 
 class SystemManager:
     def __init__(self, baseDir: Path, dataDir: Path, stepKey: str, taskName: str):
@@ -77,6 +86,11 @@ class SystemManager:
                 Metadata.TASK_END: taskEndDate,
                 Metadata.TASK_DURATION: duration,
             }
+
+            # Task can set metadata on itself during run
+            extraMetadata = task.getRunMetadata()
+            if extraMetadata:
+                packet[Metadata.CUSTOM] = extraMetadata
 
             if success:
                 packet |= {

@@ -19,10 +19,9 @@ class Retrieve(Enum):
     SCRIPT  = "script"
 
 class Flag(Enum):
-    VERBOSE = "verbose"
-    PREPARE_OVERWRITE = "reprepare"
-    OUTPUT_OVERWRITE = "overwrite"
-    UPDATE = "update"
+    VERBOSE   = "verbose"
+    REPREPARE = "reprepare"
+    OVERWRITE = "overwrite"
 
 class BasicDB:
 
@@ -115,7 +114,7 @@ class BasicDB:
     
     def _prepareConversion(self, flags: list[Flag]) -> None:
         fileToConvert = self.processingManager.getLatestNodeFile()
-        self.conversionManager.prepare(fileToConvert, self.conversionConfig, Flag.PREPARE_OVERWRITE in flags)
+        self.conversionManager.prepare(fileToConvert, self.conversionConfig, Flag.REPREPARE in flags)
 
     def _prepare(self, step: Step, flags: list[Flag]) -> bool:
         callbacks = {
@@ -131,7 +130,7 @@ class BasicDB:
             if idx <= self._prepStage:
                 continue
 
-            logging.info(f"Preparing {self} step '{stepType.name}' with flags: {self._verboseFlags(flags)}")
+            logging.info(f"Preparing {self} step '{stepType.name}' with flags: {self._printFlags(flags)}")
             try:
                 callback(flags)
             except AttributeError as e:
@@ -144,24 +143,24 @@ class BasicDB:
             
         return True
 
-    def _execute(self, step: Step, flags: list[Flag], **kwargs: dict) -> bool:
-        overwrite = Flag.OUTPUT_OVERWRITE in flags
+    def _execute(self, step: Step, flags: list[Flag]) -> bool:
+        logging.info(f"Executing {self} step '{step.name}' with flags: {self._printFlags(flags)}")
+        overwrite = Flag.OVERWRITE in flags
         verbose = Flag.VERBOSE in flags
 
-        logging.info(f"Executing {self} step '{step.name}' with flags: {self._verboseFlags(flags)}")
         if step == Step.DOWNLOAD:
-            return self.downloadManager.download(overwrite, verbose, **kwargs)
+            return self.downloadManager.download(overwrite, verbose)
 
         if step == Step.PROCESSING:
-            return self.processingManager.process(overwrite, verbose, **kwargs)
+            return self.processingManager.process(overwrite, verbose)
         
         if step == Step.CONVERSION:
-            return self.conversionManager.convert(overwrite, verbose, **kwargs)
+            return self.conversionManager.convert(overwrite, verbose)
 
         logging.error(f"Unknown step to execute: {step}")
         return False
     
-    def create(self, step: Step, flags: list[Flag], **kwargs: dict) -> None:
+    def create(self, step: Step, flags: list[Flag]) -> None:
         try:
             success = self._prepare(step, flags)
             if not success:
@@ -171,7 +170,7 @@ class BasicDB:
             logging.info(f"Process ended early when attempting to prepare step '{step.name}' for {self}")
 
         try:
-            self._execute(step, flags, **kwargs)
+            self._execute(step, flags)
         except KeyboardInterrupt:
             logging.info(f"Process ended early when attempting to execute step '{step.name}' for {self}")
 
@@ -188,16 +187,12 @@ class BasicDB:
         return self.updateManager.isUpdateReady(lastUpdate)
     
     def update(self, flags: list[Flag]) -> bool:
-        for flag in [Flag.UPDATE, Flag.OUTPUT_OVERWRITE]:
-            if flag not in flags:
-                flags.append(flag)
-
         for step in (Step.DOWNLOAD, Step.PROCESSING, Step.CONVERSION):
-            self.create(step, flags)
+            self.create(step, list(set(flags).add(Flag.OVERWRITE)))
 
         self.package()
 
-    def _verboseFlags(self, flags: list[Flag]) -> str:
+    def _printFlags(self, flags: list[Flag]) -> str:
         return " | ".join(f"{flag.value}={flag in flags}" for flag in Flag)
 
 class CrawlDB(BasicDB):
@@ -213,7 +208,7 @@ class CrawlDB(BasicDB):
         filenameURLParts = self.downloadConfig.pop("urlPrefix", 1)
 
         crawler = Crawler(self.subsectionDir)
-        crawler.run(url, regex, maxDepth, Flag.PREPARE_OVERWRITE in flags)
+        crawler.run(url, regex, maxDepth, Flag.REPREPARE in flags)
         urlList = crawler.getFileURLs(link)
 
         for url in urlList:

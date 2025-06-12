@@ -7,6 +7,8 @@ import lib.downloading as dl
 
 class _Download(Task):
     def __init__(self, filePath: Path, properties: dict):
+        super().__init__()
+        
         self.file = File(filePath, properties)
 
     def getOutputPath(self) -> Path:

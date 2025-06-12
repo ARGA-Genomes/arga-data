@@ -4,11 +4,11 @@ import logging
 
 if __name__ == '__main__':
     parser = ArgParser(description="Clean up source to save space")
-    parser.add_argument("-r", "--raw", action="store_true", help="Clear raw/downloaded files too")
+    parser.addArgument("-r", "--raw", action="store_true", help="Clear raw/downloaded files too")
 
-    sources, _, _, args = parser.parse_args()
+    sources, flags, kwargs = parser.parseArgs()
     for source in sources:
-        dataDir = source.getBaseDir() / "data"
+        dataDir = source.baseDir / "data"
 
         for folder in dataDir.iterdir():
             if folder.is_file(): # Skip files that may be in dir

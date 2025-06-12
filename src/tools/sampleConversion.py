@@ -6,15 +6,15 @@ import logging
 
 if __name__ == '__main__':
     parser = ArgParser(description="View portion of Converted file")
-    parser.add_argument("-e", "--entries", type=int, default=100, help="Amount of entries to view")
-    parser.add_argument("-t", "--tsv", action="store_true", help="Output file as TSV instead")
-    columnGroup = parser.add_mutually_exclusive_group()
+    parser.addArgument("-e", "--entries", type=int, default=100, help="Amount of entries to view")
+    parser.addArgument("-t", "--tsv", action="store_true", help="Output file as TSV instead")
+    columnGroup = parser.addMutuallyExclusiveGroup()
     columnGroup.add_argument("-m", "--mapped", action="store_true", help="Get only mapped fields")
     columnGroup.add_argument("-U", "--unmapped", action="store_true", help="Get only unmapped fields")
     
-    sources, flags, args = parser.parse_args()
-    suffix = ".tsv" if args.tsv else ".csv"
-    delim = "\t" if args.tsv else ","
+    sources, flags, kwargs = parser.parseArgs()
+    suffix = ".tsv" if kwargs.tsv else ".csv"
+    delim = "\t" if kwargs.tsv else ","
 
     for source in sources:
         source._prepare(Step.CONVERSION, flags)
@@ -26,14 +26,14 @@ if __name__ == '__main__':
             continue
 
         outputFolder = lastConversionFile.name
-        if args.mapped:
+        if kwargs.mapped:
             outputFolder += "_mapped"
-        elif args.unmapped:
+        elif kwargs.unmapped:
             outputFolder += "_unmapped"
         outputFolder += "_example"
 
         stackedFile = StackedFile(lastConversionFile)
-        df = next(stackedFile.loadDataFrameIterator(rows=args.entries))
+        df = next(stackedFile.loadDataFrameIterator(rows=kwargs.entries))
 
         folderPath = source.exampleDir / outputFolder
         folderPath.mkdir(exist_ok=True)
@@ -41,7 +41,7 @@ if __name__ == '__main__':
         dummpyMap = Map({})
 
         for event in df.columns.levels[0]:
-            if (args.mapped and event == dummpyMap._unmappedLabel) or (args.unmapped and event != dummpyMap._unmappedLabel):
+            if (kwargs.mapped and event == dummpyMap._unmappedLabel) or (kwargs.unmapped and event != dummpyMap._unmappedLabel):
                 continue
 
             fileName = f"{event}{suffix}"

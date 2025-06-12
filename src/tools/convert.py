@@ -2,10 +2,11 @@ from lib.data.argParser import ArgParser
 from lib.processing.stages import Step
 
 if __name__ == '__main__':
-    parser = ArgParser(description="Convert preDWC file to DWC")
-    parser.add_argument("-f", "--forceRetrieve", action="store_true", help="Force retrieve maps from google sheets")
+    parser = ArgParser(
+        description="Convert file to ARGA schema",
+        reprepareHelp="Force retrieval of map",
+    )
 
-    sources, flags, args = parser.parse_args()
-    kwargs = parser.namespaceKwargs(args)
+    sources, flags, kwargs = parser.parseArgs()
     for source in sources:
-        source.create(Step.CONVERSION, flags, **kwargs)
+        source.create(Step.CONVERSION, flags)

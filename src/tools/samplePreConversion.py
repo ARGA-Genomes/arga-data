@@ -37,8 +37,8 @@ if __name__ == '__main__':
     parser.add_argument('-f', '--firstrow', type=int, default=0, help="First row offset for reading data")
     parser.add_argument('-r', '--rows', type=int, help="Maximum amount of rows to read from file")
 
-    sources, flags, args = parser.parse_args()
-    entryLimit = args.entries
+    sources, flags, kwargs = parser.parseArgs()
+    entryLimit = kwargs.entries
 
     for source in sources:
         outputDir = source.exampleDir
@@ -52,12 +52,12 @@ if __name__ == '__main__':
             print(f"File {stageFile.filePath} does not exist, please run all required downloading/processing.")
             continue
 
-        seed = args.seed if args.seed >= 0 else random.randrange(2**32 - 1) # Max value for pandas seed
+        seed = kwargs.seed if kwargs.seed >= 0 else random.randrange(2**32 - 1) # Max value for pandas seed
         random.seed(seed)
-        outputPath = outputDir / f"{'fields' if args.ignoreRecord else 'records'}_{args.chunksize}_{seed}.tsv"
+        outputPath = outputDir / f"{'fields' if kwargs.ignoreRecord else 'records'}_{kwargs.chunksize}_{seed}.tsv"
 
-        dfIterator = stageFile.loadDataFrameIterator(args.chunksize, args.firstrow, args.rows)
-        df = _collectFields(dfIterator, args.entries, seed) if args.ignoreRecord else _collectRecords(dfIterator, args.entries, seed)
+        dfIterator = stageFile.loadDataFrameIterator(kwargs.chunksize, kwargs.firstrow, kwargs.rows)
+        df = _collectFields(dfIterator, kwargs.entries, seed) if kwargs.ignoreRecord else _collectRecords(dfIterator, kwargs.entries, seed)
 
         df = dff.removeSpaces(df)
         df.index += 1 # Increment index so output is 1-indexed numbers
