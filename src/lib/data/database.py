@@ -19,7 +19,7 @@ class Retrieve(Enum):
     SCRIPT  = "script"
 
 class Flag(Enum):
-    VERBOSE   = "verbose"
+    VERBOSE   = "quiet" # Verbosity enabled by default, flag is used when silenced
     REPREPARE = "reprepare"
     OVERWRITE = "overwrite"
 

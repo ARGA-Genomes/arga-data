@@ -10,10 +10,10 @@ class ArgParser:
         self._manager = SourceManager()
 
         self.addArgument("source", help="Data set to interact with", metavar="SOURCE")
-        self.addArgument("-q", "--quiet", action="store_false", help="Suppress output during execution")
+        self.addArgument("-q", f"--{Flag.VERBOSE.value}", action="store_false", help="Suppress output during execution")
 
-        self.addArgument("-p", "--reprepare", action="store_true", help=reprepareHelp)
-        self.addArgument("-o", "--overwrite", action="store_true", help=overwriteHelp)
+        self.addArgument("-p", f"--{Flag.REPREPARE.value}", action="store_true", help=reprepareHelp)
+        self.addArgument("-o", f"--{Flag.OVERWRITE.value}", action="store_true", help=overwriteHelp)
 
     def addArgument(self, *args, **kwargs) -> None:
         self._parser.add_argument(*args, **kwargs)
@@ -27,13 +27,7 @@ class ArgParser:
             if not passed:
                 sources = []
 
-        flagMap = {
-            "quiet": Flag.VERBOSE,
-            "reprepare": Flag.REPREPARE,
-            "overwrite": Flag.OVERWRITE
-        }
-
-        flags = [flag for key, flag in flagMap.items() if self._extract(parsedArgs, key)]
+        flags = [flag for key, flag in Flag._value2member_map_.items() if self._extract(parsedArgs, key)]
 
         return sources, flags, parsedArgs.__dict__ if kwargsDict else parsedArgs
 

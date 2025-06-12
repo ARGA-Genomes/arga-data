@@ -20,6 +20,8 @@ class Conversion(Task):
         self.output = output
         self.augments = augments
 
+        super().__init__()
+
     def getOutputPath(self) -> Path:
         return self.output.filePath
 
