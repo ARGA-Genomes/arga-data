@@ -6,6 +6,8 @@ import logging
 
 class _Node(Task):
     def __init__(self, index: str, script: FileScript, parents: list['_Node']):
+        super().__init__()
+
         self.index = index
         self.script = script
         self.parents = parents

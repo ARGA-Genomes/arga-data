@@ -70,6 +70,9 @@ class Crawler:
             self._save()
             logging.info(f"Successfully retrieved entry url {entryURL}, crawling subfolders")
         else:
+            if len(self.data) >= maxDepth:
+                return # Exit early if no crawling necessary
+            
             logging.info(f"Progress found, resuming crawling at depth: {len(self.data)}")
 
         while len(self.data) <= maxDepth:
