@@ -66,7 +66,7 @@ class SystemManager:
 
     def runTasks(self, tasks: list[Task], *args) -> bool:
         if not self.workingDir.exists():
-            self.workingDir.mkdir()
+            self.workingDir.mkdir(parents=True)
 
         allSucceeded = False
         startTime = time.perf_counter()
