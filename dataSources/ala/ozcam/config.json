@@ -33,7 +33,7 @@
         ]
     },
     "conversion": {
-        "mapID": 404635334
+        "mapColumnName": "ala-ozcam mappings"
     },
     "update": {
         "type": "weekly",
