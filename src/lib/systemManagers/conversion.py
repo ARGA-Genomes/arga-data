@@ -11,11 +11,18 @@ from datetime import date
 import lib.zipping as zp
 
 class Conversion(Task):
-    def __init__(self, prefix: str, datasetID: str, map: Map, inputFile: File, chunkSize: int, output: StackedFile, augments: list[FunctionScript]):
+
+    datasetIDLabel = "dataset_id"
+    entityIDLabel = "entity_id"
+    entityIDEvent = "collection"
+
+    def __init__(self, prefix: str, datasetID: str, map: Map, inputFile: File, chunkSize: int, entityEvent: str, entityColumn: str, output: StackedFile, augments: list[FunctionScript]):
         self.prefix = prefix
         self.datasetID = datasetID
         self.map = map
         self.inputFile = inputFile
+        self.entityEvent = entityEvent
+        self.entityColumn = entityColumn
         self.chunkSize = chunkSize
         self.output = output
         self.augments = augments
@@ -24,32 +31,6 @@ class Conversion(Task):
 
     def getOutputPath(self) -> Path:
         return self.output.filePath
-
-    def _processChunk(self, chunk: pd.DataFrame) -> pd.DataFrame | None:
-        df = self.map.applyTo(chunk, self.prefix) # Returns a multi-index dataframe
-        df = self._applyAugments(df)
-
-        if df is None:
-            return
-
-        datasetID = "dataset_id"
-        scientificName = "scientific_name"
-        canonicalName = "canonical_name"
-        entityID = "entity_id"
-
-        collection = "collection"
-
-        if scientificName not in df[collection].columns:
-            if canonicalName in df[collection].columns:
-                scientificName = canonicalName
-
-            else:
-                logging.error(f"Unable to generate '{entityID}' as dataset is missing field '{scientificName}' in event '{collection}'")
-                return
-        
-        df[(collection, datasetID)] = self.datasetID
-        df[(collection, entityID)] = df[(collection, datasetID)] + df[(collection, scientificName)]
-        return df
 
     def runTask(self, overwrite: bool, verbose: bool) -> bool:
         if self.output.filePath.exists() and not overwrite:
@@ -95,6 +76,26 @@ class Conversion(Task):
 
         return True
     
+    def _processChunk(self, chunk: pd.DataFrame) -> pd.DataFrame | None:
+        df = self.map.applyTo(chunk, self.prefix) # Returns a multi-index dataframe
+        df = self._applyAugments(df)
+        
+        if df is None:
+            return
+        
+        error = f"Unable to generate '{self.entityIDLabel}':"
+        if self.entityEvent not in df.columns:
+            logging.error(f"{error} no event found '{self.entityEvent}'")
+            return
+        
+        if self.entityColumn not in df[self.entityEvent].columns:
+            logging.error(f"{error} dataset is missing field '{self.entityColumn}' in event '{self.entityEvent}'")
+            return
+        
+        df[(self.entityIDEvent, self.datasetIDLabel)] = self.datasetID
+        df[(self.entityIDEvent, self.entityIDLabel)] = df[(self.entityIDEvent, self.datasetIDLabel)] + df[(self.entityEvent, self.entityColumn)]
+        return df
+
     def _applyAugments(self, df: pd.DataFrame) -> pd.DataFrame | None:
         for augment in self.augments:
             success, df = augment.run(False, inputArgs=[df])
@@ -145,6 +146,9 @@ class ConversionManager(SystemManager):
         if map is None:
             logging.error(f"Unable to retrieve a map for {self.name}")
             return
+        
+        entityEvent = properties.pop("entityEvent", "collection")
+        entityColumn = properties.pop("entityColumn", "scientific_name")
 
         timestamp = properties.pop("timestamp", True)
         output = self._generateFileName(timestamp)
@@ -152,7 +156,7 @@ class ConversionManager(SystemManager):
         chunkSize = properties.pop("chunkSize", 1024)
         augments = [FunctionScript(self.baseDir, augProperties) for augProperties in properties.pop("augment", [])]
 
-        self.conversion.append(Conversion(self.prefix, self.datasetID, map, file, chunkSize, output, augments))
+        self.conversion.append(Conversion(self.prefix, self.datasetID, map, file, chunkSize, entityEvent, entityColumn, output, augments))
 
     def convert(self, overwrite: bool = False, verbose: bool = True) -> bool:
         if not self.conversion:
