@@ -46,7 +46,7 @@ if __name__ == '__main__':
         if not outputDir.exists():
             outputDir.mkdir()
 
-        source._prepare(Step.CONVERSION, flags)
+        source._prepare(Step.PROCESSING, flags)
         stageFile = source.processingManager.getLatestNodeFile() # Should be singular stage file before DwC
 
         if not stageFile.filePath.exists():
