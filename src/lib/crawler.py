@@ -45,9 +45,9 @@ class PageData:
         return [urllib.parse.urljoin(baseURL, fileLink) for fileLink in self.fileLinks]
 
 class Crawler:
-    def __init__(self, outputDir: Path, username: str = "", password: str = ""):
+    def __init__(self, outputDir: Path, auth: dl.HTTPBasicAuth = None):
         self.outputDir = outputDir
-        self.auth = dl.buildAuth(username, password) if username else None
+        self.auth = auth
 
         self.progressFile = self.outputDir / "crawlerProgress.json"
         self.session = None
