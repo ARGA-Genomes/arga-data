@@ -110,16 +110,14 @@ class Conversion(Task):
         return df
 
 class ConversionManager(SystemManager):
-    def __init__(self, baseDir: Path, dataDir: Path, mapDir: Path, datasetID: str, prefix: str, name: str):
-        self.stepName = "conversion"
-        super().__init__(baseDir, dataDir, self.stepName, "tasks")
+    def __init__(self, dataDir: Path, scriptDir: Path, metadataDir: Path, datasetID: str, prefix: str, name: str):
+        super().__init__(dataDir, scriptDir, metadataDir, "conversion", "tasks")
 
         self.datasetID = datasetID
         self.prefix = prefix
         self.name = name
 
-        self.mapFile = mapDir / "map.json"
-        self.conversion = []
+        self.mapFile = self.metadataDir / "map.json"
 
     def _generateFileName(self, withTimestamp: bool) -> StackedFile:
         outputName = f"{self.name}{date.today().strftime('-%Y-%m-%d') if withTimestamp else ''}"
@@ -154,12 +152,12 @@ class ConversionManager(SystemManager):
         output = self._generateFileName(timestamp)
 
         chunkSize = properties.pop("chunkSize", 1024)
-        augments = [FunctionScript(self.baseDir, augProperties) for augProperties in properties.pop("augment", [])]
+        augments = [FunctionScript(self.scriptDir, augProperties) for augProperties in properties.pop("augment", [])]
 
-        self.conversion.append(Conversion(self.prefix, self.datasetID, map, file, chunkSize, entityEvent, entityColumn, output, augments))
+        self._tasks.append(Conversion(self.prefix, self.datasetID, map, file, chunkSize, entityEvent, entityColumn, output, augments))
 
     def convert(self, overwrite: bool = False, verbose: bool = True) -> bool:
-        if not self.conversion:
+        if not self._tasks:
             logging.error("No file loaded for conversion, exiting...")
             return False
 
@@ -167,14 +165,14 @@ class ConversionManager(SystemManager):
             logging.error("No datasetID provided which is required for conversion, exiting...")
             return False
         
-        return self.runTasks(self.conversion, overwrite, verbose)
+        return self.runTasks(overwrite, verbose)
     
     def package(self, compressLocation: Path) -> Path | None:
         outputFileName = self.getLastOutput()
         if outputFileName is None:
             return
         
-        outputFilePath = self.workingDir / outputFileName
+        outputFilePath = self.dataDir / outputFileName
         renamedFile = self.metadataPath.rename(outputFilePath / self.metadataPath.name)
         outputPath = zp.compress(outputFilePath, compressLocation)
         renamedFile.rename(self.metadataPath)

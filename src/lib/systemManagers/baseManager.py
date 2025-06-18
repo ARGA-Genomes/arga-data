@@ -36,12 +36,19 @@ class Task:
         return self._runMetadata
 
 class SystemManager:
-    def __init__(self, baseDir: Path, dataDir: Path, stepKey: str, taskName: str):
-        self.baseDir = baseDir
-        self.workingDir = dataDir / stepKey
-        self.stepKey = stepKey
-        self.taskName = taskName
-        self.metadataPath = baseDir / "metadata.json"
+
+    _metadataFileName = "metadata.json"
+
+    def __init__(self, dataDir: Path, scriptDir: Path, metadataDir: Path, stepName: str, metaTaskName: str):
+        self.workingDir = dataDir / stepName
+        self.scriptDir = scriptDir
+        self.metadataDir = metadataDir
+        self.metadataPath = metadataDir / self._metadataFileName
+
+        self.stepName = stepName
+        self.metaTaskName = metaTaskName
+        
+        self._tasks: list[Task] = []
         self._loadMetadata()
 
     def _getFileMetadata(self) -> dict[str, dict]:
@@ -55,22 +62,22 @@ class SystemManager:
                 return {}
         
     def _loadMetadata(self) -> None:
-        self.metadata = self._getFileMetadata().get(self.stepKey, {})
+        self.metadata = self._getFileMetadata().get(self.stepName, {})
 
     def _syncMetadata(self) -> None:
         data = self._getFileMetadata()
-        data[self.stepKey] = self.metadata
+        data[self.stepName] = self.metadata
 
         with open(self.metadataPath, "w") as fp:
             json.dump(data, fp, indent=4)
 
-    def runTasks(self, tasks: list[Task], *args) -> bool:
+    def runTasks(self, *args) -> bool:
         if not self.workingDir.exists():
             self.workingDir.mkdir(parents=True)
 
         allSucceeded = False
         startTime = time.perf_counter()
-        for idx, task in enumerate(tasks):
+        for idx, task in enumerate(self._tasks):
             taskStartTime = time.perf_counter()
             taskStartDate = datetime.now().isoformat()
 
@@ -119,16 +126,16 @@ class SystemManager:
 
             parsedMetadata[key.value] = value
 
-        taskMetadata: list[dict] = self.metadata.get(self.taskName, [])
+        taskMetadata: list[dict] = self.metadata.get(self.metaTaskName, [])
         if stepIndex < len(taskMetadata):
             taskMetadata[stepIndex] |= parsedMetadata
         else:
             taskMetadata.append(parsedMetadata)
 
-        self.metadata[self.taskName] = taskMetadata
+        self.metadata[self.metaTaskName] = taskMetadata
         self._syncMetadata()
 
-        logging.info(f"Updated {self.stepKey} metadata and saved to file")
+        logging.info(f"Updated {self.stepName} metadata and saved to file")
 
     def updateTotalTime(self, totalTime: float, allSucceeded) -> None:
         self.metadata[Metadata.TOTAL_DURATION.value] = totalTime
@@ -141,7 +148,7 @@ class SystemManager:
         if not self.metadata:
             return None
         
-        return self.metadata[self.taskName][stepIndex][property.value]
+        return self.metadata[self.metaTaskName][stepIndex][property.value]
 
     def getLastUpdate(self) -> datetime | None:
         timestamp = self.getMetadata(0, Metadata.LAST_SUCCESS_START)

@@ -22,27 +22,27 @@ class _FileProperty(Enum):
 class FunctionScript:
     _libDir = gcfg.folders.src / "lib"
 
-    def __init__(self, baseDir: Path, scriptInfo: dict, extendRunPath: list[str] = []):
-        self.baseDir = baseDir
+    def __init__(self, scriptDir: Path, scriptInfo: dict, extendRunPath: list[str] = []):
+        self.scriptDir = scriptDir
         self.scriptInfo = scriptInfo
         self.extendRunPath = extendRunPath
 
         # Script information
-        self.path: str = scriptInfo.pop("path", None)
+        modulePath: str = scriptInfo.pop("path", None)
         self.function: str = scriptInfo.pop("function", None)
-        self.args: list[str] = scriptInfo.pop("args", [])
-        self.kwargs: dict[str, str] = scriptInfo.pop("kwargs", {})
+        args: list[str] = scriptInfo.pop("args", [])
+        kwargs: dict[str, str] = scriptInfo.pop("kwargs", {})
 
-        if self.path is None:
+        if modulePath is None:
             raise Exception("No script path specified") from AttributeError
         
         if self.function is None:
             raise Exception("No script function specified") from AttributeError
         
-        self.path = self._parsePath(self.path, True)
+        self.modulePath = self._parsePath(modulePath, True)
 
-        self.args = [self._parsePath(arg) for arg in self.args]
-        self.kwargs = {key: self._parsePath(arg) for key, arg in self.kwargs.items()}
+        self.args = [self._parsePath(arg) for arg in args]
+        self.kwargs = {key: self._parsePath(arg) for key, arg in kwargs.items()}
 
         for parameter in scriptInfo:
             logging.debug(f"Unknown script parameter: {parameter}")
@@ -58,17 +58,16 @@ class FunctionScript:
             return arg
         
         if arg.startswith("./"):
-            workingDir = self.baseDir
-            return workingDir / arg[2:]
+            return self.scriptDir / arg[2:]
          
         if arg.startswith("../"):
-            workingDir = self.baseDir.parent
+            scriptDir = self.scriptDir.parent
             newStructure = arg[3:]
             while newStructure.startswith("../"):
-                workingDir = workingDir.parent
+                scriptDir = scriptDir.parent
                 newStructure = newStructure[3:]
 
-            return workingDir / newStructure
+            return scriptDir / newStructure
         
         if arg.startswith(".../"):
             return self._libDir / arg[4:]
@@ -81,10 +80,10 @@ class FunctionScript:
     def run(self, verbose: bool, inputArgs: list = [], inputKwargs: dict = {}) -> tuple[bool, any]:
         try:
             sys.path.extend(self.extendRunPath)
-            processFunction = self._importFunction(self.path, self.function)
+            processFunction = self._importFunction(self.modulePath, self.function)
             sys.path = sys.path[:-len(self.extendRunPath)]
         except:
-            logging.error(f"Error importing function '{self.function}' from path '{self.path}'")
+            logging.error(f"Error importing function '{self.function}' from path '{self.modulePath}'")
             logging.error(traceback.format_exc())
             return False, None
 
@@ -92,7 +91,7 @@ class FunctionScript:
         kwargs = self.kwargs | inputKwargs
 
         if verbose:
-            msg = f"Running {self.path} function '{self.function}'"
+            msg = f"Running {self.modulePath} function '{self.function}'"
             if self.args:
                 msg += f" with args {args}"
             if self.kwargs:
@@ -118,7 +117,7 @@ class FunctionScript:
 class OutputScript(FunctionScript):
     fileLookup = {}
     
-    def __init__(self, baseDir: Path, scriptInfo: dict, outputDir: Path, extendRunPath: list[str] = []):
+    def __init__(self, scriptDir: Path, scriptInfo: dict, outputDir: Path, extendRunPath: list[str] = []):
         self.outputDir = outputDir
 
         # Output information
@@ -131,7 +130,7 @@ class OutputScript(FunctionScript):
         self.output = self._parseOutput(outputName, outputProperties)
         self.fileLookup |= {FileSelect.OUTPUT: [self.output]}
 
-        super().__init__(baseDir, scriptInfo, extendRunPath)
+        super().__init__(scriptDir, scriptInfo, extendRunPath)
 
         self.args = [self._parseArg(arg) for arg in self.args]
         self.kwargs = {key: self._parseArg(arg) for key, arg in self.kwargs.items()}
@@ -231,10 +230,10 @@ class OutputScript(FunctionScript):
         return True, retVal
 
 class FileScript(OutputScript):
-    def __init__(self, baseDir: Path, scriptInfo: dict, outputDir: Path, inputs: dict[str, File], extendRunPath: list[str] = []):
+    def __init__(self, scriptDir: Path, scriptInfo: dict, outputDir: Path, inputs: dict[str, File], extendRunPath: list[str] = []):
         self.fileLookup |= inputs
 
-        super().__init__(baseDir, scriptInfo, outputDir, extendRunPath)
+        super().__init__(scriptDir, scriptInfo, outputDir, extendRunPath)
 
     def _parseOutput(self, outputName: str, outputProperties: dict) -> File:
         parsedValue = self._parseArg(outputName)

@@ -41,6 +41,7 @@ class BasicDB:
         self.databaseDir = self.locationDir / database
         self.subsectionDir = self.databaseDir / self.subsection # If no subsection, does nothing
         self.exampleDir = self.subsectionDir / "examples"
+        self.scriptsDir = self.databaseDir / "scripts"
 
         # Local configs
         self.config = gcfg
@@ -57,9 +58,9 @@ class BasicDB:
         password = sourceSecrets.password if sourceSecrets is not None else ""
 
         # System Managers
-        self.downloadManager = DownloadManager(self.subsectionDir, self.dataDir, username, password)
-        self.processingManager = ProcessingManager(self.subsectionDir, self.dataDir, self.locationDir)
-        self.conversionManager = ConversionManager(self.subsectionDir, self.dataDir, self.databaseDir, self.datasetID, self.location, self.name)
+        self.downloadManager = DownloadManager(self.dataDir, self.scriptsDir, self.databaseDir, username, password)
+        self.processingManager = ProcessingManager(self.dataDir, self.scriptsDir, self.databaseDir, self.locationDir)
+        self.conversionManager = ConversionManager(self.dataDir, self.scriptsDir, self.databaseDir, self.datasetID, self.location, self.name)
 
         # Config stages
         self.downloadConfig: dict = config.pop(self.downloadManager.stepName, None)
@@ -144,9 +145,10 @@ class BasicDB:
         return True
 
     def _execute(self, step: Step, flags: list[Flag]) -> bool:
-        logging.info(f"Executing {self} step '{step.name}' with flags: {self._printFlags(flags)}")
         overwrite = Flag.OVERWRITE in flags
         verbose = Flag.VERBOSE in flags
+
+        logging.info(f"Executing {self} step '{step.name}' with flags: {self._printFlags(flags)}")
 
         if step == Step.DOWNLOAD:
             return self.downloadManager.download(overwrite, verbose)

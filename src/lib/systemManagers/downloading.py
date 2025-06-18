@@ -30,8 +30,8 @@ class _URLDownload(_Download):
         return dl.download(self.url, self.file.filePath, verbose=verbose, auth=self.auth)
 
 class _ScriptDownload(_Download):
-    def __init__(self, baseDir: Path, downloadDir: Path, scriptInfo: dict):
-        self.script = OutputScript(baseDir, dict(scriptInfo), downloadDir)      
+    def __init__(self, scriptDir: Path, downloadDir: Path, scriptInfo: dict):
+        self.script = OutputScript(scriptDir, dict(scriptInfo), downloadDir)      
 
         super().__init__(self.script.output.filePath, self.script.output.fileProperties)
 
@@ -39,33 +39,28 @@ class _ScriptDownload(_Download):
         return self.script.run(overwrite, verbose)[0] # No retval for downloading tasks, just return success
 
 class DownloadManager(SystemManager):
-    def __init__(self, baseDir: Path, dataDir: Path, username: str, password: str):
-        self.stepName = "downloading"
-        super().__init__(baseDir, dataDir, self.stepName, "files")
+    def __init__(self, dataDir: Path, scriptDir: Path, metadataDir: Path, username: str, password: str):
+        super().__init__(dataDir, scriptDir, metadataDir, "downloading", "files")
 
         self.auth = dl.buildAuth(username, password) if username else None
-        self.downloads: list[_Download] = []
 
     def getFiles(self) -> list[File]:
-        return [download.file for download in self.downloads]
-
-    def getLatestFile(self) -> File:
-        return self.files[-1].file
+        return [download.file for download in self._tasks]
 
     def download(self, overwrite: bool = False, verbose: bool = False) -> bool:
-        return self.runTasks(self.downloads, overwrite, verbose)
+        return self.runTasks(overwrite, verbose)
 
     def registerFromURL(self, url: str, fileName: str, fileProperties: dict = {}) -> bool:
         download = _URLDownload(url, self.workingDir / fileName, fileProperties, self.auth)
-        self.downloads.append(download)
+        self._tasks.append(download)
         return True
 
     def registerFromScript(self, scriptInfo: dict) -> bool:
         try:
-            download = _ScriptDownload(self.baseDir, self.workingDir, scriptInfo)
+            download = _ScriptDownload(self.scriptDir, self.workingDir, scriptInfo)
         except AttributeError as e:
             logging.error(f"Invalid download script configuration: {e}")
             return False
         
-        self.downloads.append(download)
+        self._tasks.append(download)
         return True
