@@ -207,7 +207,7 @@ class CrawlDB(BasicDB):
         properties = self.downloadConfig.pop("properties", {})
         filenameURLParts = self.downloadConfig.pop("urlPrefix", 1)
 
-        crawler = Crawler(self.subsectionDir)
+        crawler = Crawler(self.subsectionDir, self.downloadManager.auth)
         crawler.run(url, regex, maxDepth, Flag.REPREPARE in flags)
         urlList = crawler.getFileURLs(link)
 

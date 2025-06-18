@@ -15,9 +15,9 @@ class _Download(Task):
         return self.file.filePath
 
 class _URLDownload(_Download):
-    def __init__(self, url: str, filePath: Path, properties: dict, username: str, password: str):
+    def __init__(self, url: str, filePath: Path, properties: dict, auth: dl.HTTPBasicAuth):
         self.url = url
-        self.auth = dl.buildAuth(username, password) if username else None
+        self.auth = auth
 
         super().__init__(filePath, properties)
 
@@ -43,9 +43,7 @@ class DownloadManager(SystemManager):
         self.stepName = "downloading"
         super().__init__(baseDir, dataDir, self.stepName, "files")
 
-        self.username = username
-        self.password = password
-
+        self.auth = dl.buildAuth(username, password) if username else None
         self.downloads: list[_Download] = []
 
     def getFiles(self) -> list[File]:
@@ -58,7 +56,7 @@ class DownloadManager(SystemManager):
         return self.runTasks(self.downloads, overwrite, verbose)
 
     def registerFromURL(self, url: str, fileName: str, fileProperties: dict = {}) -> bool:
-        download = _URLDownload(url, self.workingDir / fileName, fileProperties, self.username, self.password)
+        download = _URLDownload(url, self.workingDir / fileName, fileProperties, self.auth)
         self.downloads.append(download)
         return True
 
