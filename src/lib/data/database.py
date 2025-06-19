@@ -40,7 +40,11 @@ class BasicDB:
         self.locationDir: Path = gcfg.folders.dataSources / location
         self.databaseDir = self.locationDir / database
         self.subsectionDir = self.databaseDir / self.subsection # If no subsection, does nothing
-        self.exampleDir = self.subsectionDir / "examples"
+
+        # Local storage
+        self.libDir = self.locationDir / "llib" # Location based lib for shared scripts
+        self.scriptsDir = self.databaseDir / "scripts" # Database specific scripts
+        self.exampleDir = self.subsectionDir / "examples" # Pre and post conversion sample location
 
         # Local configs
         self.config = gcfg
@@ -49,7 +53,10 @@ class BasicDB:
             if subdirConfig.exists():
                 self.config = self.config.createChild(subdirConfig)
 
-        self.dataDir = self.subsectionDir / "data" if not self.config.overwrites.storage else self.config.overwrites.storage / location / database / self.subsection / "data"
+        # Data storage
+        self.dataDir = self.subsectionDir / "data" # Default data location
+        if self.config.overwrites.storage: # Overwrite data location
+            self.dataDir =  self.config.overwrites.storage / location / database / self.subsection / "data"
 
         # Username/Password
         sourceSecrets = secrets[self.location]
@@ -57,9 +64,9 @@ class BasicDB:
         password = sourceSecrets.password if sourceSecrets is not None else ""
 
         # System Managers
-        self.downloadManager = DownloadManager(self.subsectionDir, self.dataDir, username, password)
-        self.processingManager = ProcessingManager(self.subsectionDir, self.dataDir, self.locationDir)
-        self.conversionManager = ConversionManager(self.subsectionDir, self.dataDir, self.databaseDir, self.datasetID, self.location, self.name)
+        self.downloadManager = DownloadManager(self.dataDir, self.scriptsDir, self.databaseDir, username, password)
+        self.processingManager = ProcessingManager(self.dataDir, self.scriptsDir, self.databaseDir, self.libDir)
+        self.conversionManager = ConversionManager(self.dataDir, self.scriptsDir, self.databaseDir, self.datasetID, self.location, self.name)
 
         # Config stages
         self.downloadConfig: dict = config.pop(self.downloadManager.stepName, None)
@@ -144,9 +151,10 @@ class BasicDB:
         return True
 
     def _execute(self, step: Step, flags: list[Flag]) -> bool:
-        logging.info(f"Executing {self} step '{step.name}' with flags: {self._printFlags(flags)}")
         overwrite = Flag.OVERWRITE in flags
         verbose = Flag.VERBOSE in flags
+
+        logging.info(f"Executing {self} step '{step.name}' with flags: {self._printFlags(flags)}")
 
         if step == Step.DOWNLOAD:
             return self.downloadManager.download(overwrite, verbose)

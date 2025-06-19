@@ -52,9 +52,8 @@ class _Root(_Node):
         return True
 
 class ProcessingManager(SystemManager):
-    def __init__(self, baseDir: Path, dataDir: Path, importDir: Path):
-        self.stepName = "processing"
-        super().__init__(baseDir, dataDir, self.stepName, "steps")
+    def __init__(self, dataDir: Path, scriptDir: Path, metadataDir: Path, importDir: Path):
+        super().__init__(dataDir, scriptDir, metadataDir, "processing", "steps")
 
         self.importDir = importDir
         self.nodes: dict[FileSelect, list[_Node]] = {
@@ -68,7 +67,7 @@ class ProcessingManager(SystemManager):
         inputs = {FileSelect.INPUT: [self.getLatestNodeFile()]} | {select: [node.getOutputFile() for node in nodes] for select, nodes in self.nodes.items()}
         
         try:
-            script = FileScript(self.baseDir, dict(step), self.workingDir, inputs, [str(self.importDir)])
+            script = FileScript(self.scriptDir, dict(step), self.workingDir, inputs, {".llib": self.importDir})
         except AttributeError as e:
             logging.error(f"Invalid processing script configuration: {e}")
             return None
@@ -92,12 +91,11 @@ class ProcessingManager(SystemManager):
             logging.info("No processing required for any nodes")
             return True
 
-        queuedTasks: list[_Node] = []
         for node in self._lowestNodes:
-            requirements = node.getRequirements(queuedTasks)
-            queuedTasks.extend(requirements)
+            requirements = node.getRequirements(self._tasks)
+            self._tasks.extend(requirements)
 
-        return self.runTasks(queuedTasks, overwrite, verbose)
+        return self.runTasks(overwrite, verbose)
 
     def registerFile(self, file: File, processingSteps: list[dict]) -> None:
         node = _Root(f"D{len(self.nodes[FileSelect.DOWNLOAD])}", file)

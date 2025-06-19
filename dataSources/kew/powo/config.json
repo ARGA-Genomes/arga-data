@@ -10,7 +10,7 @@
     "processing": {
         "linear": [
             {
-                "path": ".../tools/zipping.py",
+                "path": ".lib/tools/zipping.py",
                 "function": "extract",
                 "args": [
                     "{IN-PATH}",

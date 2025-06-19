@@ -23,7 +23,7 @@
                 "output": "{IN-PATH.}"
             },
             {
-                "path": "../flatFileParser.py",
+                "path": ".llib/flatFileParser.py",
                 "function": "parseFlatfile",
                 "args": [
                     "{IN-PATH}"
