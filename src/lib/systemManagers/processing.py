@@ -67,7 +67,7 @@ class ProcessingManager(SystemManager):
         inputs = {FileSelect.INPUT: [self.getLatestNodeFile()]} | {select: [node.getOutputFile() for node in nodes] for select, nodes in self.nodes.items()}
         
         try:
-            script = FileScript(self.scriptDir, dict(step), self.workingDir, inputs, [str(self.importDir)])
+            script = FileScript(self.scriptDir, dict(step), self.workingDir, inputs, {".llib": self.importDir})
         except AttributeError as e:
             logging.error(f"Invalid processing script configuration: {e}")
             return None

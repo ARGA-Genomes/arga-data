@@ -40,8 +40,11 @@ class BasicDB:
         self.locationDir: Path = gcfg.folders.dataSources / location
         self.databaseDir = self.locationDir / database
         self.subsectionDir = self.databaseDir / self.subsection # If no subsection, does nothing
-        self.exampleDir = self.subsectionDir / "examples"
-        self.scriptsDir = self.databaseDir / "scripts"
+
+        # Local storage
+        self.libDir = self.locationDir / "llib" # Location based lib for shared scripts
+        self.scriptsDir = self.databaseDir / "scripts" # Database specific scripts
+        self.exampleDir = self.subsectionDir / "examples" # Pre and post conversion sample location
 
         # Local configs
         self.config = gcfg
@@ -50,7 +53,10 @@ class BasicDB:
             if subdirConfig.exists():
                 self.config = self.config.createChild(subdirConfig)
 
-        self.dataDir = self.subsectionDir / "data" if not self.config.overwrites.storage else self.config.overwrites.storage / location / database / self.subsection / "data"
+        # Data storage
+        self.dataDir = self.subsectionDir / "data" # Default data location
+        if self.config.overwrites.storage: # Overwrite data location
+            self.dataDir =  self.config.overwrites.storage / location / database / self.subsection / "data"
 
         # Username/Password
         sourceSecrets = secrets[self.location]
@@ -59,7 +65,7 @@ class BasicDB:
 
         # System Managers
         self.downloadManager = DownloadManager(self.dataDir, self.scriptsDir, self.databaseDir, username, password)
-        self.processingManager = ProcessingManager(self.dataDir, self.scriptsDir, self.databaseDir, self.locationDir)
+        self.processingManager = ProcessingManager(self.dataDir, self.scriptsDir, self.databaseDir, self.libDir)
         self.conversionManager = ConversionManager(self.dataDir, self.scriptsDir, self.databaseDir, self.datasetID, self.location, self.name)
 
         # Config stages

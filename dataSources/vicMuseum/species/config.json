@@ -2,7 +2,7 @@
     "datasetID": "ARGA:TL:0000190",
     "retrieveType": "script",
     "downloading": {
-        "path": "../processing.py",
+        "path": ".llib/processing.py",
         "function": "retrieve",
         "args": [
             "specimens",
@@ -14,7 +14,7 @@
     "processing": {
         "linear": [
             {
-                "path": "../processing.py",
+                "path": ".llib/processing.py",
                 "function": "expandTaxa",
                 "args": [
                     "{IN-PATH}",

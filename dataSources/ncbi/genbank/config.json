@@ -14,7 +14,7 @@
     "processing": {
         "linear": [
             {
-                "path": "../sharedProcessing.py",
+                "path": ".llib/sharedProcessing.py",
                 "function": "getStats",
                 "args": [
                     "{IN-FILE}",
@@ -24,7 +24,7 @@
                 "output": "apiData.csv"
             },
             {
-                "path": "../sharedProcessing.py",
+                "path": ".llib/sharedProcessing.py",
                 "function": "merge",
                 "args": [
                     "{D0-FILE}",
@@ -39,7 +39,7 @@
         "mapID": 2003682060,
         "augment": [
             {
-                "path": "../sharedProcessing.py",
+                "path": ".llib/sharedProcessing.py",
                 "function": "genbankAugment"
             }
         ]

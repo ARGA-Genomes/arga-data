@@ -22,10 +22,10 @@ class _FileProperty(Enum):
 class FunctionScript:
     _libDir = gcfg.folders.src / "lib"
 
-    def __init__(self, scriptDir: Path, scriptInfo: dict, extendRunPath: list[str] = []):
+    def __init__(self, scriptDir: Path, scriptInfo: dict, imports: dict[str, Path]):
         self.scriptDir = scriptDir
         self.scriptInfo = scriptInfo
-        self.extendRunPath = extendRunPath
+        self.imports = imports | {".lib": self._libDir}
 
         # Script information
         modulePath: str = scriptInfo.pop("path", None)
@@ -57,20 +57,21 @@ class FunctionScript:
         if not isinstance(arg, str):
             return arg
         
-        if arg.startswith("./"):
-            return self.scriptDir / arg[2:]
-         
-        if arg.startswith("../"):
-            scriptDir = self.scriptDir.parent
-            newStructure = arg[3:]
-            while newStructure.startswith("../"):
-                scriptDir = scriptDir.parent
-                newStructure = newStructure[3:]
+        if arg.startswith("."):
+            prefix, path = arg.split("/", 1)
+            if prefix == ".":
+                return self.scriptDir / path
+            
+            if prefix == "..":
+                cwd = self.scriptDir.parent
+                while path.startswith("../"):
+                    cwd = cwd.parent
+                    path = path[3:]
 
-            return scriptDir / newStructure
-        
-        if arg.startswith(".../"):
-            return self._libDir / arg[4:]
+                return cwd / path
+            
+            if prefix in self.imports:
+                return self.imports[prefix] / path
 
         if forceOutput:
             return Path(arg)
@@ -79,9 +80,10 @@ class FunctionScript:
     
     def run(self, verbose: bool, inputArgs: list = [], inputKwargs: dict = {}) -> tuple[bool, any]:
         try:
-            sys.path.extend(self.extendRunPath)
+            pathExtension = [str(path) for path in self.imports.values()]
+            sys.path.extend(pathExtension)
             processFunction = self._importFunction(self.modulePath, self.function)
-            sys.path = sys.path[:-len(self.extendRunPath)]
+            sys.path = sys.path[:-len(pathExtension)]
         except:
             logging.error(f"Error importing function '{self.function}' from path '{self.modulePath}'")
             logging.error(traceback.format_exc())
@@ -117,7 +119,7 @@ class FunctionScript:
 class OutputScript(FunctionScript):
     fileLookup = {}
     
-    def __init__(self, scriptDir: Path, scriptInfo: dict, outputDir: Path, extendRunPath: list[str] = []):
+    def __init__(self, scriptDir: Path, scriptInfo: dict, outputDir: Path, extendRunPath: list[Path] = []):
         self.outputDir = outputDir
 
         # Output information
@@ -230,7 +232,7 @@ class OutputScript(FunctionScript):
         return True, retVal
 
 class FileScript(OutputScript):
-    def __init__(self, scriptDir: Path, scriptInfo: dict, outputDir: Path, inputs: dict[str, File], extendRunPath: list[str] = []):
+    def __init__(self, scriptDir: Path, scriptInfo: dict, outputDir: Path, inputs: dict[str, File], extendRunPath: list[Path] = []):
         self.fileLookup |= inputs
 
         super().__init__(scriptDir, scriptInfo, outputDir, extendRunPath)

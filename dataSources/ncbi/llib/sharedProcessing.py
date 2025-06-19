@@ -10,7 +10,6 @@ from queue import Queue
 from typing import Generator
 import requests
 import numpy as np
-from lib.processing.mapping import Event
 import json
 
 def getStats(summaryFile: File, outputPath: Path, apiKeyPath: Path = None):
@@ -271,21 +270,21 @@ def genbankAugment(df: pd.DataFrame) -> pd.DataFrame:
     df = df.replace("na", np.NaN)
     
     fillNA = {
-        Event.ASSEMBLIES: "sequence_id",
-        Event.ANNOTATION: "sequence_id",
-        Event.DEPOSITION: "sequence_id",
-        Event.SEQUENCE: "record_id"
+        "assembly": "sequence_id",
+        "annotation": "sequence_id",
+        "record level": "sequence_id",
+        "sequencing": "record_id"
     }
 
     for event, column in fillNA.items():
         if column not in df[event]:
             df[(event, column)] = np.NaN
             
-        df[(event, column)].fillna(df[(Event.ASSEMBLIES, "dataset_id")], inplace=True)
+        df[(event, column)].fillna(df[("assembly", "dataset_id")], inplace=True)
 
-    df[(Event.SEQUENCE, "dna_extract_id")] = df[(Event.DEPOSITION, "dataset_id")]
-    df = df.drop((Event.DEPOSITION, "dataset_id"), axis=1)
+    df[("sequencing", "dna_extract_id")] = df[("record level", "dataset_id")]
+    df = df.drop(("record level", "dataset_id"), axis=1)
 
-    df[(Event.SEQUENCE, "scientific_name")] = df[(Event.COLLECTION, "scientific_name")]
+    df[("sequencing", "scientific_name")] = df[("collection", "scientific_name")]
 
     return df
