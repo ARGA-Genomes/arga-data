@@ -119,7 +119,7 @@ class FunctionScript:
 class OutputScript(FunctionScript):
     fileLookup = {}
     
-    def __init__(self, scriptDir: Path, scriptInfo: dict, outputDir: Path, extendRunPath: list[Path] = []):
+    def __init__(self, scriptDir: Path, scriptInfo: dict, outputDir: Path, imports: dict[str, Path] = {}):
         self.outputDir = outputDir
 
         # Output information
@@ -132,7 +132,7 @@ class OutputScript(FunctionScript):
         self.output = self._parseOutput(outputName, outputProperties)
         self.fileLookup |= {FileSelect.OUTPUT: [self.output]}
 
-        super().__init__(scriptDir, scriptInfo, extendRunPath)
+        super().__init__(scriptDir, scriptInfo, imports)
 
         self.args = [self._parseArg(arg) for arg in self.args]
         self.kwargs = {key: self._parseArg(arg) for key, arg in self.kwargs.items()}
@@ -232,10 +232,10 @@ class OutputScript(FunctionScript):
         return True, retVal
 
 class FileScript(OutputScript):
-    def __init__(self, scriptDir: Path, scriptInfo: dict, outputDir: Path, inputs: dict[str, File], extendRunPath: list[Path] = []):
+    def __init__(self, scriptDir: Path, scriptInfo: dict, outputDir: Path, inputs: dict[str, File], imports: dict[str, Path] = {}):
         self.fileLookup |= inputs
 
-        super().__init__(scriptDir, scriptInfo, outputDir, extendRunPath)
+        super().__init__(scriptDir, scriptInfo, outputDir, imports)
 
     def _parseOutput(self, outputName: str, outputProperties: dict) -> File:
         parsedValue = self._parseArg(outputName)
