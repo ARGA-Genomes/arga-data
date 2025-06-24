@@ -2,6 +2,7 @@ from lib.zipping import RepeatExtractor
 from lib.bigFileWriter import BigFileWriter
 from pathlib import Path
 from llib import flatFileParser as ffp
+import lib.dataframes as dff
 
 def parse(folderPath: Path, outputFilePath: Path) -> None:
     extractor = RepeatExtractor(outputFilePath.parent)
@@ -18,6 +19,7 @@ def parse(folderPath: Path, outputFilePath: Path) -> None:
 
         print(f"Parsing file {extractedFile}")
         df = ffp.parseFlatfile(extractedFile)
+        df = dff.removeSpaces(df)
         writer.writeDF(df)
         extractedFile.unlink()
 
