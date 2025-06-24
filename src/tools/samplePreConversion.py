@@ -12,7 +12,7 @@ def _collectFields(iterator: Generator[pd.DataFrame, None, None], entryLimit: in
         print(f"Scanning chunk: {idx}", end='\r')
         chunk = chunk.fillna("").drop_duplicates()
         df = pd.concat([df, chunk], ignore_index=True)
-        df.drop_duplicates().sample(n=entryLimit, replace=True, random_state=seed)
+        df = df.drop_duplicates().sample(n=entryLimit, replace=True, random_state=seed)
 
     return df
 
@@ -21,7 +21,7 @@ def _collectRecords(iterator: Generator[pd.DataFrame, None, None], entryLimit: i
     df = df.sample(n=min(len(df), entryLimit), random_state=seed)
     for idx, chunk in enumerate(iterator, start=1):
         print(f"Scanning chunk: {idx}", end='\r')
-        chunk = chunk.sample(n=min(len(chunk), entryLimit), random_state=seed)
+        chunk = chunk.drop_duplicates().sample(n=min(len(chunk), entryLimit), random_state=seed)
         df = pd.concat([df, chunk])
         emptyDF = df.isna().sum(axis=1)
         indexes = [idx for idx, _ in sorted(emptyDF.items(), key=lambda x: x[1])]
@@ -30,7 +30,7 @@ def _collectRecords(iterator: Generator[pd.DataFrame, None, None], entryLimit: i
     return df
 
 if __name__ == '__main__':
-    parser = ArgParser(description="Get column names of pre-Conversion files")
+    parser = ArgParser(description="Get column examples of pre-Conversion files")
     parser.addArgument('-e', '--entries', type=int, default=50, help="Number of unique entries to get")
     parser.addArgument('-i', '--ignoreRecord', action="store_true", help="Ignore records, searching for unique values")
     parser.addArgument('-c', '--chunksize', type=int, default=1024, help="File chunk size to read at a time")
@@ -61,6 +61,7 @@ if __name__ == '__main__':
         df = _collectFields(dfIterator, kwargs.entries, seed) if kwargs.ignoreRecord else _collectRecords(dfIterator, kwargs.entries, seed)
 
         df = dff.removeSpaces(df)
+        df = df.reset_index()
         df.index += 1 # Increment index so output is 1-indexed numbers
         df.to_csv(outputPath, sep="\t", index_label="Example #")
         logging.info(f"Created file {outputPath}")
