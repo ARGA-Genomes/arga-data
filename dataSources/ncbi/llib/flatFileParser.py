@@ -1,6 +1,8 @@
 from pathlib import Path
 from enum import Enum
 import pandas as pd
+from lib.progressBar import SteppableProgressBar
+import logging
 
 class Section(Enum):
     LOCUS = "LOCUS"
@@ -20,25 +22,25 @@ _seqBaseURL = "https://ftp.ncbi.nlm.nih.gov/genbank/"
 _genbankBaseURL = "https://www.ncbi.nlm.nih.gov/nuccore/"
 _fastaSuffix = "?report=fasta&format=text"
 
-def parseFlatfile(filePath: Path, verbose: bool = False) -> pd.DataFrame:
+def parseFlatfile(filePath: Path) -> pd.DataFrame | None:
     with open(filePath) as fp:
         try:
             data = fp.read()
         except UnicodeDecodeError:
-            print(f"Failed to read file: {filePath}")
-            return []
+            logging.error(f"Failed to read file: {filePath}")
+            return None
 
-    # Cut off header of file
     firstLocusPos = data.find("LOCUS")
-    header = data[:firstLocusPos]
-    data = data[firstLocusPos:]
+
+    headerLines = data[:firstLocusPos].split("\n")
+    headerData = {"release_date": headerLines[1].strip(), "release_number": headerLines[3].strip().split()[-1]}
+
+    entryDataList = data[firstLocusPos:].split("//\n")[:-1] # File ends with '\\/n', strip empty entry at end
+    progress = SteppableProgressBar(len(entryDataList))
 
     records = []
-    for idx, entry in enumerate(data.split("//\n")[:-1], start=1): # Split into separate loci, exclude empty entry after last
-        if verbose:
-            print(f"Parsing entry: {idx}", end="\r")
-
-        entryData = _parseEntry(entry)
+    for entryData in entryDataList: # Split into separate loci, exclude empty entry after last
+        entryData = _parseEntry(entryData) | dict(headerData)
 
         # Attach seq file path and fasta file
         entryData["seq_file"] = f"{_seqBaseURL}{filePath.name}.gz"
@@ -64,10 +66,8 @@ def parseFlatfile(filePath: Path, verbose: bool = False) -> pd.DataFrame:
         else: # No specimen set
             entryData["specimen"] = None
 
+        progress.update()
         records.append(entryData)
-
-    if verbose:
-        print()
 
     return pd.DataFrame.from_records(records)
     
@@ -86,8 +86,11 @@ def _parseEntry(entryBlock: str) -> dict:
         if section == Section.LOCUS:
             entryData |= _parseLocus(data)
 
-        elif section in (Section.DEFINITION, Section.ACCESSION, Section.VERSION, Section.COMMENT):
+        elif section in (Section.DEFINITION, Section.ACCESSION, Section.VERSION):
             entryData |= _parseText(heading, data)
+
+        elif section == Section.COMMENT:
+            entryData |= _parseComment(data)
 
         elif section == Section.DBLINK:
             entryData |= _parseDBs(data)
@@ -127,10 +130,11 @@ def _parseEntry(entryBlock: str) -> dict:
         elif section == Section.CONTIG:
             pass
 
-    # Stringify columns so they can be saved as parqet/csv
+    # Stringify columns so they can be saved as parquet/csv
     stringColumns = ["authors", "bases", "references"]
     for column in stringColumns:
-        entryData[column] = str(entryData[column])
+        if column in entryData:
+            entryData[column] = str(entryData[column])
 
     return entryData
 
@@ -140,6 +144,36 @@ def _parseLocus(data: str) -> dict[str, str]:
 
 def _parseText(heading: str, data: str) -> dict[str, str]:  
     return {heading.lower(): _flattenBlock(data)}
+
+def _parseComment(data: str) -> dict[str, str]:
+    genomeAssemblyStart = "##Genome-Assembly-Data-START##"
+    genomeAssemblyEnd = "##Genome-Assembly-Data-END##"
+
+    genomeAnnotationStart = "##Genome-Annotation-Data-START##"
+    genomeAnnotationEnd = "##Genome-Annotation-Data-END##"
+
+    retVal = {"comment": data}
+    for startTag, endTag in ((genomeAssemblyStart, genomeAssemblyEnd), (genomeAnnotationStart, genomeAnnotationEnd)):
+        startPos = data.find(startTag)
+        if startPos >= 0:
+            mapping = data[startPos+len(startTag):data.find(endTag)].split("\n")
+
+            flattenedMapping = []
+            for item in mapping:
+                if not item:
+                    continue
+
+                if "::" not in item:
+                    flattenedMapping[-1] += item
+                    continue
+
+                flattenedMapping.append(item)
+
+            for item in flattenedMapping:
+                key, value = item.split("::")
+                retVal[key.strip().lower().replace(" ", "_")] = value.strip()
+
+    return retVal
 
 def _parseDBs(data: str) -> dict[str, str]:
     dbs = {}

@@ -3,15 +3,12 @@ from lib.bigFileWriter import BigFileWriter
 from pathlib import Path
 from llib import flatFileParser as ffp
 
-def parseNucleotide(folderPath: Path, outputFilePath: Path, verbose: bool = True) -> None:
+def parse(folderPath: Path, outputFilePath: Path) -> None:
     extractor = RepeatExtractor(outputFilePath.parent)
     writer = BigFileWriter(outputFilePath, "seqChunks", "chunk")
 
-    for idx, file in enumerate(folderPath.iterdir(), start=1):
-        if verbose:
-            print(f"Extracting file {file.name}")
-        else:
-            print(f"Processing file: {idx}", end="\r")
+    for file in folderPath.iterdir():
+        print(f"Extracting file {file.name}")
     
         extractedFile = extractor.extract(file)
 
@@ -19,10 +16,8 @@ def parseNucleotide(folderPath: Path, outputFilePath: Path, verbose: bool = True
             print(f"Failed to extract file {file.name}, skipping")
             continue
 
-        if verbose:
-            print(f"Parsing file {extractedFile}")
-
-        df = ffp.parseFlatfile(extractedFile, verbose)
+        print(f"Parsing file {extractedFile}")
+        df = ffp.parseFlatfile(extractedFile)
         writer.writeDF(df)
         extractedFile.unlink()
 
