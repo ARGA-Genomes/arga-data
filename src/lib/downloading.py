@@ -26,7 +26,6 @@ def download(url: str, filePath: Path, chunkSize: int = 1024*1024, verbose: bool
     
     if verbose:
         logging.info(f"Downloading from {url} to file {filePath.absolute()}")
-        progressBar = ProgressBar(processName="Downloading")
 
     try:
         requests.head(url, auth=auth, headers=headers)
@@ -42,6 +41,8 @@ def download(url: str, filePath: Path, chunkSize: int = 1024*1024, verbose: bool
             return False
         
         fileSize = int(stream.headers.get("Content-Length", 0))
+        if verbose and fileSize > 0:
+            progressBar = ProgressBar((fileSize / chunkSize).__ceil__(), processName="Downloading")
 
         with open(filePath, "wb") as fp:
             for idx, chunk in enumerate(stream.iter_content(chunkSize), start=1):
@@ -50,8 +51,8 @@ def download(url: str, filePath: Path, chunkSize: int = 1024*1024, verbose: bool
                 if not verbose:
                     continue
                 
-                if fileSize > 0: # File size known, can render completion %
-                    progressBar.update((idx * chunkSize) / fileSize)
+                if fileSize > 0:
+                    progressBar.update()
                 else:
                     print(f"Downloaded chunk: {idx}", end="\r")
 
