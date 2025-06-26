@@ -4,7 +4,7 @@ from lib.processing.stages import File
 from lib.bigFileWriter import BigFileWriter
 import time
 import pandas as pd
-from lib.progressBar import SteppableProgressBar
+from lib.progressBar import ProgressBar
 from threading import Thread
 from queue import Queue
 from typing import Generator
@@ -51,7 +51,7 @@ def getStats(summaryFile: File, outputPath: Path, apiKeyPath: Path = None):
     totalRecords = len(df)
     outputSubsections = (totalRecords / recordsPerSubsection).__ceil__()
 
-    progress = SteppableProgressBar(totalRecords - (writtenFileCount * recordsPerSubsection))
+    progress = ProgressBar(totalRecords - (writtenFileCount * recordsPerSubsection))
     queue = Queue()
     for subsection in range(writtenFileCount, outputSubsections):
         workerRecordCount = (recordsPerSubsection / maxRequests).__ceil__()

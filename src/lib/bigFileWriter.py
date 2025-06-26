@@ -8,7 +8,7 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 import logging
 from typing import Iterator
-from lib.progressBar import SteppableProgressBar
+from lib.progressBar import ProgressBar
 
 class Format(Enum):
     CSV = ".csv"
@@ -221,7 +221,7 @@ class BigFileWriter:
         # Create empty file with columns
         pd.DataFrame(columns=self.globalColumns).to_csv(self.outputFile, mode="a", sep=delim, index=False)
 
-        progress = SteppableProgressBar(len(self.writtenFiles), processName="Writing")
+        progress = ProgressBar(len(self.writtenFiles), processName="Writing")
         for file in self.writtenFiles:
             progress.update()
 
@@ -237,7 +237,7 @@ class BigFileWriter:
     def _oneParquet(self, removeOld: bool = True):
         schema = pa.schema([(column, pa.string()) for column in self.globalColumns])
         with pq.ParquetWriter(self.outputFile, schema=schema) as writer:
-            progress = SteppableProgressBar(len(self.writtenFiles), processName="Writing")
+            progress = ProgressBar(len(self.writtenFiles), processName="Writing")
             for file in self.writtenFiles:
                 progress.update()
                 
