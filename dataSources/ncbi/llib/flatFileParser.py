@@ -3,6 +3,7 @@ from enum import Enum
 import pandas as pd
 from lib.progressBar import SteppableProgressBar
 import logging
+import traceback
 
 def parseFlatfile(filePath: Path) -> pd.DataFrame | None:
     with open(filePath) as fp:
@@ -23,8 +24,11 @@ def parseFlatfile(filePath: Path) -> pd.DataFrame | None:
     records = []
     for entryData in entryDataList: # Split into separate loci, exclude empty entry after last
         entry = Entry(entryData, filePath.name)
+        if entry.failed:
+            return
+        
         records.append(entry.data | headerData)
-        progress.update()
+        progress.update(entry.data['version'])
 
     df = pd.DataFrame.from_records(records)
 
@@ -36,8 +40,12 @@ def parseFlatfile(filePath: Path) -> pd.DataFrame | None:
     return df
     
 class Entry:
+
+    __slots__ = "data", "failed"
+
     def __init__(self, entryData: str, fileName: str):
         self.data = {}
+        self.failed = False
 
         for sectionData in self.getSections(entryData):
             heading, sectionData = sectionData.split(" ", 1)
@@ -45,7 +53,14 @@ class Entry:
             if parser is None:
                 continue
 
-            parser(sectionData)
+            try:
+                parser(sectionData)
+                
+            except:
+                self.failed = True
+                print(f"\nFailed to parse {heading} of locus {self.data['version']}")
+                print(traceback.format_exc())
+                return
 
         self.data["seq_file"] = f"https://ftp.ncbi.nlm.nih.gov/genbank/{fileName}.gz"
 
@@ -114,14 +129,28 @@ class Entry:
 
     def dblinkParser(self, data: str):
         dbs = self.getSections(f"{7*' '}{data}", 12, flattenLines=True)
+        
+        cleanedDBs: list[str] = []
+        for db in dbs:
+            if ":" not in db:
+                cleanedDBs[-1] += f" {db}"
+            else:
+                cleanedDBs.append(db)
+
         baseURLS = {
             "BioProject": "https://www.ncbi.nlm.nih.gov/bioproject/",
-            "BioSample": "https://www.ncbi.nlm.nih.gov/biosample/"
+            "BioSample": "https://www.ncbi.nlm.nih.gov/biosample/",
+            "Sequence Read Archive": "https://www.ncbi.nlm.nih.gov/sra/",
+            "ProbeDB": "https://www.ncbi.nlm.nih.gov/biosample/"
         }
 
-        for db in dbs:
-            dbName, dbCode = db.split(":")
-            self.data[dbName.lower()] = baseURLS.get(dbName) + dbCode.strip()
+        for db in cleanedDBs:
+            dbName, dbCodes = db.split(":")
+            lowerName = dbName.lower()
+
+            self.data[lowerName] = []
+            for dbCode in dbCodes.split(","):
+                self.data[lowerName].append(baseURLS.get(dbName) + dbCode.strip())
 
     def keywordsParser(self, data: str):
         self.data["keywords"] = "" if data.strip() == "." else self.flattenLines(data)
@@ -166,7 +195,7 @@ class Entry:
                     retVal[extraFeatures].append(line)
                     continue
 
-                key, value = line.split("=")
+                key, value = line.split("=", 1)
                 retVal[key[1:]] = value.strip('"')
 
             return retVal
@@ -178,6 +207,10 @@ class Entry:
         self.data[genesLabel] = {}
         for block in featureBlocks:
             blockHeader, blockData = block.lstrip().split(" ", 1)
+            if "\n" not in blockData: # No properties after base pair range
+                self.data[genesLabel][blockData.strip()] = blockHeader
+                continue
+
             bpRange, properties = blockData.lstrip().split("\n", 1)
             properties = linesToDict(self.getSections(properties, 21, flattenLines=True))
 
@@ -190,4 +223,7 @@ class Entry:
             if bpRange not in self.data[genesLabel]:
                 self.data[genesLabel][bpRange] = {}
 
+            properties.pop("translation", None) # Remove translation
             self.data[genesLabel][bpRange][blockHeader] = properties
+
+        self.data[genesLabel] = str(self.data[genesLabel])
