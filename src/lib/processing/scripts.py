@@ -203,7 +203,7 @@ class OutputScript(FunctionScript):
         if fProperty == _FileProperty.PATH.value:
             pth = file.filePath
             for suffix in suffixes:
-                pth = pth.with_suffix(suffix)
+                pth = pth.with_suffix(suffix if not suffix else f".{suffix}") # Prepend a dot for valid suffixes
             return pth
         
         logging.error(f"Unable to parse file property: '{fProperty}")
