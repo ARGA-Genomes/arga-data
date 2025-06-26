@@ -1,26 +1,13 @@
-from lib.zipping import RepeatExtractor
-from lib.bigFileWriter import BigFileWriter
+# from lib.zipping import RepeatExtractor
+import lib.zipping as zp
 from pathlib import Path
 from llib import flatFileParser as ffp
-import lib.dataframes as dff
 
-def parse(folderPath: Path, outputFilePath: Path) -> None:
-    extractor = RepeatExtractor(outputFilePath.parent)
-    writer = BigFileWriter(outputFilePath, "seqChunks", "chunk")
-
-    for file in folderPath.iterdir():
-        print(f"Extracting file {file.name}")
+def parse(filePath: Path, outputFilePath: Path) -> None:
+    extractedFile = zp.extract(filePath)
+    df = ffp.parseFlatfile(extractedFile)
+    if df is None:
+        return
     
-        extractedFile = extractor.extract(file)
-
-        if extractedFile is None:
-            print(f"Failed to extract file {file.name}, skipping")
-            continue
-
-        print(f"Parsing file {extractedFile}")
-        df = ffp.parseFlatfile(extractedFile)
-        df = dff.removeSpaces(df)
-        writer.writeDF(df)
-        extractedFile.unlink()
-
-    writer.oneFile()
+    df.to_parquet(outputFilePath)
+    extractedFile.unlink()

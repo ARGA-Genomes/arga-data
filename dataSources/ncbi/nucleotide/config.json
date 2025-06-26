@@ -63,15 +63,15 @@
         "maxDepth": 0
     },
     "processing": {
-        "linear": [
+        "parallel": [
             {
                 "path": "./processing.py",
                 "function": "parse",
                 "args": [
-                    "{IN-DIR}",
+                    "{IN-PATH}",
                     "{OUT-PATH}"
                 ],
-                "output": "{SUBSECTION}.csv"
+                "output": "{IN-PATH.parquet}"
             }
         ]
     },
