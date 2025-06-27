@@ -2,7 +2,7 @@ from pathlib import Path
 import pandas as pd
 from enum import Enum
 import logging
-from lib.progressBar import SteppableProgressBar
+from lib.progressBar import ProgressBar
 
 class DumpFile(Enum):
     NODES = "nodes.dmp"
@@ -100,14 +100,14 @@ class Node:
 
 def resolveInheritance(data: pd.DataFrame) -> pd.DataFrame:
     nodes: dict[str, Node] = {}
-    nodeProgress = SteppableProgressBar(len(data), processName="Creating Nodes")
+    nodeProgress = ProgressBar(len(data), processName="Creating Nodes")
     for _, row in data.iterrows():
         node = Node(**row.to_dict())
         nodes[node.tax_id] = node
         nodeProgress.update()
 
     records = []
-    recordProgress = SteppableProgressBar(len(nodes), processName="Resolving Inheritance")
+    recordProgress = ProgressBar(len(nodes), processName="Resolving Inheritance")
     for node in nodes.values():
         node.resolveInherit(nodes)
         records.append(node.package())
@@ -117,7 +117,7 @@ def resolveInheritance(data: pd.DataFrame) -> pd.DataFrame:
 
 def flattenNames(df: pd.DataFrame) -> pd.DataFrame:
     data = {}
-    flattenProgress = SteppableProgressBar(len(df), processName="Flattening Names")
+    flattenProgress = ProgressBar(len(df), processName="Flattening Names")
     for _, row in df.iterrows():
         taxID = row["tax_id"]
         text = row["name_txt"]

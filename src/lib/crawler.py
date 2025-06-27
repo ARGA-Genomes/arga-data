@@ -8,7 +8,7 @@ import json
 import logging
 import lib.downloading as dl
 import time
-from lib.progressBar import SteppableProgressBar
+from lib.progressBar import ProgressBar
 
 depthLimit = 100
 
@@ -88,7 +88,7 @@ class Crawler:
 
     def _parallelPageLinks(self, urlList: list[str], pattern: re.Pattern = None, retries: int = 5,) -> list[PageData]:
         data = []
-        progress = SteppableProgressBar(len(urlList), processName=f"Crawler Depth {len(self.data)}")
+        progress = ProgressBar(len(urlList), processName=f"Crawler Depth {len(self.data)}")
         with cf.ThreadPoolExecutor(max_workers=10) as executor:
             futures = (executor.submit(self._getPageLinks, url, pattern, retries) for url in urlList)
             for future in cf.as_completed(futures):

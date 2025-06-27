@@ -5,7 +5,7 @@ import pandas as pd
 from io import BytesIO
 from lib.bigFileWriter import BigFileWriter, Format
 from bs4 import BeautifulSoup
-from lib.progressBar import SteppableProgressBar
+from lib.progressBar import ProgressBar
 import re
 import traceback
 
@@ -199,7 +199,7 @@ def enrich(filePath: Path, outputFilePath: Path) -> None:
             uniqueSeries = subDF["taxon_id"].unique()
             uniqueSeries = [item for item in uniqueSeries if item not in subfileNames]
             
-            bar = SteppableProgressBar(50, len(uniqueSeries), f"{rank} Progress")
+            bar = ProgressBar(len(uniqueSeries), f"{rank} Progress")
             for taxonID in uniqueSeries:
                 bar.update()
 
