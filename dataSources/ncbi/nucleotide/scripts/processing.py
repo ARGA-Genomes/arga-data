@@ -7,6 +7,7 @@ def parse(filePath: Path, outputFilePath: Path) -> None:
     extractedFile = zp.extract(filePath)
     df = ffp.parseFlatfile(extractedFile)
     if df is None:
+        extractedFile.unlink()
         return
     
     df.to_parquet(outputFilePath)
