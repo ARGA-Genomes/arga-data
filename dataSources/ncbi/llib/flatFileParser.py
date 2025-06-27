@@ -1,7 +1,6 @@
 from pathlib import Path
-from enum import Enum
 import pandas as pd
-from lib.progressBar import SteppableProgressBar
+from lib.progressBar import ProgressBar
 import logging
 import traceback
 
@@ -19,7 +18,7 @@ def parseFlatfile(filePath: Path) -> pd.DataFrame | None:
     headerData = {"release_date": headerLines[1].strip(), "release_number": headerLines[3].strip().split()[-1]}
 
     entryDataList = data[firstLocusPos:].split("//\n")[:-1] # File ends with '\\/n', strip empty entry at end
-    progress = SteppableProgressBar(len(entryDataList))
+    progress = ProgressBar(len(entryDataList))
 
     records = []
     for entryData in entryDataList: # Split into separate loci, exclude empty entry after last
@@ -141,7 +140,8 @@ class Entry:
             "BioProject": "https://www.ncbi.nlm.nih.gov/bioproject/",
             "BioSample": "https://www.ncbi.nlm.nih.gov/biosample/",
             "Sequence Read Archive": "https://www.ncbi.nlm.nih.gov/sra/",
-            "ProbeDB": "https://www.ncbi.nlm.nih.gov/biosample/"
+            "ProbeDB": "https://www.ncbi.nlm.nih.gov/biosample/",
+            "Assembly": "https://www.ncbi.nlm.nih.gov/assembly/"
         }
 
         for db in cleanedDBs:
