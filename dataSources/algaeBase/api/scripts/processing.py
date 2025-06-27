@@ -3,7 +3,7 @@ from pathlib import Path
 import pandas as pd
 import json
 import lib.dataframes as dff
-from lib.progressBar import SteppableProgressBar
+from lib.progressBar import ProgressBar
 from lib.secrets import secrets
 import logging
 
@@ -26,7 +26,7 @@ def build(outputFile: Path) -> None:
     records: list = data["result"]
     totalCalls = data["_pagination"]["_total_number_of_pages"]
 
-    progress = SteppableProgressBar(totalCalls)
+    progress = ProgressBar(totalCalls)
     for call in range(1, totalCalls):
         data = getApiPage(call)
         records.extend(data.get("result", []))

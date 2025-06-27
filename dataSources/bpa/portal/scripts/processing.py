@@ -1,7 +1,7 @@
 from pathlib import Path
 import requests
 import pandas as pd
-from lib.progressBar import SteppableProgressBar
+from lib.progressBar import ProgressBar
 
 def build(outputFilePath: Path, entriesPerPage: int) -> None:
     url = "https://data.bioplatforms.com/api/3/action/package_search?q=*:*&rows="
@@ -17,7 +17,7 @@ def build(outputFilePath: Path, entriesPerPage: int) -> None:
         return
     
     numberOfCalls = (totalEntries / entriesPerPage).__ceil__()
-    progress = SteppableProgressBar(numberOfCalls)
+    progress = ProgressBar(numberOfCalls)
 
     entries = []
     for call in range(numberOfCalls):
