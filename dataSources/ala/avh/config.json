@@ -2,7 +2,7 @@
     "datasetID": "0007001",
     "retrieveType": "script",
     "downloading": {
-        "path": "../sharedProcessing.py",
+        "path": ".llib/sharedProcessing.py",
         "function": "collect",
         "args": [
             "avh",
@@ -13,7 +13,7 @@
     "processing": {
         "linear": [
             {
-                "path": ".../zipping.py",
+                "path": ".lib/zipping.py",
                 "function": "extract",
                 "args": [
                     "{IN-PATH}",
@@ -22,7 +22,7 @@
                 "output": "avh"
             },
             {
-                "path": "../sharedProcessing.py",
+                "path": ".llib/sharedProcessing.py",
                 "function": "cleanup",
                 "args": [
                     "{IN-PATH}",
