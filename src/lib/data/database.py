@@ -117,7 +117,8 @@ class BasicDB:
         for file in self.downloadManager.getFiles():
             self.processingManager.registerFile(file, parallelProcessing)
 
-        self.processingManager.addFinalProcessing(linearProcessing)
+        if linearProcessing:
+            self.processingManager.addFinalProcessing(linearProcessing)
     
     def _prepareConversion(self, flags: list[Flag]) -> None:
         fileToConvert = self.processingManager.getLatestNodeFile()
