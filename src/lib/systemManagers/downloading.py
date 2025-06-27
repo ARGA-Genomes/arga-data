@@ -30,8 +30,8 @@ class _URLDownload(_Download):
         return dl.download(self.url, self.file.filePath, verbose=verbose, auth=self.auth)
 
 class _ScriptDownload(_Download):
-    def __init__(self, scriptDir: Path, downloadDir: Path, scriptInfo: dict):
-        self.script = OutputScript(scriptDir, dict(scriptInfo), downloadDir)      
+    def __init__(self, scriptDir: Path, downloadDir: Path, scriptInfo: dict, imports: dict[str, Path]):
+        self.script = OutputScript(scriptDir, dict(scriptInfo), downloadDir, imports)
 
         super().__init__(self.script.output.filePath, self.script.output.fileProperties)
 
@@ -39,9 +39,10 @@ class _ScriptDownload(_Download):
         return self.script.run(overwrite, verbose)[0] # No retval for downloading tasks, just return success
 
 class DownloadManager(SystemManager):
-    def __init__(self, dataDir: Path, scriptDir: Path, metadataDir: Path, username: str, password: str):
+    def __init__(self, dataDir: Path, scriptDir: Path, metadataDir: Path, scriptImports: dict[str, Path], username: str, password: str):
         super().__init__(dataDir, scriptDir, metadataDir, "downloading", "files")
 
+        self.scriptImports = scriptImports
         self.auth = dl.buildAuth(username, password) if username else None
 
     def getFiles(self) -> list[File]:
@@ -57,7 +58,7 @@ class DownloadManager(SystemManager):
 
     def registerFromScript(self, scriptInfo: dict) -> bool:
         try:
-            download = _ScriptDownload(self.scriptDir, self.workingDir, scriptInfo)
+            download = _ScriptDownload(self.scriptDir, self.workingDir, scriptInfo, self.scriptImports)
         except AttributeError as e:
             logging.error(f"Invalid download script configuration: {e}")
             return False

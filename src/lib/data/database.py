@@ -63,9 +63,12 @@ class BasicDB:
         username = sourceSecrets.username if sourceSecrets is not None else ""
         password = sourceSecrets.password if sourceSecrets is not None else ""
 
+        # Location Library
+        scriptImportLibs = {".llib": self.libDir}
+
         # System Managers
-        self.downloadManager = DownloadManager(self.dataDir, self.scriptsDir, self.databaseDir, username, password)
-        self.processingManager = ProcessingManager(self.dataDir, self.scriptsDir, self.databaseDir, self.libDir)
+        self.downloadManager = DownloadManager(self.dataDir, self.scriptsDir, self.databaseDir, scriptImportLibs, username, password)
+        self.processingManager = ProcessingManager(self.dataDir, self.scriptsDir, self.databaseDir, scriptImportLibs)
         self.conversionManager = ConversionManager(self.dataDir, self.scriptsDir, self.databaseDir, self.datasetID, self.location, self.name)
 
         # Config stages
