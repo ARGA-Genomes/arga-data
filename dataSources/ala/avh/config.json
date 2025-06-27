@@ -3,9 +3,18 @@
     "retrieveType": "script",
     "downloading": {
         "path": ".llib/sharedProcessing.py",
-        "function": "collect",
+        "function": "collectBiocache",
         "args": [
-            "avh",
+            {
+                "q": "*:*",
+                "disableAllQualityFilters": true,
+                "qualityProfile": "AVH",
+                "fq": [
+                    "type_status:*",
+                    "country:\"Australia\""
+                ],
+                "qc": "data_hub_uid:dh9"
+            },
             "{OUT-PATH}"
         ],
         "output": "avh.zip"

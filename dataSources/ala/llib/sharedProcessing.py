@@ -1,44 +1,18 @@
 import requests
 from pathlib import Path
 import lib.downloading as dl
-import time
-from urllib.parse import quote
 import logging
 from lib.secrets import secrets
-import lib.common as cmn
 from lib.bigFileWriter import BigFileWriter
 
-paramterSets = {
-    "avh": {
+def collectBiocache(queryParamters: dict, outputFilePath: Path) -> None:
+    paramters = {
         "email": secrets.general.email,
-        "emailNotify": False,
-        "q": "*:*",
-        "disableAllQualityFilters": True,
-        "qualityProfile": "AVH",
-        "fq": [
-            "type_status:*",
-            'country:"Australia"'
-        ],
-        "qc": "data_hub_uid:dh9"
-    },
-    "ozcam": {
-        "email": secrets.general.email,
-        "emailNotify": False,
-        "q": "data_provider_uid:dp20",
-        "fq": '(basis_of_record:"PRESERVED_SPECIMEN" OR basis_of_record:"MATERIAL_SAMPLE" OR basis_of_record:"LIVING_SPECIMEN" OR basis_of_record:"MATERIAL_CITATION")',
-        "disableAllQualityFilters": True,
-        "qualityProfile": "ALA",
-        "qc": "-_nest_parent_:*"
+        "emailNotify": False
     }
-}
-
-def collect(parameterSet: str, outputFilePath: Path) -> None:
-    paramters = paramterSets.get(parameterSet, None)
-    if paramters is None:
-        raise Exception(f"Unspecified paramter set: {parameterSet}") from AttributeError
 
     baseURL = "https://api.ala.org.au/occurrences/occurrences/offline/download?"
-    url = dl.urlBuilder(baseURL, paramters)
+    url = dl.urlBuilder(baseURL, paramters | queryParamters)
 
     response = requests.get(url)
     data = response.json()

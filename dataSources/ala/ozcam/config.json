@@ -3,9 +3,15 @@
     "retrieveType": "script",
     "downloading": {
         "path": ".llib/sharedProcessing.py",
-        "function": "collect",
+        "function": "collectBiocache",
         "args": [
-            "ozcam",
+            {
+                "q": "data_provider_uid:dp20",
+                "fq": "(basis_of_record:\"PRESERVED_SPECIMEN\" OR basis_of_record:\"MATERIAL_SAMPLE\" OR basis_of_record:\"LIVING_SPECIMEN\" OR basis_of_record:\"MATERIAL_CITATION\")",
+                "disableAllQualityFilters": true,
+                "qualityProfile": "ALA",
+                "qc": "-_nest_parent_:*"
+            },
             "{OUT-PATH}"
         ],
         "output": "ozcam.zip"
