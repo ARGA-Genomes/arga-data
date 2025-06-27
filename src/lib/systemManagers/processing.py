@@ -52,16 +52,15 @@ class _Root(_Node):
         return True
 
 class ProcessingManager(SystemManager):
-    def __init__(self, dataDir: Path, scriptDir: Path, metadataDir: Path, importDir: Path):
+    def __init__(self, dataDir: Path, scriptDir: Path, metadataDir: Path, scriptImports: dict[str, Path]):
         super().__init__(dataDir, scriptDir, metadataDir, "processing", "steps")
 
-        self.importDir = importDir
+        self.scriptImports = scriptImports
 
         self._rootNodes: list[_Node] = []
         self._scriptNodes: list[list[_Node]] = []
 
     def _createNode(self, step: dict, parents: list[_Node], depth: int) -> _Node | None:
-        # inputs = {FileSelect.INPUT: [self.getLatestNodeFile(depth)]} | {select: [node.getOutputFile() for node in nodes] for select, nodes in self.nodes.items()}
         fileInput = self._rootNodes[-1] if depth == 0 else self._scriptNodes[depth-1][-1]
         flatScriptNodes = [node for nodeList in self._scriptNodes for node in nodeList]
 
@@ -72,7 +71,7 @@ class ProcessingManager(SystemManager):
         }
         
         try:
-            script = FileScript(self.scriptDir, dict(step), self.workingDir, inputs, {".llib": self.importDir.parent})
+            script = FileScript(self.scriptDir, dict(step), self.workingDir, inputs, self.scriptImports)
         except AttributeError as e:
             logging.error(f"Invalid processing script configuration: {e}")
             return None

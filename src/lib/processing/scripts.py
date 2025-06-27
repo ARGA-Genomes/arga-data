@@ -80,7 +80,7 @@ class FunctionScript:
     
     def run(self, verbose: bool, inputArgs: list = [], inputKwargs: dict = {}) -> tuple[bool, any]:
         try:
-            pathExtension = [str(path) for path in self.imports.values()]
+            pathExtension = [str(path.parent) for path in self.imports.values()]
             sys.path.extend(pathExtension)
             processFunction = self._importFunction(self.modulePath, self.function)
             sys.path = sys.path[:-len(pathExtension)]
