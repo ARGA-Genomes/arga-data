@@ -47,7 +47,7 @@ def parseFlatfile(filePath: Path) -> pd.DataFrame | None:
     for sectionData in iterator:
         if sectionData == "//\n": # End of entry
             records.append(currentEntry)
-            progress.update(extraInfo=f"{len(records)}/{loci} loci - {records[-1].data['version']}")
+            progress.update(extraInfo=f"{len(records)}/{loci} loci")
             currentEntry = Entry(headerData)
             continue
 

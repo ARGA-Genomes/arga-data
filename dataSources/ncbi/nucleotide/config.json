@@ -73,6 +73,17 @@
                 ],
                 "output": "{IN-PATH.parquet}"
             }
+        ],
+        "linear": [
+            {
+                "path": "./processing.py",
+                "function": "combine",
+                "args": [
+                    "{IN-DIR}",
+                    "{OUT-PATH}"
+                ],
+                "output": "{SUBSECTION}.csv"
+            }
         ]
     },
     "conversion": {
