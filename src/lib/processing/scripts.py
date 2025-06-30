@@ -240,7 +240,7 @@ class FileScript(OutputScript):
     def _parseOutput(self, outputName: str, outputProperties: dict) -> File:
         parsedValue = self._parseArg(outputName)
 
-        if isinstance(parsedValue, str):
-            return super()._parseOutput(parsedValue, outputProperties)
-        
-        return self._createFile(parsedValue, outputProperties)
+        if isinstance(parsedValue, Path): # Redirect path of output to outputDir
+            parsedValue = parsedValue.name
+
+        return super()._parseOutput(parsedValue, outputProperties)
