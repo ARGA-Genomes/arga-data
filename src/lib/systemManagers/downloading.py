@@ -1,6 +1,6 @@
 from pathlib import Path
 from lib.systemManagers.baseManager import SystemManager, Task
-from lib.processing.stages import File
+from lib.processing.files import File
 from lib.processing.scripts import OutputScript
 import logging
 import lib.downloading as dl

@@ -1,5 +1,5 @@
 from pathlib import Path
-from lib.processing.stages import File
+from lib.processing.files import File
 from lib.processing.scripts import FileScript, FileSelect
 from lib.systemManagers.baseManager import SystemManager, Task
 import logging

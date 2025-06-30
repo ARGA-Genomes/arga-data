@@ -1,5 +1,5 @@
 from pathlib import Path
-from lib.processing.stages import File, Folder
+from lib.processing.files import File, Folder
 import logging
 import importlib.util
 from enum import Enum

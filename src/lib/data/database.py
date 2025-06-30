@@ -8,7 +8,7 @@ from lib.systemManagers.processing import ProcessingManager
 from lib.systemManagers.conversion import ConversionManager
 from lib.systemManagers.updating import UpdateManager
 
-from lib.processing.stages import Step
+from lib.processing.files import Step
 
 from lib.crawler import Crawler
 import logging

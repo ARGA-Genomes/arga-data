@@ -2,7 +2,7 @@ import pandas as pd
 from pathlib import Path
 from lib.bigFileWriter import BigFileWriter
 from lib.processing.mapping import Map
-from lib.processing.stages import File, StackedFile
+from lib.processing.files import File, StackedFile
 from lib.processing.scripts import FunctionScript
 from lib.systemManagers.baseManager import SystemManager, Task
 import logging

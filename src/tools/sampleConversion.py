@@ -1,7 +1,7 @@
 from lib.data.argParser import ArgParser
-from lib.processing.stages import Step
+from lib.processing.files import Step
 from lib.processing.mapping import Map
-from lib.processing.stages import StackedFile
+from lib.processing.files import StackedFile
 import logging
 
 if __name__ == '__main__':
