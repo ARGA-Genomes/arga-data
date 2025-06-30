@@ -6,42 +6,48 @@ import traceback
 from typing import Generator
 
 def parseFlatfile(filePath: Path) -> pd.DataFrame | None:
+    logging.info(f"Parsing flat file: {filePath}")
 
     def sectionGenerator() -> Generator[str, None, None]:
         val = ""
         skipping = False
         with open(filePath) as fp:
             for line in fp:
-                if not line[0].isspace():
-                    if line.startswith("ORIGIN"):
-                        skipping = True
-                        continue
+                if not line[0].isspace(): # New section hit, yield previous
+                    if skipping:
+                        skipping = False
+                    else:
+                        yield val
+                        val = ""
 
-                    yield val
-                    skipping = False
-                    val = ""
+                    if line.startswith("ORIGIN"): # Start skipping next value
+                        skipping = True
 
                 if not skipping:
                     val += line
-
-            return
+        
+        yield val # Yield final section after last origin
+        return
 
     iterator = sectionGenerator()
 
     # Get header data
     _, headerData = [next(iterator) for _ in range(2)]
     headerData = headerData.split("\n")
-    fileName, _ = headerData[0].split(" ", 1)
+    fileName = headerData[0].split(" ", 1)[0]
     date = headerData[1]
     releaseNum = headerData[3].rsplit(" ", 1)[-1]
+    loci = headerData[7].lstrip().split(" ", 1)[0]
     headerData = {"filename": fileName.lower(), "date": date.strip(), "release_num": releaseNum, "seq_file": f"https://ftp.ncbi.nlm.nih.gov/genbank/{fileName}.gz"}
 
     # Iterate through rest of file
+    progress = ProgressBar(int(loci))
     records = []
     currentEntry = Entry(headerData)
     for sectionData in iterator:
         if sectionData == "//\n": # End of entry
             records.append(currentEntry)
+            progress.update(extraInfo=f"{len(records)}/{loci} loci - {records[-1].data['version']}")
             currentEntry = Entry(headerData)
             continue
 
@@ -125,7 +131,7 @@ class Entry:
         def getTags(section: str) -> list[str, str]:
             return [f"##Genome-{section}-Data-{position}##" for position in ("START", "END")]
 
-        self.data["comment"] = data
+        self.data["comment"] = data.replace("\n", " ")
         for section in ("Assembly", "Annotation"):
             startTag, endTag = getTags(section)
             startPos = data.find(startTag)
