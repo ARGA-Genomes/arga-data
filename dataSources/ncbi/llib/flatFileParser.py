@@ -3,65 +3,77 @@ import pandas as pd
 from lib.progressBar import ProgressBar
 import logging
 import traceback
+from typing import Generator
 
 def parseFlatfile(filePath: Path) -> pd.DataFrame | None:
-    with open(filePath) as fp:
-        try:
-            data = fp.read()
-        except UnicodeDecodeError:
-            logging.error(f"Failed to read file: {filePath}")
-            return None
 
-    firstLocusPos = data.find("LOCUS")
+    def sectionGenerator() -> Generator[str, None, None]:
+        val = ""
+        skipping = False
+        with open(filePath) as fp:
+            for line in fp:
+                if not line[0].isspace():
+                    if line.startswith("ORIGIN"):
+                        skipping = True
+                        continue
 
-    headerLines = data[:firstLocusPos].split("\n")
-    headerData = {"release_date": headerLines[1].strip(), "release_number": headerLines[3].strip().split()[-1]}
+                    yield val
+                    skipping = False
+                    val = ""
 
-    entryDataList = data[firstLocusPos:].split("//\n")[:-1] # File ends with '\\/n', strip empty entry at end
-    progress = ProgressBar(len(entryDataList))
+                if not skipping:
+                    val += line
 
-    records = []
-    for entryData in entryDataList: # Split into separate loci, exclude empty entry after last
-        entry = Entry(entryData, filePath.name)
-        if entry.failed:
             return
-        
-        records.append(entry.data | headerData)
-        progress.update(entry.data['version'])
 
-    df = pd.DataFrame.from_records(records)
+    iterator = sectionGenerator()
 
+    # Get header data
+    _, headerData = [next(iterator) for _ in range(2)]
+    headerData = headerData.split("\n")
+    fileName, _ = headerData[0].split(" ", 1)
+    date = headerData[1]
+    releaseNum = headerData[3].rsplit(" ", 1)[-1]
+    headerData = {"filename": fileName.lower(), "date": date.strip(), "release_num": releaseNum, "seq_file": f"https://ftp.ncbi.nlm.nih.gov/genbank/{fileName}.gz"}
+
+    # Iterate through rest of file
+    records = []
+    currentEntry = Entry(headerData)
+    for sectionData in iterator:
+        if sectionData == "//\n": # End of entry
+            records.append(currentEntry)
+            currentEntry = Entry(headerData)
+            continue
+
+        heading, sectionData = sectionData.split(" ", 1)
+        currentEntry.addSection(heading, sectionData)
+
+    df = pd.DataFrame.from_records([entry.data for entry in records])
     df["specimen"] = ""
     for column in ("specimen_voucher", "isolate", "accession"):
         if column in df.columns:
             df["specimen"] = df["specimen"].fillna(df[column])
 
     return df
-    
+
 class Entry:
 
-    __slots__ = "data", "failed"
+    __slots__ = "data"
 
-    def __init__(self, entryData: str, fileName: str):
-        self.data = {}
-        self.failed = False
-
-        for sectionData in self.getSections(entryData):
-            heading, sectionData = sectionData.split(" ", 1)
-            parser = getattr(self, f"{heading.lower()}Parser", None)
-            if parser is None:
-                continue
-
-            try:
-                parser(sectionData)
-                
-            except:
-                self.failed = True
-                print(f"\nFailed to parse {heading} of locus {self.data['version']}")
-                print(traceback.format_exc())
-                return
-
-        self.data["seq_file"] = f"https://ftp.ncbi.nlm.nih.gov/genbank/{fileName}.gz"
+    def __init__(self, headerData: dict):
+        self.data = dict(headerData)
+        
+    def addSection(self, heading: str, data: str) -> None:
+        parser = getattr(self, f"{heading.lower()}Parser", None)
+        if parser is None:
+            return
+        
+        try:
+            parser(data)
+        except:
+            print(f"\nFailed to parse {heading}")
+            print(traceback.format_exc())
+            return
 
     def flattenLines(self, text: str, joiner: str = " ") -> str:
         return joiner.join(line.strip() for line in text.split("\n") if line)
