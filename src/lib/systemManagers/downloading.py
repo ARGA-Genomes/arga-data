@@ -1,6 +1,6 @@
 from pathlib import Path
 from lib.systemManagers.baseManager import SystemManager, Task
-from lib.processing.files import File
+from lib.processing.files import File, Step
 from lib.processing.scripts import OutputScript
 import logging
 import lib.downloading as dl
@@ -40,7 +40,7 @@ class _ScriptDownload(_Download):
 
 class DownloadManager(SystemManager):
     def __init__(self, dataDir: Path, scriptDir: Path, metadataDir: Path, scriptImports: dict[str, Path], username: str, password: str):
-        super().__init__(dataDir, scriptDir, metadataDir, "downloading", "files")
+        super().__init__(dataDir, scriptDir, metadataDir, Step.DOWNLOADING, "files")
 
         self.scriptImports = scriptImports
         self.auth = dl.buildAuth(username, password) if username else None

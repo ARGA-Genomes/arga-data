@@ -2,7 +2,7 @@ import pandas as pd
 from pathlib import Path
 from lib.bigFileWriter import BigFileWriter
 from lib.processing.mapping import Map
-from lib.processing.files import File, StackedFile
+from lib.processing.files import File, StackedFile, Step
 from lib.processing.scripts import FunctionScript
 from lib.systemManagers.baseManager import SystemManager, Task
 import logging
@@ -111,7 +111,7 @@ class Conversion(Task):
 
 class ConversionManager(SystemManager):
     def __init__(self, dataDir: Path, scriptDir: Path, metadataDir: Path, datasetID: str, prefix: str, name: str):
-        super().__init__(dataDir, scriptDir, metadataDir, "conversion", "tasks")
+        super().__init__(dataDir, scriptDir, metadataDir, Step.CONVERSION, "tasks")
 
         self.datasetID = datasetID
         self.prefix = prefix

@@ -1,5 +1,5 @@
 from pathlib import Path
-from lib.processing.files import File
+from lib.processing.files import File, Step
 from lib.processing.scripts import FileScript, FileSelect
 from lib.systemManagers.baseManager import SystemManager, Task
 import logging
@@ -53,7 +53,7 @@ class _Root(_Node):
 
 class ProcessingManager(SystemManager):
     def __init__(self, dataDir: Path, scriptDir: Path, metadataDir: Path, scriptImports: dict[str, Path]):
-        super().__init__(dataDir, scriptDir, metadataDir, "processing", "steps")
+        super().__init__(dataDir, scriptDir, metadataDir, Step.PROCESSING, "steps")
 
         self.scriptImports = scriptImports
 
