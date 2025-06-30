@@ -2,9 +2,10 @@
 import lib.zipping as zp
 from pathlib import Path
 from llib import flatFileParser as ffp
+from lib.bigFileWriter import BigFileWriter
 
 def parse(filePath: Path, outputFilePath: Path) -> None:
-    extractedFile = zp.extract(filePath)
+    extractedFile = zp.extract(filePath, outputFilePath.parent)
     df = ffp.parseFlatfile(extractedFile)
     if df is None:
         extractedFile.unlink()
@@ -12,3 +13,8 @@ def parse(filePath: Path, outputFilePath: Path) -> None:
     
     df.to_parquet(outputFilePath)
     extractedFile.unlink()
+
+def combine(inputDir: Path, outputFilePath: Path) -> None:
+    writer = BigFileWriter(outputFilePath)
+    writer.populateFromFolder(inputDir)
+    writer.oneFile(removeOld=False)
