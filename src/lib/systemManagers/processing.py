@@ -90,7 +90,7 @@ class ProcessingManager(SystemManager):
             nextNode = subNode
     
     def getLatestNodeFile(self) -> File:
-        latestNode = self._rootNodes[-1] if not self._scriptNodes else self._scriptNodes[-1]
+        latestNode = self._rootNodes[-1] if not self._scriptNodes else self._scriptNodes[-1][-1]
         return latestNode.getOutputFile()
 
     def process(self, overwrite: bool = False, verbose: bool = False) -> bool:
