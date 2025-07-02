@@ -67,19 +67,8 @@ class FileObject:
     def delete(self) -> None:
         self.path.unlink(True)
 
-class Folder(FileObject):
-    def __init__(self, path: Path):
-        super().__init__(path)
-
-    def delete(self) -> None:
-        cmn.clearFolder(self.path, True)
-
-    def deleteBackup(self) -> None:
-        if self._backupPath is None:
-            return
-
-        cmn.clearFolder(self._backupPath, True)
-        self._backupPath = None
+    def rename(self, newPath: Path) -> None:
+        self.path.rename(newPath)
 
 class DataFile(FileObject):
 
@@ -111,10 +100,10 @@ class DataFile(FileObject):
     def readIterator(self, chunkSize: int, **kwargs: dict) -> Iterator[pd.DataFrame]:
         raise NotImplementedError
     
-    def write(self, **kwargs: dict) -> None:
+    def write(self, df: pd.DataFrame, **kwargs: dict) -> None:
         raise NotImplementedError
     
-    def writeIterator(self, iterator: Iterator[pd.DataFrame], **kwargs: dict) -> None:
+    def writeIterator(self, iterator: Iterator[pd.DataFrame], columns: list[str], **kwargs: dict) -> None:
         raise NotImplementedError
     
     def getColumns(self) -> list[str]:
@@ -133,9 +122,9 @@ class CSVFile(DataFile):
     def write(self, df: pd.DataFrame, **kwargs: dict) -> None:
         df.to_csv(self.path, **kwargs)
 
-    def writeIterator(self, iterator: Iterator[pd.DataFrame], **kwargs: dict) -> None:
+    def writeIterator(self, iterator: Iterator[pd.DataFrame], columns: list[str], **kwargs: dict) -> None:
         for idx, chunk in enumerate(iterator):
-            self.write(chunk, header=(idx==0), mode="a", **kwargs)
+            self.write(chunk, header=columns if idx == 0 else False, mode="a", **kwargs)
 
     def getColumns(self) -> list[str]:
         df = self.read(nrows=1)
@@ -164,12 +153,9 @@ class ParquetFile(DataFile):
     def write(self, df: pd.DataFrame, **kwargs: dict) -> None:
         df.to_parquet(self.path, "pyarrow")
 
-    def writeIterator(self, iterator: Iterator[pd.DataFrame], **kwargs: dict) -> None:
-        peek = next(iterator)
-        schema = pa.schema([(column, pa.string()) for column in peek.columns])
+    def writeIterator(self, iterator: Iterator[pd.DataFrame], columns: list[str], **kwargs: dict) -> None:
+        schema = pa.schema([(column, pa.string()) for column in columns])
         with pq.ParquetWriter(self.path, schema=schema) as writer:
-            writer.write_table(peek) # Write the peeked chunk first
-
             for chunk in iterator:
                 writer.write_table(chunk)
 
@@ -177,9 +163,44 @@ class ParquetFile(DataFile):
         pf = pq.read_schema(self.path)
         return pf.names
 
+class Folder(FileObject):
+    def __init__(self, path: Path, create: bool = False):
+        super().__init__(path)
+
+        if create:
+            path.mkdir(exist_ok=True)
+
+    def delete(self) -> None:
+        cmn.clearFolder(self.path, True)
+
+    def deleteBackup(self) -> None:
+        if self._backupPath is None:
+            return
+
+        cmn.clearFolder(self._backupPath, True)
+        self._backupPath = None
+
+    def getDataFiles(self, allowUnknown: bool = True) -> list[DataFile]:
+        dataFiles = []
+        for itemPath in self.path.iterdir():
+            if not itemPath.is_file():
+                continue
+
+            dataFile = DataFile(itemPath)
+            if dataFile.format == DataFormat.UNKNOWN and not allowUnknown:
+                continue
+
+            dataFiles.append(dataFile)
+        return dataFiles
+
 class StackedFile(Folder, DataFile):
 
     format = DataFormat.STACKED
+
+    def __init__(self, path: Path, create: bool = False, sectionFormat: DataFormat = DataFormat.CSV):
+        super().__init__(path, create)
+
+        self._sectionFormat = sectionFormat
 
     def _getFiles(self) -> list[DataFile]:
         return [DataFile(file) for file in self.path.iterdir()]
@@ -188,13 +209,31 @@ class StackedFile(Folder, DataFile):
         dfs = {file.path.stem: file.read(**kwargs) for file in self._getFiles()}
         return pd.concat(dfs.values(), axis=1, keys=dfs.keys())
     
-    def readIterator(self, chunkSize: int = 1024, **kwargs: dict) -> Iterator[pd.DataFrame]:
+    def readIterator(self, chunkSize, **kwargs: dict) -> Iterator[pd.DataFrame]:
         sections = {file.path.stem: file.readIterator(chunkSize, **kwargs) for file in self._getFiles()}
         while True:
             try:
                 yield pd.concat([next(chunk) for chunk in sections.values()], axis=1, keys=sections.keys())
             except StopIteration:
                 return
+            
+    def write(self, df: pd.DataFrame, **kwargs: dict) -> None:
+        for outerColumn in df.columns.levels[0]:
+            dataFile = DataFile(self.path / f"{outerColumn}{self._sectionFormat.value}")
+            dataFile.write(df[outerColumn])
 
     def getColumns(self) -> dict[str, list[str]]:
         return {file.path.stem: file.getColumns() for file in self._getFiles()}
+
+def moveDataFile(inputFile: DataFile, outputFile: DataFile):
+    if inputFile.format == outputFile.format:
+        inputFile.rename(outputFile.path)
+        inputFile.delete()
+        return
+    
+    iterator = inputFile.readIterator(1024 * 16)
+    outputFile.writeIterator(iterator, index=False)
+    inputFile.delete()
+
+def combinedIterator(dataFiles: list[DataFile], chunkSize: int, **kwargs: dict) -> Iterator:
+    return (chunk for file in dataFiles for chunk in file.readIterator(chunkSize, **kwargs))
