@@ -1,7 +1,7 @@
 from pathlib import Path
 import logging
 from lib.processing.files import File
-from lib.bigFileWriter import BigFileWriter
+from lib.bigFiles import RecordWriter
 import time
 import pandas as pd
 from lib.progressBar import ProgressBar
@@ -26,9 +26,8 @@ def getStats(summaryFile: File, outputPath: Path, apiKeyPath: Path = None):
     accessionCol = "#assembly_accession"
     df = summaryFile.loadDataFrame(dtype=object, usecols=[accessionCol])
 
-    writer = BigFileWriter(outputPath)
-    writer.populateFromFolder(writer.subfileDir)
-    writtenFileCount = len(writer.writtenFiles)
+    writer = RecordWriter(outputPath, 30000)
+    writtenFileCount = writer.writtenFileCount()
 
     summaryFields = {
         "assembly_name": "asm_name",
@@ -64,7 +63,6 @@ def getStats(summaryFile: File, outputPath: Path, apiKeyPath: Path = None):
             workers[workerIdx] = worker
             time.sleep(1 / maxRequests)
 
-        recordData = []
         failedAccessions = []
         while workers:
             value = queue.get()
@@ -73,12 +71,10 @@ def getStats(summaryFile: File, outputPath: Path, apiKeyPath: Path = None):
                 worker.join()
                 # failedAccessions.extend(failed)
             else: # Record
-                recordData.append(value)
+                writer.write(value)
                 progress.update()
 
-        writer.writeDF(pd.DataFrame.from_records(recordData))
-
-    writer.oneFile(True)
+    writer.combine(removeParts=True)
 
 def merge(summaryFile: File, statsFilePath: Path, outputPath: Path) -> None:
     df = summaryFile.loadDataFrame(low_memory=False)

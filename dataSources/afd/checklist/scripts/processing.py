@@ -3,7 +3,7 @@ import json
 from pathlib import Path
 import pandas as pd
 from io import BytesIO
-from lib.bigFileWriter import BigFileWriter, Format
+from lib.bigFiles import DFWriter
 from bs4 import BeautifulSoup
 from lib.progressBar import ProgressBar
 import re
@@ -27,7 +27,7 @@ class EntryData:
         self.children = [EntryData(child) for child in rawData.get("children", [])]
 
 def retrieve(outputFilePath: Path):
-    writer = BigFileWriter(outputFilePath, "sections", "section")
+    writer = DFWriter(outputFilePath)
 
     checklist = "https://biodiversity.org.au/afd/mainchecklist"
     response = requests.get(checklist).text
@@ -38,17 +38,17 @@ def retrieve(outputFilePath: Path):
     kingdomData = [EntryData(kingdom) for kingdom in json.loads(response[start:end])]
     downloadChildCSVs(kingdomData, writer, [])
 
-    writer.oneFile(False)
+    writer.combine(removeParts=False)
 
-def downloadChildCSVs(entryData: list[EntryData], writer: BigFileWriter, parentRanks: list[str]) -> None:
+def downloadChildCSVs(entryData: list[EntryData], writer: DFWriter, parentRanks: list[str]) -> None:
     for entry in entryData:
         content = getCSVData(entry.key)
         higherTaxonomy = parentRanks + [entry.rank]
         if content is not None:
             df = buildDF(content)
             # df["higher_taxonomy"] = ";".join(higherTaxonomy)
-            writer.writeDF(df)
-            print(f"Wrote file #{len(writer.writtenFiles)}", end="\r")
+            writer.write(df)
+            print(f"Wrote file #{writer.writtenFileCount()}", end="\r")
             continue
 
         # Content was too large to download
@@ -192,9 +192,8 @@ def enrich(filePath: Path, outputFilePath: Path) -> None:
 
         enrichmentPath = outputFilePath.parent / f"{rank}.csv"
         if not enrichmentPath.exists():
-            writer = BigFileWriter(enrichmentPath, rank, subfileType=Format.CSV)
-            writer.populateFromFolder(writer.subfileDir)
-            subfileNames = [file.fileName for file in writer.writtenFiles]
+            writer = DFWriter(enrichmentPath)
+            subfileNames = [file.path.name for file in writer._sectionFiles]
 
             uniqueSeries = subDF["taxon_id"].unique()
             uniqueSeries = [item for item in uniqueSeries if item not in subfileNames]
@@ -211,10 +210,9 @@ def enrich(filePath: Path, outputFilePath: Path) -> None:
                     print(traceback.format_exc())
                     return
                 
-                recordDF = pd.DataFrame.from_records(records)
-                writer.writeDF(recordDF, taxonID)
+                writer.write(pd.DataFrame.from_records(records), taxonID)
 
-            writer.oneFile(False)
+            writer.combine(removeParts=False)
 
         enrichmentDF = pd.read_csv(enrichmentPath, dtype=object)
         df = df.merge(enrichmentDF, "left", left_on=["taxon_id", "canonical_name"], right_on=["taxon_id", rank.lower()])

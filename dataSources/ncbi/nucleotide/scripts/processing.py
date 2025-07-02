@@ -1,11 +1,11 @@
 from lib.zipping import RepeatExtractor
-from lib.bigFileWriter import BigFileWriter
+from lib.bigFiles import DFWriter
 from pathlib import Path
 from llib import flatFileParser as ffp
 
 def parseNucleotide(folderPath: Path, outputFilePath: Path, verbose: bool = True) -> None:
     extractor = RepeatExtractor(outputFilePath.parent)
-    writer = BigFileWriter(outputFilePath, "seqChunks", "chunk")
+    writer = DFWriter(outputFilePath)
 
     for idx, file in enumerate(folderPath.iterdir(), start=1):
         if verbose:
@@ -23,7 +23,7 @@ def parseNucleotide(folderPath: Path, outputFilePath: Path, verbose: bool = True
             print(f"Parsing file {extractedFile}")
 
         df = ffp.parseFlatfile(extractedFile, verbose)
-        writer.writeDF(df)
+        writer.write(df)
         extractedFile.unlink()
 
-    writer.oneFile()
+    writer.combine(removeParts=True)

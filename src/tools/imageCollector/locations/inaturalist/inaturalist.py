@@ -1,7 +1,7 @@
 from pathlib import Path
 import pandas as pd
 import lib.common as cmn
-from lib.bigFileWriter import BigFileWriter
+from lib.bigFiles import DFWriter
 import numpy as np
 
 def run():
@@ -25,7 +25,7 @@ def run():
     observers["creator"] = observers["name"].fillna(observers["login"])
     observers.drop(["name", "login"], axis=1, inplace=True)
 
-    writer = BigFileWriter(Path("./inaturalist.csv"), "subfiles")
+    writer = DFWriter(Path("./inaturalist.csv"))
 
     photosGen = cmn.chunkGenerator(photos, 1024*1024*2, "\t")
     for idx, df in enumerate(photosGen, start=1):
@@ -81,10 +81,10 @@ def run():
         df["source"] = "iNaturalist"
         df["publisher"] = "iNaturalist"
         
-        writer.writeDF(df)
+        writer.write(df)
     
     print()
-    writer.oneFile(False)
+    writer.combine(removeParts=False)
 
 if __name__ == "__main__":
     # downloadURL = "https://inaturalist-open-data.s3.amazonaws.com/metadata/inaturalist-open-data-latest.tar.gz"

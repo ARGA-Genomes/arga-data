@@ -2,7 +2,7 @@ from xml.etree import cElementTree as ET
 from pathlib import Path
 from typing import Generator
 import concurrent.futures as cf
-from lib.bigFileWriter import BigFileWriter
+from lib.bigFiles import RecordWriter
 import pandas as pd
 
 class ElementContainer:
@@ -75,20 +75,12 @@ def xmlGenerator(inputPath: Path) -> Generator[ElementContainer, None, None]:
 
 def basicXMLProcessor(inputPath: Path, outputPath: Path, entriesPerSection: int = 0) -> None:
     iterator = xmlGenerator(inputPath)
-    writer = BigFileWriter(outputPath, "xmlChunks")
+    writer = RecordWriter(outputPath, entriesPerSection)
     records = []
 
     for idx, element in enumerate(iterator, start=1):
         print(f"At record: {idx}", end="\r")
-        records.append(flattenElement(element))
-
-        if len(records) == entriesPerSection:
-            writer.writeDF(pd.DataFrame.from_records(records))
-            records.clear()
-
-    if records:
-        writer.writeDF(pd.DataFrame.from_records(records))
-        records.clear()
+        writer.write(flattenElement(element))
         
     print()
-    writer.oneFile()
+    writer.combine(removeParts=True)
