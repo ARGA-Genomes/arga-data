@@ -2,41 +2,52 @@ import pandas as pd
 import lib.common as cmn
 from pathlib import Path
 from enum import Enum
-from collections.abc import Iterator
 import logging
+import pyarrow.parquet as pq
+from typing import Iterator
+import pyarrow as pa
 
 class Step(Enum):
     DOWNLOADING = "downloading"
     PROCESSING  = "processing"
     CONVERSION  = "conversion"
 
-class File:
-    def __init__(self, filePath: Path, fileProperties: dict = {}):
-        self.filePath = filePath
-        self.fileProperties = fileProperties.copy()
+class DataFormat(Enum):
+    CSV     = ".csv"
+    TSV     = ".tsv"
+    PARQUET = ".parquet"
+    STACKED = ""
+    UNKNOWN = None
 
-        self.separator = fileProperties.pop("separator", ",")
-        self.firstRow = fileProperties.pop("firstrow", 0)
-        self.encoding = fileProperties.pop("encoding", "utf-8")
+class DataProperty(Enum):
+    SEPERATOR = "sep"
+    ENCODING  = "encoding"
+    HEADER    = "header"
 
+class FileObject:
+    def __init__(self, path: Path):
+        self.path = path
         self._backupPath = None
 
+    def __str__(self) -> str:
+        return str(self.path)
+
     def __repr__(self) -> str:
-        return str(self.filePath)
+        return str(self)
     
     def exists(self) -> bool:
-        return self.filePath.exists()
+        return self.path.exists()
     
     def backUp(self, overwrite: bool = False) -> None:
-        newPath = self.filePath.parent / f"{self.filePath.stem}_backup{self.filePath.suffix}"
-        if newPath.exists():
+        backupPath = self.path.parent / f"{self.path.stem}_backup{self.path.suffix}"
+        if backupPath.exists():
             if not overwrite:
                 logging.info("Unable to create new backup as it already exists")
                 return
         
-            newPath.unlink()
+            backupPath.unlink()
         
-        self._backupPath = self.filePath.rename(newPath)
+        self._backupPath = self.path.rename(backupPath)
 
     def restoreBackUp(self) -> None:
         if self._backupPath is None:
@@ -54,23 +65,14 @@ class File:
         self._backupPath = None
     
     def delete(self) -> None:
-        self.filePath.unlink(True)
-    
-    def loadDataFrame(self, offset: int = 0, rows: int = None, **kwargs: dict) -> pd.DataFrame:
-        return pd.read_csv(self.filePath, sep=self.separator, header=self.firstRow + offset, encoding=self.encoding, nrows=rows, **kwargs)
-    
-    def loadDataFrameIterator(self, chunkSize: int = 1024, offset: int = 0, rows: int = None) -> Iterator[pd.DataFrame]:
-        return cmn.chunkGenerator(self.filePath, chunkSize, self.separator, self.firstRow + offset, self.encoding, nrows=rows)
+        self.path.unlink(True)
 
-    def getColumns(self) -> list[str]:
-        return cmn.getColumns(self.filePath, self.separator, self.firstRow)
-
-class Folder(File):
-    def __init__(self, filePath: Path):
-        super().__init__(filePath, {})
+class Folder(FileObject):
+    def __init__(self, path: Path):
+        super().__init__(path)
 
     def delete(self) -> None:
-        cmn.clearFolder(self.filePath, True)
+        cmn.clearFolder(self.path, True)
 
     def deleteBackup(self) -> None:
         if self._backupPath is None:
@@ -79,25 +81,115 @@ class Folder(File):
         cmn.clearFolder(self._backupPath, True)
         self._backupPath = None
 
-    def loadDataFrame(self, *args, **kwargs: dict) -> TypeError:
-        raise TypeError
-    
-    def loadDataFrameIterator(self, *args, **kwargs) -> TypeError:
-        return TypeError
-    
-    def getColumns(self) -> TypeError:
-        return TypeError
+class DataFile(FileObject):
 
-class StackedFile(Folder):
-    def _getFiles(self) -> list[Path]:
-        return [file for file in self.filePath.iterdir() if file.suffix == ".csv"]
+    format = DataFormat.UNKNOWN
 
-    def loadDataFrame(self, offset: int = 0, rows: int = None, **kwargs: dict) -> pd.DataFrame:
-        dfs = {file.stem: pd.read_csv(file, sep=self.separator, header=offset, nrows=rows, encoding=self.encoding, **kwargs) for file in self._getFiles()}
+    def __new__(cls, *args):
+        subclassMap = {subclass.format: subclass for subclass in cls.__subclasses__()}
+        subclass = DataFormat._value2member_map_.get(Path(args[0]).suffix, None)
+        if subclass is None or subclass not in subclassMap:
+            return super().__new__(cls, *args)
+        
+        return super().__new__(subclassMap[subclass])
+
+    def __init__(self, path: Path, properties: dict = {}):
+        super().__init__(path)
+
+        self.properties: dict[DataProperty, any] = {}
+        for property, value in properties.items():
+            dataProperty = DataProperty._value2member_map_.get(property, None)
+            if dataProperty is None:
+                logging.warning(f"Unknown data file property: {property}")
+                continue
+
+            self.properties[dataProperty] = value
+
+    def read(self, **kwargs: dict) -> pd.DataFrame:
+        raise NotImplementedError
+    
+    def readIterator(self, chunkSize: int, **kwargs: dict) -> Iterator[pd.DataFrame]:
+        raise NotImplementedError
+    
+    def write(self, **kwargs: dict) -> None:
+        raise NotImplementedError
+    
+    def writeIterator(self, iterator: Iterator[pd.DataFrame], **kwargs: dict) -> None:
+        raise NotImplementedError
+    
+    def getColumns(self) -> list[str]:
+        raise NotImplementedError
+    
+class CSVFile(DataFile):
+    
+    format = DataFormat.CSV
+
+    def read(self, **kwargs: dict) -> pd.DataFrame:
+        return pd.read_csv(self.path, **(self.properties | kwargs))
+    
+    def readIterator(self, chunkSize: int, **kwargs) -> Iterator[pd.DataFrame]:
+        return self.read(chunkSize=chunkSize, **kwargs)
+    
+    def write(self, df: pd.DataFrame, **kwargs: dict) -> None:
+        df.to_csv(self.path, **kwargs)
+
+    def writeIterator(self, iterator: Iterator[pd.DataFrame], **kwargs: dict) -> None:
+        for idx, chunk in enumerate(iterator):
+            self.write(chunk, header=(idx==0), mode="a", **kwargs)
+
+    def getColumns(self) -> list[str]:
+        df = self.read(nrows=1)
+        if df is None:
+            return []
+        return list(df.columns)
+
+class TSVFile(CSVFile, DataFile):
+    
+    format = DataFormat.TSV
+
+    def __init__(self, path: Path, properties: dict = {}):
+        super().__init__(path, {DataProperty.SEPERATOR: "\t"} | properties)
+
+class ParquetFile(DataFile):
+    
+    format = DataFormat.PARQUET
+
+    def read(self, **kwargs: dict) -> pd.DataFrame:
+        return pq.read_table(self.path, **kwargs).to_pandas()
+    
+    def readIterator(self, chunkSize: int, **kwargs) -> Iterator[pd.DataFrame]:
+        parquetFile = pq.ParquetFile(self.filePath)
+        return (batch.to_pandas() for batch in parquetFile.iter_batches(batch_size=chunkSize, **kwargs))
+
+    def write(self, df: pd.DataFrame, **kwargs: dict) -> None:
+        df.to_parquet(self.path, "pyarrow")
+
+    def writeIterator(self, iterator: Iterator[pd.DataFrame], **kwargs: dict) -> None:
+        peek = next(iterator)
+        schema = pa.schema([(column, pa.string()) for column in peek.columns])
+        with pq.ParquetWriter(self.path, schema=schema) as writer:
+            writer.write_table(peek) # Write the peeked chunk first
+
+            for chunk in iterator:
+                writer.write_table(chunk)
+
+    def getColumns(self) -> list[str]:
+        pf = pq.read_schema(self.path)
+        return pf.names
+
+class StackedFile(Folder, DataFile):
+
+    format = DataFormat.STACKED
+
+    def _getFiles(self) -> list[DataFile]:
+        return [DataFile(file) for file in self.path.iterdir()]
+
+    def read(self, **kwargs: dict) -> pd.DataFrame:
+        dfs = {file.path.stem: file.read(**kwargs) for file in self._getFiles()}
         return pd.concat(dfs.values(), axis=1, keys=dfs.keys())
     
-    def loadDataFrameIterator(self, chunkSize: int = 1024, offset: int = 0, rows: int = None) -> Iterator[pd.DataFrame]:
-        sections = {file.stem: pd.read_csv(file, sep=self.separator, chunksize=chunkSize, header=offset, nrows=rows, encoding=self.encoding) for file in self._getFiles()}
+    def readIterator(self, chunkSize: int = 1024, **kwargs: dict) -> Iterator[pd.DataFrame]:
+        sections = {file.path.stem: file.readIterator(chunkSize, **kwargs) for file in self._getFiles()}
         while True:
             try:
                 yield pd.concat([next(chunk) for chunk in sections.values()], axis=1, keys=sections.keys())
@@ -105,4 +197,4 @@ class StackedFile(Folder):
                 return
 
     def getColumns(self) -> dict[str, list[str]]:
-        return {file.stem: cmn.getColumns(file) for file in self._getFiles()}
+        return {file.path.stem: file.getColumns() for file in self._getFiles()}
