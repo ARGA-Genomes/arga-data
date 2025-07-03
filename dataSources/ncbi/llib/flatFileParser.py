@@ -92,6 +92,9 @@ class Entry:
             if not line:
                 continue
 
+            if len(line) <= leadingWhiteSpace:
+                continue
+
             if not sections:
                 sections.append(line.strip() if flattenLines else line)
                 continue
@@ -127,13 +130,18 @@ class Entry:
         self.data["fasta_url"] = f"{genbankURL}{version}{fastaSuffix}"
     
     def commentParser(self, data: str):
+        self.data["comment"] = "\\n".join(self.getSections(f"{7*' '}{data}", 12, flattenLines=True))
 
-        def getTags(section: str) -> list[str, str]:
-            return [f"##Genome-{section}-Data-{position}##" for position in ("START", "END")]
+        parseCommentTags = [
+            "Genome-Assembly-Data",
+            "Genome-Annotation-Data",
+            "Assembly-Data"
+        ]
 
-        self.data["comment"] = data.replace("\n", " ")
-        for section in ("Assembly", "Annotation"):
-            startTag, endTag = getTags(section)
+        for tag in parseCommentTags:
+            startTag = f"##{tag}-START##"
+            endTag = f"##{tag}-END##"
+
             startPos = data.find(startTag)
             if startPos < 0: # Didn't find tag
                 continue
@@ -159,7 +167,8 @@ class Entry:
             "BioSample": "https://www.ncbi.nlm.nih.gov/biosample/",
             "Sequence Read Archive": "https://www.ncbi.nlm.nih.gov/sra/",
             "ProbeDB": "https://www.ncbi.nlm.nih.gov/biosample/",
-            "Assembly": "https://www.ncbi.nlm.nih.gov/assembly/"
+            "Assembly": "https://www.ncbi.nlm.nih.gov/assembly/",
+            "Project": "https://www.ncbi.nlm.nih.gov/bioproject/"
         }
 
         for db in cleanedDBs:
@@ -204,8 +213,19 @@ class Entry:
         extraFeatures = "other"
 
         def linesToDict(lines: list[str]) -> dict:
-            retVal = {}
+            # Clean up leading / and merge lines without leading /
+            cleanLines = []
             for line in lines:
+                if line.startswith("/"):
+                    cleanLines.append(line[1:])
+                elif not cleanLines:
+                    cleanLines.append(line)
+                else:
+                    cleanLines[-1] += f" {line}"
+
+            # Parse cleaned lines to split key/value pairs
+            retVal = {}
+            for line in cleanLines:
                 if "=" not in line:
                     if extraFeatures not in retVal:
                         retVal[extraFeatures] = []
@@ -214,7 +234,7 @@ class Entry:
                     continue
 
                 key, value = line.split("=", 1)
-                retVal[key[1:]] = value.strip('"')
+                retVal[key] = value.strip('"')
 
             return retVal
 
@@ -225,14 +245,16 @@ class Entry:
         self.data[genesLabel] = {}
         for block in featureBlocks:
             blockHeader, blockData = block.lstrip().split(" ", 1)
+
             if "\n" not in blockData: # No properties after base pair range
-                self.data[genesLabel][blockData.strip()] = blockHeader
-                continue
+                bpRange = blockData.strip()
+                properties = {}
+            else: # Parse properties
+                bpRange, properties = blockData.lstrip().split("\n", 1)
+                sections = self.getSections(properties, 21, flattenLines=True)
+                properties = linesToDict(sections)
 
-            bpRange, properties = blockData.lstrip().split("\n", 1)
-            properties = linesToDict(self.getSections(properties, 21, flattenLines=True))
-
-            if blockHeader == "source":
+            if blockHeader == "source": # Source properties get split out and put directly into data
                 properties["features_other"] = properties.pop(extraFeatures, [])
                 properties["features_organism"] = properties.pop("organism", "")
                 self.data |= properties
