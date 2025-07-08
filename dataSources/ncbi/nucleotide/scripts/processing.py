@@ -26,4 +26,4 @@ def parseNucleotide(folderPath: Path, outputFilePath: Path, verbose: bool = True
         writer.write(df)
         extractedFile.unlink()
 
-    writer.combine(removeParts=True)
+    writer.combine(True)

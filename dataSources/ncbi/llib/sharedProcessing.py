@@ -74,7 +74,7 @@ def getStats(summaryFile: File, outputPath: Path, apiKeyPath: Path = None):
                 writer.write(value)
                 progress.update()
 
-    writer.combine(removeParts=True)
+    writer.combine(True)
 
 def merge(summaryFile: File, statsFilePath: Path, outputPath: Path) -> None:
     df = summaryFile.loadDataFrame(low_memory=False)

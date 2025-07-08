@@ -15,11 +15,18 @@ class DFWriter:
     _subDirName = "bigFileWriter"
     _chunkPrefix = "chunk"
 
-    def __init__(self, outputFilePath: Path):
+    def __init__(self, outputFilePath: Path, chunkFormat: DataFormat = DataFormat.PARQUET):
         self.outputFile = DataFile(outputFilePath)
+        self._chunkFormat = chunkFormat
+
         self.workingDir = Folder(outputFilePath.parent / self._subDirName, create=True)
-        self._sectionFiles = self.workingDir.getDataFiles(False)
-        self._uniqueColumns: dict[str, None] = {column: None for file in self._sectionFiles for column in file.getColumns()}
+        self._sectionFiles: list[DataFile] = []
+        self._uniqueColumns: dict[str, None] = {}
+
+        for path in self.workingDir.getMatchingPaths(f"{self._chunkPrefix}_*"):
+            dataFile = DataFile(path)
+            self._sectionFiles.append(dataFile)
+            self._uniqueColumns |= {column: None for column in dataFile.getColumns()}
 
         if self._sectionFiles:
             logging.info(f"Added {len(self._sectionFiles)} existing files from working directory")
@@ -30,14 +37,14 @@ class DFWriter:
     def uniqueColumns(self) -> list[str]:
         return list(self._uniqueColumns.keys())
 
-    def write(self, df: pd.DataFrame, chunkName: str = "") -> None:
-        fileName = f"{self._chunkPrefix}_{len(self._sectionFiles)}"
+    def write(self, df: pd.DataFrame) -> None:
+        fileName = f"{self._chunkPrefix}_{len(self._sectionFiles)}{self._chunkFormat.value}"
         subfile = DataFile(self.workingDir.path / fileName)
         subfile.write(df, index=False)
         self._sectionFiles.append(subfile)
         self._uniqueColumns |= {column: None for column in df.columns}
 
-    def combine(self, overwrite: bool = False, removeParts: bool = False) -> None:
+    def combine(self, removeParts: bool = False) -> None:
         if self.outputFile.exists():
             logging.info(f"Removing old file {self.outputFile.path}")
             self.outputFile.delete()
@@ -78,8 +85,8 @@ class RecordWriter(DFWriter):
         if len(self._records) == self._rowsPerSubsection:
             self._writeRecords()
 
-    def combine(self, overwrite: bool = False, removeParts: bool = False) -> None:
+    def combine(self, removeParts: bool = False) -> None:
         if self._records:
             self._writeRecords()
 
-        super().combine(overwrite, removeParts)
+        super().combine(removeParts)

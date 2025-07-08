@@ -180,18 +180,8 @@ class Folder(FileObject):
         cmn.clearFolder(self._backupPath, True)
         self._backupPath = None
 
-    def getDataFiles(self, allowUnknown: bool = True) -> list[DataFile]:
-        dataFiles = []
-        for itemPath in self.path.iterdir():
-            if not itemPath.is_file():
-                continue
-
-            dataFile = DataFile(itemPath)
-            if dataFile.format == DataFormat.UNKNOWN and not allowUnknown:
-                continue
-
-            dataFiles.append(dataFile)
-        return dataFiles
+    def getMatchingPaths(self, pattern: str) -> Iterator[Path]:
+        return self.path.glob(pattern)
 
 class StackedFile(Folder, DataFile):
 

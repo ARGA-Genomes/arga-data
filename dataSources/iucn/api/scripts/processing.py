@@ -77,7 +77,7 @@ def retrieve(apiKeyPath: Path, outputFilePath: Path):
 
         onPage += 1
 
-    writer.combine(removeParts=True)
+    writer.combine(True)
     print()
 
 def reduce(filePath: Path, outputFilePath: Path) -> None:

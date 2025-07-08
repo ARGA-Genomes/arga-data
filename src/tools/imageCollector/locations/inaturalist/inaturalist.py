@@ -84,7 +84,7 @@ def run():
         writer.write(df)
     
     print()
-    writer.combine(removeParts=False)
+    writer.combine()
 
 if __name__ == "__main__":
     # downloadURL = "https://inaturalist-open-data.s3.amazonaws.com/metadata/inaturalist-open-data-latest.tar.gz"

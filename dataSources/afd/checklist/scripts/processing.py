@@ -38,7 +38,7 @@ def retrieve(outputFilePath: Path):
     kingdomData = [EntryData(kingdom) for kingdom in json.loads(response[start:end])]
     downloadChildCSVs(kingdomData, writer, [])
 
-    writer.combine(removeParts=False)
+    writer.combine()
 
 def downloadChildCSVs(entryData: list[EntryData], writer: DFWriter, parentRanks: list[str]) -> None:
     for entry in entryData:
@@ -193,10 +193,7 @@ def enrich(filePath: Path, outputFilePath: Path) -> None:
         enrichmentPath = outputFilePath.parent / f"{rank}.csv"
         if not enrichmentPath.exists():
             writer = DFWriter(enrichmentPath)
-            subfileNames = [file.path.name for file in writer._sectionFiles]
-
-            uniqueSeries = subDF["taxon_id"].unique()
-            uniqueSeries = [item for item in uniqueSeries if item not in subfileNames]
+            uniqueSeries = subDF["taxon_id"].unique()[writer.writtenFileCount():] # Do not repeat already completed chunks
             
             bar = ProgressBar(len(uniqueSeries), f"{rank} Progress")
             for taxonID in uniqueSeries:
@@ -212,7 +209,7 @@ def enrich(filePath: Path, outputFilePath: Path) -> None:
                 
                 writer.write(pd.DataFrame.from_records(records), taxonID)
 
-            writer.combine(removeParts=False)
+            writer.combine()
 
         enrichmentDF = pd.read_csv(enrichmentPath, dtype=object)
         df = df.merge(enrichmentDF, "left", left_on=["taxon_id", "canonical_name"], right_on=["taxon_id", rank.lower()])
