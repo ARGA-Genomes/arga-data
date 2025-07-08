@@ -5,6 +5,7 @@ from datetime import datetime
 import time
 from enum import Enum
 from typing import Any
+from lib.processing.files import Step
 
 class Metadata(Enum):
     OUTPUT = "output"
@@ -39,13 +40,13 @@ class SystemManager:
 
     _metadataFileName = "metadata.json"
 
-    def __init__(self, dataDir: Path, scriptDir: Path, metadataDir: Path, stepName: str, metaTaskName: str):
-        self.workingDir = dataDir / stepName
+    def __init__(self, dataDir: Path, scriptDir: Path, metadataDir: Path, fileStep: Step, metaTaskName: str):
+        self.workingDir = dataDir / fileStep.value
         self.scriptDir = scriptDir
         self.metadataDir = metadataDir
         self.metadataPath = metadataDir / self._metadataFileName
 
-        self.stepName = stepName
+        self.stepName = fileStep.value
         self.metaTaskName = metaTaskName
         
         self._tasks: list[Task] = []

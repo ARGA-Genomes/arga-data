@@ -1,5 +1,5 @@
 from pathlib import Path
-from lib.processing.stages import File, Folder
+from lib.processing.files import DataFile, Folder
 import logging
 import importlib.util
 from enum import Enum
@@ -137,14 +137,14 @@ class OutputScript(FunctionScript):
         self.args = [self._parseArg(arg) for arg in self.args]
         self.kwargs = {key: self._parseArg(arg) for key, arg in self.kwargs.items()}
 
-    def _parseOutput(self, outputName: str, outputProperties: dict) -> File:
+    def _parseOutput(self, outputName: str, outputProperties: dict) -> DataFile:
         return self._createFile(self.outputDir / outputName, outputProperties)
 
-    def _createFile(self, outputPath: Path, outputProperties: dict) -> File:
+    def _createFile(self, outputPath: Path, outputProperties: dict) -> DataFile:
         if not outputPath.suffix:
             return Folder(outputPath)
         
-        return File(outputPath, outputProperties)
+        return DataFile(outputPath, outputProperties)
     
     def _parseArg(self, arg: Any) -> Path | str:
         if not isinstance(arg, str):
@@ -187,7 +187,7 @@ class OutputScript(FunctionScript):
             logging.error(f"File selection '{selection}' out of range for file type '{fType}' which has a length of '{len(files)}")
             return argKey
         
-        file: File = files[selection]
+        file: DataFile = files[selection]
         fProperty, *suffixes = fProperty.split(".")
 
         if fProperty == _FileProperty.FILE.value:
@@ -198,10 +198,10 @@ class OutputScript(FunctionScript):
         if fProperty == _FileProperty.DIR.value:
             if suffixes:
                 logging.warning("Suffix provided for a parent path which cannot be resolved, suffix not applied")
-            return file.filePath.parent
+            return file.path.parent
 
         if fProperty == _FileProperty.PATH.value:
-            pth = file.filePath
+            pth = file.path
             for suffix in suffixes:
                 pth = pth.with_suffix(suffix if not suffix else f".{suffix}") # Prepend a dot for valid suffixes
             return pth
@@ -232,12 +232,12 @@ class OutputScript(FunctionScript):
         return True, retVal
 
 class FileScript(OutputScript):
-    def __init__(self, scriptDir: Path, scriptInfo: dict, outputDir: Path, inputs: dict[str, File], imports: dict[str, Path] = {}):
+    def __init__(self, scriptDir: Path, scriptInfo: dict, outputDir: Path, inputs: dict[str, DataFile], imports: dict[str, Path] = {}):
         self.fileLookup |= inputs
 
         super().__init__(scriptDir, scriptInfo, outputDir, imports)
 
-    def _parseOutput(self, outputName: str, outputProperties: dict) -> File:
+    def _parseOutput(self, outputName: str, outputProperties: dict) -> DataFile:
         parsedValue = self._parseArg(outputName)
 
         if isinstance(parsedValue, Path): # Redirect path of output to outputDir

@@ -1,7 +1,7 @@
 import requests
 from pathlib import Path
 import pandas as pd
-from lib.bigFileWriter import BigFileWriter
+from lib.bigFiles import RecordWriter
 import time
 import lib.dataframes as dff
 
@@ -22,9 +22,8 @@ def retrieve(apiKeyPath: Path, outputFilePath: Path):
     version = list(response.json().values())[0]
     print(f"Version: {version}")
     
-    writer = BigFileWriter(outputFilePath)
-    writer.populateFromFolder(writer.subfileDir)
-    onPage = len(writer.writtenFiles) + 1
+    writer = RecordWriter(outputFilePath, 10000)
+    onPage = writer.writtenFileCount() + 1
 
     running = True
     while running:
@@ -43,8 +42,6 @@ def retrieve(apiKeyPath: Path, outputFilePath: Path):
 
         if len(assessmentIDs) < 100 or not assessmentIDs:
             running = False
-
-        records = []
 
         for idx, assessmentID in enumerate(assessmentIDs, start=1):
             print(f"Processing assessment ID #{((onPage - 1) * 100) + idx}: {assessmentID}", end= "\r")
@@ -76,15 +73,11 @@ def retrieve(apiKeyPath: Path, outputFilePath: Path):
             # Remove scopes
             data.pop("scopes")
 
-            records.append(data | taxonomy | supplementaryInfo)
+            writer.write(data | taxonomy | supplementaryInfo)
 
-        df = pd.DataFrame.from_records(records)
-        df = dff.removeSpaces(df)
-        
-        writer.writeDF(df)
         onPage += 1
 
-    writer.oneFile(False)
+    writer.combine(True)
     print()
 
 def reduce(filePath: Path, outputFilePath: Path) -> None:

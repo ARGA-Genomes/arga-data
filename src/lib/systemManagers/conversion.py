@@ -1,8 +1,8 @@
 import pandas as pd
 from pathlib import Path
-from lib.bigFileWriter import BigFileWriter
+from lib.bigFiles import DFWriter
 from lib.processing.mapping import Map
-from lib.processing.stages import File, StackedFile
+from lib.processing.files import DataFile, StackedFile, Step
 from lib.processing.scripts import FunctionScript
 from lib.systemManagers.baseManager import SystemManager, Task
 import logging
@@ -16,7 +16,7 @@ class Conversion(Task):
     entityIDLabel = "entity_id"
     entityIDEvent = "collection"
 
-    def __init__(self, prefix: str, datasetID: str, map: Map, inputFile: File, chunkSize: int, entityEvent: str, entityColumn: str, output: StackedFile, augments: list[FunctionScript]):
+    def __init__(self, prefix: str, datasetID: str, map: Map, inputFile: DataFile, chunkSize: int, entityEvent: str, entityColumn: str, output: StackedFile, augments: list[FunctionScript]):
         self.prefix = prefix
         self.datasetID = datasetID
         self.map = map
@@ -30,22 +30,22 @@ class Conversion(Task):
         super().__init__()
 
     def getOutputPath(self) -> Path:
-        return self.output.filePath
+        return self.output.path
 
     def runTask(self, overwrite: bool, verbose: bool) -> bool:
-        if self.output.filePath.exists() and not overwrite:
+        if self.output.path.exists() and not overwrite:
             logging.info(f"{self.getOutputPath()} already exists, exiting...")
             return True
         
-        writers: dict[str, BigFileWriter] = {}
+        writers: dict[str, DFWriter] = {}
         for event in self.map.events:
             cleanedName = event.replace(" ", "_")
-            writers[event] = BigFileWriter(self.output.filePath / f"{cleanedName}.csv", f"{cleanedName}_chunks")
+            writers[event] = DFWriter(self.output.path / f"{cleanedName}.csv")
 
         logging.info("Processing chunks for conversion")
 
         totalRows = 0
-        chunks = self.inputFile.loadDataFrameIterator(self.chunkSize)
+        chunks = self.inputFile.readIterator(self.chunkSize)
         for idx, df in enumerate(chunks, start=1):
             if verbose:
                 print(f"At chunk: {idx}", end='\r')
@@ -55,7 +55,7 @@ class Conversion(Task):
                 return False
 
             for eventColumn in df.columns.levels[0]:
-                writers[eventColumn].writeDF(df[eventColumn])
+                writers[eventColumn].write(df[eventColumn])
 
             totalRows += len(df)
             del df
@@ -63,8 +63,8 @@ class Conversion(Task):
 
         totalUnmapped = 0
         for writer in writers.values():
-            totalUnmapped += sum(1 for column in writer.globalColumns if column not in self.map.translation)
-            writer.oneFile()
+            totalUnmapped += sum(1 for column in writer.uniqueColumns() if column not in self.map.translation)
+            writer.combine()
 
         self.setAdditionalMetadata(
             {
@@ -111,7 +111,7 @@ class Conversion(Task):
 
 class ConversionManager(SystemManager):
     def __init__(self, dataDir: Path, scriptDir: Path, metadataDir: Path, datasetID: str, prefix: str, name: str):
-        super().__init__(dataDir, scriptDir, metadataDir, "conversion", "tasks")
+        super().__init__(dataDir, scriptDir, metadataDir, Step.CONVERSION, "tasks")
 
         self.datasetID = datasetID
         self.prefix = prefix
@@ -136,7 +136,7 @@ class ConversionManager(SystemManager):
         logging.warning(f"No mapping found for dataset {self.name}")
         return None
 
-    def prepare(self, file: File, properties: dict, forceRetrieve: bool) -> None:
+    def prepare(self, file: DataFile, properties: dict, forceRetrieve: bool) -> None:
         mapID = properties.pop("mapID", -1)
         mapColumnName = properties.pop("mapColumnName", "")
         map = self._getMap(mapID, mapColumnName, forceRetrieve)

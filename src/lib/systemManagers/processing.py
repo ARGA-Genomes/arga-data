@@ -1,5 +1,5 @@
 from pathlib import Path
-from lib.processing.stages import File
+from lib.processing.files import DataFile, Step
 from lib.processing.scripts import FileScript, FileSelect
 from lib.systemManagers.baseManager import SystemManager, Task
 import logging
@@ -16,9 +16,9 @@ class _Node(Task):
         return self.index == other.index
 
     def getOutputPath(self) -> Path:
-        return self.script.output.filePath
+        return self.script.output.path
 
-    def getOutputFile(self) -> File:
+    def getOutputFile(self) -> DataFile:
         return self.script.output
     
     def getRequirements(self, tasks: list['_Node']) -> list['_Node']:
@@ -35,14 +35,14 @@ class _Node(Task):
         return self.script.run(overwrite, verbose)[0] # No retval for processing tasks, just return success
 
 class _Root(_Node):
-    def __init__(self, index: int, file: File):
+    def __init__(self, index: int, file: DataFile):
         self.index = index
         self.file = file
 
     def getOutputPath(self) -> Path:
-        return self.file.filePath
+        return self.file.path
 
-    def getOutputFile(self) -> File:
+    def getOutputFile(self) -> DataFile:
         return self.file
     
     def getRequirements(self, *args) -> list[_Node]:
@@ -53,7 +53,7 @@ class _Root(_Node):
 
 class ProcessingManager(SystemManager):
     def __init__(self, dataDir: Path, scriptDir: Path, metadataDir: Path, scriptImports: dict[str, Path]):
-        super().__init__(dataDir, scriptDir, metadataDir, "processing", "steps")
+        super().__init__(dataDir, scriptDir, metadataDir, Step.PROCESSING, "steps")
 
         self.scriptImports = scriptImports
 
@@ -89,7 +89,7 @@ class ProcessingManager(SystemManager):
             subNode = self._createNode(step, [nextNode], startingDepth + idx)
             nextNode = subNode
     
-    def getLatestNodeFile(self) -> File:
+    def getLatestNodeFile(self) -> DataFile:
         latestNode = self._rootNodes[-1] if not self._scriptNodes else self._scriptNodes[-1][-1]
         return latestNode.getOutputFile()
 
@@ -104,7 +104,7 @@ class ProcessingManager(SystemManager):
 
         return self.runTasks(overwrite, verbose)
 
-    def registerFile(self, file: File, processingSteps: list[dict]) -> None:
+    def registerFile(self, file: DataFile, processingSteps: list[dict]) -> None:
         node = _Root(f"D{len(self._rootNodes)}", file)
         self._rootNodes.append(node)
         self._addProcessing(node, list(processingSteps), 0)

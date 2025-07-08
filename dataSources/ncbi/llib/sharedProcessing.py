@@ -1,7 +1,7 @@
 from pathlib import Path
 import logging
-from lib.processing.stages import File
-from lib.bigFileWriter import BigFileWriter
+from lib.processing.files import DataFile
+from lib.bigFiles import RecordWriter
 import time
 import pandas as pd
 from lib.progressBar import ProgressBar
@@ -12,7 +12,7 @@ import requests
 import numpy as np
 import json
 
-def getStats(summaryFile: File, outputPath: Path, apiKeyPath: Path = None):
+def getStats(summaryFile: DataFile, outputPath: Path, apiKeyPath: Path = None):
     if apiKeyPath is not None and apiKeyPath.exists():
         logging.info("Found API key")
         with open(apiKeyPath) as fp:
@@ -24,11 +24,10 @@ def getStats(summaryFile: File, outputPath: Path, apiKeyPath: Path = None):
         maxRequests = 3
 
     accessionCol = "#assembly_accession"
-    df = summaryFile.loadDataFrame(dtype=object, usecols=[accessionCol])
+    df = summaryFile.read(dtype=object, usecols=[accessionCol])
 
-    writer = BigFileWriter(outputPath)
-    writer.populateFromFolder(writer.subfileDir)
-    writtenFileCount = len(writer.writtenFiles)
+    writer = RecordWriter(outputPath, 30000)
+    writtenFileCount = writer.writtenFileCount()
 
     summaryFields = {
         "assembly_name": "asm_name",
@@ -64,7 +63,6 @@ def getStats(summaryFile: File, outputPath: Path, apiKeyPath: Path = None):
             workers[workerIdx] = worker
             time.sleep(1 / maxRequests)
 
-        recordData = []
         failedAccessions = []
         while workers:
             value = queue.get()
@@ -73,15 +71,13 @@ def getStats(summaryFile: File, outputPath: Path, apiKeyPath: Path = None):
                 worker.join()
                 # failedAccessions.extend(failed)
             else: # Record
-                recordData.append(value)
+                writer.write(value)
                 progress.update()
 
-        writer.writeDF(pd.DataFrame.from_records(recordData))
+    writer.combine(True)
 
-    writer.oneFile(True)
-
-def merge(summaryFile: File, statsFilePath: Path, outputPath: Path) -> None:
-    df = summaryFile.loadDataFrame(low_memory=False)
+def merge(summaryFile: DataFile, statsFilePath: Path, outputPath: Path) -> None:
+    df = summaryFile.read(low_memory=False)
     df2 = pd.read_csv(statsFilePath, low_memory=False)
     df = df.merge(df2, how="outer", left_on="#assembly_accession", right_on="current_accession")
     df.to_csv(outputPath, index=False)
