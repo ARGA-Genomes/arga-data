@@ -1,6 +1,6 @@
 from pathlib import Path
 import logging
-from lib.processing.files import File
+from lib.processing.files import DataFile
 from lib.bigFiles import RecordWriter
 import time
 import pandas as pd
@@ -12,7 +12,7 @@ import requests
 import numpy as np
 import json
 
-def getStats(summaryFile: File, outputPath: Path, apiKeyPath: Path = None):
+def getStats(summaryFile: DataFile, outputPath: Path, apiKeyPath: Path = None):
     if apiKeyPath is not None and apiKeyPath.exists():
         logging.info("Found API key")
         with open(apiKeyPath) as fp:
@@ -24,7 +24,7 @@ def getStats(summaryFile: File, outputPath: Path, apiKeyPath: Path = None):
         maxRequests = 3
 
     accessionCol = "#assembly_accession"
-    df = summaryFile.loadDataFrame(dtype=object, usecols=[accessionCol])
+    df = summaryFile.read(dtype=object, usecols=[accessionCol])
 
     writer = RecordWriter(outputPath, 30000)
     writtenFileCount = writer.writtenFileCount()
@@ -76,8 +76,8 @@ def getStats(summaryFile: File, outputPath: Path, apiKeyPath: Path = None):
 
     writer.combine(True)
 
-def merge(summaryFile: File, statsFilePath: Path, outputPath: Path) -> None:
-    df = summaryFile.loadDataFrame(low_memory=False)
+def merge(summaryFile: DataFile, statsFilePath: Path, outputPath: Path) -> None:
+    df = summaryFile.read(low_memory=False)
     df2 = pd.read_csv(statsFilePath, low_memory=False)
     df = df.merge(df2, how="outer", left_on="#assembly_accession", right_on="current_accession")
     df.to_csv(outputPath, index=False)

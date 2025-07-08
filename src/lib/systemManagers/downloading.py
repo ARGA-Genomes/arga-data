@@ -1,6 +1,6 @@
 from pathlib import Path
 from lib.systemManagers.baseManager import SystemManager, Task
-from lib.processing.files import File, Step
+from lib.processing.files import DataFile, Step
 from lib.processing.scripts import OutputScript
 import logging
 import lib.downloading as dl
@@ -9,7 +9,7 @@ class _Download(Task):
     def __init__(self, filePath: Path, properties: dict):
         super().__init__()
         
-        self.file = File(filePath, properties)
+        self.file = DataFile(filePath, properties)
 
     def getOutputPath(self) -> Path:
         return self.file.filePath

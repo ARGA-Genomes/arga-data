@@ -136,7 +136,7 @@ class ConversionManager(SystemManager):
         logging.warning(f"No mapping found for dataset {self.name}")
         return None
 
-    def prepare(self, file: File, properties: dict, forceRetrieve: bool) -> None:
+    def prepare(self, file: DataFile, properties: dict, forceRetrieve: bool) -> None:
         mapID = properties.pop("mapID", -1)
         mapColumnName = properties.pop("mapColumnName", "")
         map = self._getMap(mapID, mapColumnName, forceRetrieve)

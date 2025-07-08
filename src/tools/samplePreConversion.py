@@ -1,6 +1,6 @@
 import pandas as pd
 from lib.data.argParser import ArgParser
-from lib.processing.files import File, Step
+from lib.processing.files import Step
 import random
 import logging
 import lib.dataframes as dff
