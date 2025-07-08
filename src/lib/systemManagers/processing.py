@@ -16,7 +16,7 @@ class _Node(Task):
         return self.index == other.index
 
     def getOutputPath(self) -> Path:
-        return self.script.output.filePath
+        return self.script.output.path
 
     def getOutputFile(self) -> DataFile:
         return self.script.output
@@ -40,7 +40,7 @@ class _Root(_Node):
         self.file = file
 
     def getOutputPath(self) -> Path:
-        return self.file.filePath
+        return self.file.path
 
     def getOutputFile(self) -> DataFile:
         return self.file

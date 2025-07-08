@@ -198,10 +198,10 @@ class OutputScript(FunctionScript):
         if fProperty == _FileProperty.DIR.value:
             if suffixes:
                 logging.warning("Suffix provided for a parent path which cannot be resolved, suffix not applied")
-            return file.filePath.parent
+            return file.path.parent
 
         if fProperty == _FileProperty.PATH.value:
-            pth = file.filePath
+            pth = file.path
             for suffix in suffixes:
                 pth = pth.with_suffix(suffix if not suffix else f".{suffix}") # Prepend a dot for valid suffixes
             return pth

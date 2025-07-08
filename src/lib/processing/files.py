@@ -54,7 +54,7 @@ class FileObject:
             return
         
         self.delete()
-        self._backupPath.rename(self.filePath)
+        self._backupPath.rename(self.path)
         self._backupPath = None
     
     def deleteBackup(self) -> None:
@@ -78,7 +78,7 @@ class DataFile(FileObject):
         subclassMap = {subclass.format: subclass for subclass in cls.__subclasses__()}
         subclass = DataFormat._value2member_map_.get(Path(args[0]).suffix, None)
         if subclass is None or subclass not in subclassMap:
-            return super().__new__(cls, *args)
+            return super().__new__(cls)
         
         return super().__new__(subclassMap[subclass])
 
@@ -147,7 +147,7 @@ class ParquetFile(DataFile):
         return pq.read_table(self.path, **kwargs).to_pandas()
     
     def readIterator(self, chunkSize: int, **kwargs) -> Iterator[pd.DataFrame]:
-        parquetFile = pq.ParquetFile(self.filePath)
+        parquetFile = pq.ParquetFile(self.path)
         return (batch.to_pandas() for batch in parquetFile.iter_batches(batch_size=chunkSize, **kwargs))
 
     def write(self, df: pd.DataFrame, **kwargs: dict) -> None:

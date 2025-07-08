@@ -49,8 +49,8 @@ if __name__ == '__main__':
         source._prepare(Step.PROCESSING, flags)
         stageFile = source.processingManager.getLatestNodeFile() # Should be singular stage file before DwC
 
-        if not stageFile.filePath.exists():
-            print(f"File {stageFile.filePath} does not exist, please run all required downloading/processing.")
+        if not stageFile.exists():
+            print(f"File {stageFile.path} does not exist, please run all required downloading/processing.")
             continue
 
         seed = kwargs.seed if kwargs.seed >= 0 else random.randrange(2**32 - 1) # Max value for pandas seed

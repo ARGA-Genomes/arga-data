@@ -40,7 +40,7 @@ class Conversion(Task):
         writers: dict[str, DFWriter] = {}
         for event in self.map.events:
             cleanedName = event.replace(" ", "_")
-            writers[event] = DFWriter(self.output.filePath / f"{cleanedName}.csv")
+            writers[event] = DFWriter(self.output.path / f"{cleanedName}.csv")
 
         logging.info("Processing chunks for conversion")
 
