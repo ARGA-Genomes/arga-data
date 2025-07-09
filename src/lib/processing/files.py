@@ -124,6 +124,7 @@ class CSVFile(DataFile):
 
     def writeIterator(self, iterator: Iterator[pd.DataFrame], columns: list[str], **kwargs: dict) -> None:
         for idx, chunk in enumerate(iterator):
+            chunk = chunk.reindex(columns=columns)
             self.write(chunk, header=columns if idx == 0 else False, mode="a", **kwargs)
 
     def getColumns(self) -> list[str]:
@@ -157,6 +158,7 @@ class ParquetFile(DataFile):
         schema = pa.schema([(column, pa.string()) for column in columns])
         with pq.ParquetWriter(self.path, schema=schema) as writer:
             for chunk in iterator:
+                chunk = chunk.reindex(columns)
                 writer.write_table(chunk)
 
     def getColumns(self) -> list[str]:
@@ -224,6 +226,3 @@ def moveDataFile(inputFile: DataFile, outputFile: DataFile):
     iterator = inputFile.readIterator(1024 * 16)
     outputFile.writeIterator(iterator, index=False)
     inputFile.delete()
-
-def combinedIterator(dataFiles: list[DataFile], chunkSize: int, **kwargs: dict) -> Iterator:
-    return (chunk for file in dataFiles for chunk in file.readIterator(chunkSize, **kwargs))
