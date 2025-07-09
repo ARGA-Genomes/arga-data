@@ -1,14 +1,9 @@
-import csv
 from pathlib import Path
-import lib.common as cmn
 import pandas as pd
-import sys
-import pyarrow as pa
-import pyarrow.parquet as pq
 import logging
-from lib.progressBar import ProgressBar
 import lib.processing.files as files
 from lib.processing.files import DataFormat, DataFile, Folder
+from typing import Iterator
 
 class DFWriter:
 
@@ -59,7 +54,7 @@ class DFWriter:
             return
 
         logging.info("Combining into one file")
-        self.outputFile.writeIterator(files.combinedIterator(self._sectionFiles), self._uniqueColumns)
+        self.outputFile.writeIterator(combinedIterator(self._sectionFiles), list(self._uniqueColumns))
         logging.info(f"\nCreated a single file at {self.outputFile.path}")
         
         if removeParts:
@@ -90,3 +85,17 @@ class RecordWriter(DFWriter):
             self._writeRecords()
 
         super().combine(removeParts)
+
+def combinedIterator(dataFiles: list[DataFile], chunkSize: int, **kwargs: dict) -> Iterator[pd.DataFrame]:
+    return (chunk for file in dataFiles for chunk in file.readIterator(chunkSize, **kwargs))
+
+def combineDirectoryFiles(outputFilePath: Path, inputFolderPath: Path, matchPattern: str = "") -> None:
+    inputDataFiles = [dataFile for dataFile in  [DataFile(path) for path in inputFolderPath.glob(matchPattern)] if dataFile.format != DataFormat.UNKNOWN and dataFile.format != DataFormat.STACKED]
+    logging.info(f"Found {len(inputDataFiles)} files to combine")
+    columns = {column: None for dataFile in inputDataFiles for column in dataFile.getColumns()}
+    combineDataFiles(outputFilePath, inputDataFiles, columns)
+
+def combineDataFiles(outputFilePath: Path, dataFiles: list[DataFile], columns: list[str]) -> None:
+    outputDataFile = DataFile(outputFilePath)
+    logging.info(f"Combining into one file at {outputFilePath}")
+    outputDataFile.writeIterator(combinedIterator(dataFiles, 1024), list(columns), index=False)
