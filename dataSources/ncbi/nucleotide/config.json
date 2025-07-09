@@ -76,11 +76,12 @@
         ],
         "linear": [
             {
-                "path": "./processing.py",
-                "function": "combine",
+                "path": ".lib/bigFiles.py",
+                "function": "combineDirectoryFiles",
                 "args": [
+                    "{OUT-PATH}",
                     "{IN-DIR}",
-                    "{OUT-PATH}"
+                    "*.parquet"
                 ],
                 "output": "{SUBSECTION}.csv"
             }
