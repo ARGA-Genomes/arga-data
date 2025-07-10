@@ -1,10 +1,11 @@
 import math
 import requests
 import pandas as pd
+from pathlib import Path
 
 def getPortalData(outputFilePath: Path) -> None:
     baseURL = "https://data.csiro.au/dap/ws/v2/collections"
-    entriesPerPage = 100
+    entriesPerPage = 1000
 
     # Get page 1 first, then iterate over remaining pages
     response = requests.get(f"{baseURL}?rpp={entriesPerPage}&p={1}")
@@ -12,6 +13,7 @@ def getPortalData(outputFilePath: Path) -> None:
     records = data["dataCollections"]
 
     totalResults = data["totalResults"]
+    print(totalResults)
     totalCalls = math.ceil(int(totalResults) / entriesPerPage)
 
     for call in range(1, totalCalls):
