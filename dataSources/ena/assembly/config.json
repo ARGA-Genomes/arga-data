@@ -4,10 +4,7 @@
     "downloading": [
         {
             "url": "https://www.ebi.ac.uk/ena/portal/api/search?result=assembly&fields=all&limit=0&format=tsv",
-            "name": "ena_assembly_all_fields.tsv",
-            "properties": {
-                "separator": "\t"
-            }
+            "name": "ena_assembly_all_fields.tsv"
         }
     ],
     "conversion": {
