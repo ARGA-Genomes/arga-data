@@ -2,7 +2,7 @@ import requests
 from urllib.parse import quote
 import pandas as pd
 from pathlib import Path
-from lib.downloader import Downloader
+import lib.downloading as dl 
 
 def buildCall(size: int, query: str, tidy: bool) -> str:
     baseURL = "https://goat.genomehubs.org/api/v2/"
@@ -17,8 +17,7 @@ def build(outputFilePath: Path) -> None:
     status = output.get("status", {})
     hits = status.get("hits", 0)
 
-    downloader = Downloader()
-    downloader.download(buildCall(hits, query, True), outputFilePath, headers={"accept": "text/csv"})
+    dl.download(buildCall(hits, query, True), outputFilePath, verbose=True, headers={"accept": "text/csv"})
 
 def clean(filePath: Path, outputFilePath: Path) -> None:
     df = pd.read_csv(filePath)
