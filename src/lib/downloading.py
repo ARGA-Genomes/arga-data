@@ -56,7 +56,4 @@ def download(url: str, filePath: Path, chunkSize: int = 1024*1024, verbose: bool
                 else:
                     print(f"Downloaded chunk: {idx}", end="\r")
 
-    if verbose:                
-        print()
-
     return True

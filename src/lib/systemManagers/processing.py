@@ -110,5 +110,5 @@ class ProcessingManager(SystemManager):
         self._addProcessing(node, list(processingSteps), 0)
 
     def addFinalProcessing(self, processingSteps: list[dict]) -> None:
-        finalNode = self._createNode(processingSteps[0], self._scriptNodes[-1], len(self._scriptNodes))
+        finalNode = self._createNode(processingSteps[0], self._scriptNodes[-1] if self._scriptNodes else self._rootNodes, len(self._scriptNodes))
         self._addProcessing(finalNode, processingSteps[1:], len(self._scriptNodes))
