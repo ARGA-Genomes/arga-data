@@ -61,6 +61,6 @@ def combine(folderPath: Path, outputFilePath: Path):
     df["parent_tsn"] = df["parent_tsn"].astype("Int64")
 
     df["nomenclatural_code"] = "ICZN"
-    df["scientific_name"] = df["complete_name"] + df["taxon_author"]
+    df["scientific_name"] = df["complete_name"] + " " + df["taxon_author"]
 
     df.to_csv(outputFilePath, index=False)
