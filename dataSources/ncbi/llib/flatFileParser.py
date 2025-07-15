@@ -1,308 +1,269 @@
 from pathlib import Path
-from enum import Enum
 import pandas as pd
+from lib.progressBar import ProgressBar
+import logging
+import traceback
+from typing import Generator
 
-class Section(Enum):
-    LOCUS = "LOCUS"
-    DEFINITION = "DEFINITION"
-    ACCESSION = "ACCESSION"
-    VERSION = "VERSION"
-    COMMENT = "COMMENT"
-    DBLINK = "DBLINK"
-    KEYWORDS = "KEYWORDS"
-    SOURCE = "SOURCE"
-    REFERENCE = "REFERENCE"
-    FEATURES = "FEATURES"
-    ORIGIN = "ORIGIN"
-    CONTIG = "CONTIG"
-    
-_seqBaseURL = "https://ftp.ncbi.nlm.nih.gov/genbank/"
-_genbankBaseURL = "https://www.ncbi.nlm.nih.gov/nuccore/"
-_fastaSuffix = "?report=fasta&format=text"
+def parseFlatfile(filePath: Path) -> pd.DataFrame | None:
+    logging.info(f"Parsing flat file: {filePath}")
 
-def parseFlatfile(filePath: Path, verbose: bool = False) -> pd.DataFrame:
-    with open(filePath) as fp:
-        try:
-            data = fp.read()
-        except UnicodeDecodeError:
-            print(f"Failed to read file: {filePath}")
-            return []
+    def sectionGenerator() -> Generator[str, None, None]:
+        val = ""
+        skipping = False
+        with open(filePath) as fp:
+            for line in fp:
+                if not line[0].isspace(): # New section hit, yield previous
+                    if skipping:
+                        skipping = False
+                    else:
+                        yield val
+                        val = ""
 
-    # Cut off header of file
-    firstLocusPos = data.find("LOCUS")
-    header = data[:firstLocusPos]
-    data = data[firstLocusPos:]
+                    if line.startswith("ORIGIN"): # Start skipping next value
+                        skipping = True
 
+                if not skipping:
+                    val += line
+        
+        yield val # Yield final section after last origin
+        return
+
+    iterator = sectionGenerator()
+
+    # Get header data
+    _, headerData = [next(iterator) for _ in range(2)]
+    headerData = headerData.split("\n")
+    fileName = headerData[0].split(" ", 1)[0]
+    date = headerData[1]
+    releaseNum = headerData[3].rsplit(" ", 1)[-1]
+    loci = headerData[7].lstrip().split(" ", 1)[0]
+    headerData = {"filename": fileName.lower(), "date": date.strip(), "release_num": releaseNum, "seq_file": f"https://ftp.ncbi.nlm.nih.gov/genbank/{fileName}.gz"}
+
+    # Iterate through rest of file
+    progress = ProgressBar(int(loci))
     records = []
-    for idx, entry in enumerate(data.split("//\n")[:-1], start=1): # Split into separate loci, exclude empty entry after last
-        if verbose:
-            print(f"Parsing entry: {idx}", end="\r")
-
-        entryData = _parseEntry(entry)
-
-        # Attach seq file path and fasta file
-        entryData["seq_file"] = f"{_seqBaseURL}{filePath.name}.gz"
-        version = entryData.get("version", "")
-        if version:
-            entryData["genbank_url"] = f"{_genbankBaseURL}{version}"
-            entryData["fasta_url"] = f"{_genbankBaseURL}{version}{_fastaSuffix}"
-
-        # Add specimen field
-        specimenOptions = [
-            "specimen_voucher"
-            "isolate"
-            "accession"
-        ]
-
-        for idx, option in enumerate(specimenOptions, start=1):
-            value = entryData.get(option, None)
-            if value is not None:
-                if idx == len(specimenOptions):
-                    value = f"NCBI_{value}_specimen"
-                entryData["specimen"] = value
-                break
-        else: # No specimen set
-            entryData["specimen"] = None
-
-        records.append(entryData)
-
-    if verbose:
-        print()
-
-    return pd.DataFrame.from_records(records)
-    
-def _parseEntry(entryBlock: str) -> dict:
-    splitSections = _getSections(entryBlock, allowDigits=False)
-
-    entryData = {}
-    for sectionBlock in splitSections:
-        heading, data = sectionBlock.split(" ", 1)
-
-        if heading not in Section._value2member_map_:
-            print(f"Unhandled heading: {heading}")
+    currentEntry = Entry(headerData)
+    for sectionData in iterator:
+        if sectionData == "//\n": # End of entry
+            records.append(currentEntry)
+            progress.update(extraInfo=f"{len(records)}/{loci} loci")
+            currentEntry = Entry(headerData)
             continue
 
-        section = Section(heading)
-        if section == Section.LOCUS:
-            entryData |= _parseLocus(data)
+        heading, sectionData = sectionData.split(" ", 1)
+        currentEntry.addSection(heading, sectionData)
 
-        elif section in (Section.DEFINITION, Section.ACCESSION, Section.VERSION, Section.COMMENT):
-            entryData |= _parseText(heading, data)
+    df = pd.DataFrame.from_records([entry.data for entry in records])
+    df["specimen"] = ""
+    for column in ("specimen_voucher", "isolate", "accession"):
+        if column in df.columns:
+            df["specimen"] = df["specimen"].fillna(df[column])
 
-        elif section == Section.DBLINK:
-            entryData |= _parseDBs(data)
+    return df
 
-        elif section == Section.KEYWORDS:
-            entryData |= _parseKeywords(data)
+class Entry:
 
-        elif section == Section.SOURCE:
-            entryData |= _parseSource(data)
+    __slots__ = "data"
 
-        elif section == Section.REFERENCE:
-            extract = {
-                "pubmed": "",
-                "title": "",
-                "authors": [],
-                "journal": "",
-                "bases": [],
-                "remark": ""
-            }
+    def __init__(self, headerData: dict):
+        self.data = dict(headerData)
+        
+    def addSection(self, heading: str, data: str) -> None:
+        parser = getattr(self, f"{heading.lower()}Parser", None)
+        if parser is None:
+            return
+        
+        try:
+            parser(data)
+        except:
+            print(f"\nFailed to parse {heading}")
+            print(traceback.format_exc())
+            return
 
-            if "references" not in entryData:
-                entryData["references"] = []
-                for key in extract:
-                    entryData[key] = []
+    def flattenLines(self, text: str, joiner: str = " ") -> str:
+        return joiner.join(line.strip() for line in text.split("\n") if line)
 
-            reference, extracted = _parseReference(data, extract)
-            entryData["references"].append(reference)
-            for key, value in extracted.items():
-                entryData[key].append(value)
-
-        elif section == Section.FEATURES:
-            entryData |= _parseFeatures(data)
-
-        elif section == Section.ORIGIN:
-            pass
-
-        elif section == Section.CONTIG:
-            pass
-
-    # Stringify columns so they can be saved as parqet/csv
-    stringColumns = ["authors", "bases", "references"]
-    for column in stringColumns:
-        entryData[column] = str(entryData[column])
-
-    return entryData
-
-def _parseLocus(data: str) -> dict[str, str]:
-        parameters = ["locus", "basepairs", "", "type", "shape", "seq_type", "date"]
-        return {param: value.strip() for param, value in zip(parameters, data.split()) if param}
-
-def _parseText(heading: str, data: str) -> dict[str, str]:  
-    return {heading.lower(): _flattenBlock(data)}
-
-def _parseDBs(data: str) -> dict[str, str]:
-    dbs = {}
-    key = "unknown_db"
-
-    for line in data.split("\n"):
-        if not line.strip():
-            continue
-
-        if ":" in line: # Line has a new key in it
-            key, line = line.split(":")
-            key = key.strip().lower()
-            dbs[key] = []
-
-        if key == "unknown_db": # Found a line before a db name
-            dbs[key] = [] # Create a list for values with no db name
-            
-        dbs[key].extend([element.strip() for element in line.split(",")])
-
-    return dbs
-
-def _parseKeywords(data: str) -> dict[str, str]:
-    return {"keywords": "" if data.strip() == "." else _flattenBlock(data)}
-
-def _parseSource(data: str) -> dict[str, str]: 
-    source, leftover = _getSections(data, 2)
-    organism, higherClassification = leftover.split("\n", 1)
-    return {"source": source.strip(), "organism": organism.strip().split(" ", 1)[1].strip(), "higher_classification": _flattenBlock(higherClassification)}
-
-def _parseReference(data: str, extract: dict) -> tuple[dict[str, str], dict[str, str | list]]:
-    reference = {}
-    refInfo = _getSections(data, 2)
-    basesInfo = refInfo.pop(0)
-    basesInfo = basesInfo.strip(" \n").split(" ", 1)
-    # reference["id"] = int(basesInfo[1].strip())
-
-    if len(basesInfo) == 1 or "bases" not in basesInfo[1]: # Only reference number or bases not specified
-        reference["bases"] = []
-    else:
-        baseRanges = basesInfo[1].strip().lstrip("(bases").rstrip(")")
-        bases = []
-        for baseRange in baseRanges.split(";"):
-            if not baseRange:
+    def getSections(self, text: str, leadingWhiteSpace: int = 0, allowLeadingDigits: bool = True, flattenLines: bool = False) -> list[str]:
+        sections = []
+        lines = text.split("\n")
+        
+        for line in lines:
+            if not line:
                 continue
 
-            try:
-                basesFrom, basesTo = baseRange.split("to")
-                bases.append(f"({basesFrom.strip()}) to {basesTo.strip()}")
-            except:
-                print(f"{data}, ERROR: {baseRange}")
+            if len(line) <= leadingWhiteSpace:
+                continue
 
-        reference["bases"] = bases
+            if not sections:
+                sections.append(line.strip() if flattenLines else line)
+                continue
 
-    for section in refInfo:
-        sectionName, sectionData = section.strip().split(" ", 1)
-        if sectionName == "JOURNAL":
-            if "PUBMED" in sectionData:
-                sectionData, pubmed = sectionData.split("PUBMED")
-                reference["journal"] = _flattenBlock(sectionData)
-                reference["pubmed"] = pubmed.strip()
+            if line[leadingWhiteSpace] != " " and all(char == " " for char in line[:leadingWhiteSpace]): # Valid section start line
+                if allowLeadingDigits or line[leadingWhiteSpace].isdigit(): # Leading character is valid for section start
+                    sections.append(line.strip() if flattenLines else line)
+                    continue
 
-        reference[sectionName.lower()] = _flattenBlock(sectionData)
+            sections[-1] += f" {line.strip()}" if flattenLines else f"\n{line}"
 
-    # Split reference after logic
-    extracted = {}
-    for key, default in extract.items():
-        extracted[key] = reference.get(key, default)
+        return sections
+    
+    def locusParser(self, data: str):
+        locusPropertyNames = ["locus", "base_pairs", None, "type", "shape", "seq_type", "date"] # None entry to negate "bp" text
+        for propertyName, value in zip(locusPropertyNames, data.split()):
+            if propertyName is not None:
+                self.data[propertyName] = value
 
-    return reference, extracted
+    def definitionParser(self, data: str):
+        self.data["definition"] = self.flattenLines(data)
 
-def _parseFeatures(data: str) -> dict[str, str]:
-    featureBlocks = _getSections(data, 5)
-    genes = {}
-    otherProperties = {}
+    def accessionParser(self, data: str):
+        self.data["accession"] = data.strip()
 
-    features = {}
-    for block in featureBlocks[1:]:
-        sectionHeader, sectionData = block.lstrip().split(" ", 1)
+    def versionParser(self, data: str):
+        genbankURL = "https://www.ncbi.nlm.nih.gov/nuccore/"
+        fastaSuffix = "?report=fasta&format=text"
 
-        propertyList = _flattenBlock(sectionData, "//").split("///") # Single slashes exist in data, convert newlines to 2 slashes and then split on 3
-        properties = {"bp_range": propertyList[0]}
-        for property in propertyList[1:]: # base pair range is first property in list
-            splitProperty = property.replace("//", " ").split("=")
-            if len(splitProperty) == 2:
-                key, value = splitProperty
+        version = data.strip()
+        self.data["version"] = version
+        self.data["genbank_url"] = f"{genbankURL}{version}" 
+        self.data["fasta_url"] = f"{genbankURL}{version}{fastaSuffix}"
+    
+    def commentParser(self, data: str):
+        self.data["comment"] = "\\n".join(self.getSections(f"{7*' '}{data}", 12, flattenLines=True))
+
+        parseCommentTags = [
+            "Genome-Assembly-Data",
+            "Genome-Annotation-Data",
+            "Assembly-Data"
+        ]
+
+        for tag in parseCommentTags:
+            startTag = f"##{tag}-START##"
+            endTag = f"##{tag}-END##"
+
+            startPos = data.find(startTag)
+            if startPos < 0: # Didn't find tag
+                continue
+
+            mapping = data[startPos+len(startTag):data.find(endTag)].strip()
+            mapping = self.getSections(mapping, 12, flattenLines=True)
+            for item in mapping:
+                key, value = item.split("::")
+                self.data[key.strip().lower().replace(" ", "_").replace("(", "").replace(")", "")] = value.strip()
+
+    def dblinkParser(self, data: str):
+        dbs = self.getSections(f"{7*' '}{data}", 12, flattenLines=True)
+        
+        cleanedDBs: list[str] = []
+        for db in dbs:
+            if ":" not in db:
+                cleanedDBs[-1] += f" {db}"
             else:
-                key = splitProperty[0]
-                value = key
+                cleanedDBs.append(db)
 
-            properties[key.strip('"')] = value.strip('"')
+        baseURLS = {
+            "BioProject": "https://www.ncbi.nlm.nih.gov/bioproject/",
+            "BioSample": "https://www.ncbi.nlm.nih.gov/biosample/",
+            "Sequence Read Archive": "https://www.ncbi.nlm.nih.gov/sra/",
+            "ProbeDB": "https://www.ncbi.nlm.nih.gov/biosample/",
+            "Assembly": "https://www.ncbi.nlm.nih.gov/assembly/",
+            "Project": "https://www.ncbi.nlm.nih.gov/bioproject/"
+        }
 
-        if sectionHeader == "source": # Break out source section into separate columns
-            organism = properties.pop("organism", None)
-            if organism is not None:
-                properties["features_organism"] = organism
+        for db in cleanedDBs:
+            dbName, dbCodes = db.split(":")
+            lowerName = dbName.lower()
 
-            pcrPrimers = properties.pop("PCR_primers", None)
-            if pcrPrimers is not None:
-                pcrSections = pcrPrimers.split(",")
+            self.data[lowerName] = []
+            for dbCode in dbCodes.split(","):
+                self.data[lowerName].append(baseURLS.get(dbName) + dbCode.strip())
 
-                for section in pcrSections:
-                    if "_" not in section:
-                        properties["PCR_primers"] = section
-                        break
+    def keywordsParser(self, data: str):
+        self.data["keywords"] = "" if data.strip() == "." else self.flattenLines(data)
 
-                    key, value = section.split(":")
-                    properties[key.strip()] = value.strip()
+    def sourceParser(self, data: str):
+        source, remainder = self.getSections(data, 2)
+        organism, higherClassification = remainder.split("\n", 1)
 
-            features |= properties
+        self.data["source"] = source.strip()
+        self.data["organism"] = organism.strip().split(" ", 1)[1].strip()
+        self.data["higher_classification"] = self.flattenLines(higherClassification)
 
-        else: # Every other block that isn't source
-            gene = properties.get("gene", None)
-            if gene is not None:  # If section is associated with a gene
-                properties.pop("gene")
-                if gene not in genes:
-                    genes[gene] = {}
+    def referenceParser(self, data: str):
+        references = "references"
+        if references not in self.data:
+            self.data[references] = []
 
-                if sectionHeader not in genes[gene]:
-                    genes[gene][sectionHeader] = []
+        referenceItems = self.getSections(data, 2, flattenLines=True)
+        referenceProperties = {}
 
-                genes[gene][sectionHeader].append(properties)
+        for idx, item in enumerate(referenceItems):
+            if idx == 0: # Reference number + base pair range
+                bpRange = item.split(" ", 1)[-1]
+                referenceProperties["bp_range"] = bpRange
+                continue
+            
+            key, value = item.split(" ", 1)
+            referenceProperties[key.lower()] = value.strip()
 
-            else: # Not associated with a gene
-                if sectionHeader not in otherProperties:
-                    otherProperties[sectionHeader] = []
+        self.data[references].append(referenceProperties)
 
-                otherProperties[sectionHeader].append(properties)
-    
-    # Only write genes and other properties if exists
-    if genes:
-        features["genes"] = str(genes)
+    def featuresParser(self, data: str):
+        extraFeatures = "other"
 
-    if otherProperties:
-        features["other_properties"] = str(otherProperties)
+        def linesToDict(lines: list[str]) -> dict:
+            # Clean up leading / and merge lines without leading /
+            cleanLines = []
+            for line in lines:
+                if line.startswith("/"):
+                    cleanLines.append(line[1:])
+                elif not cleanLines:
+                    cleanLines.append(line)
+                else:
+                    cleanLines[-1] += f" {line}"
 
-    return features
+            # Parse cleaned lines to split key/value pairs
+            retVal = {}
+            for line in cleanLines:
+                if "=" not in line:
+                    if extraFeatures not in retVal:
+                        retVal[extraFeatures] = []
 
-def _getSections(textBlock: str, whitespace: int = 0, allowDigits=True) -> list[str]:
-    sections = []
-    sectionStart = 0
-    searchPos = 0
-    textBlock = textBlock.rstrip("\n") # Make sure block doesn't end with newlines
+                    retVal[extraFeatures].append(line)
+                    continue
 
-    while True:
-        nextNewlinePos = textBlock.find("\n", searchPos)
-        nextPlus1 = nextNewlinePos + 1
+                key, value = line.split("=", 1)
+                retVal[key] = value.strip('"')
 
-        if nextNewlinePos < 0: # No next new line
-            sections.append(textBlock[sectionStart:])
-            break
+            return retVal
 
-        if len(textBlock[nextPlus1:nextPlus1+whitespace+1].strip()) == 0: # No header on next line
-            searchPos = nextPlus1
-            continue
+        data = data.split("\n", 1)[-1]
+        featureBlocks = self.getSections(data, 5)
 
-        if not allowDigits and textBlock[nextPlus1+whitespace+1].isdigit(): # Check for digit leading next header
-            searchPos = nextPlus1
-            continue
+        genesLabel = "features_genes"
+        self.data[genesLabel] = {}
+        for block in featureBlocks:
+            blockHeader, blockData = block.lstrip().split(" ", 1)
 
-        sections.append(textBlock[sectionStart:nextNewlinePos])
-        sectionStart = searchPos = nextPlus1
+            if "\n" not in blockData: # No properties after base pair range
+                bpRange = blockData.strip()
+                properties = {}
+            else: # Parse properties
+                bpRange, properties = blockData.lstrip().split("\n", 1)
+                sections = self.getSections(properties, 21, flattenLines=True)
+                properties = linesToDict(sections)
 
-    return sections
-    
-def _flattenBlock(textBlock: str, joiner: str = " ") -> str:
-    return joiner.join(line.strip() for line in textBlock.split("\n") if line)
+            if blockHeader == "source": # Source properties get split out and put directly into data
+                properties["features_other"] = properties.pop(extraFeatures, [])
+                properties["features_organism"] = properties.pop("organism", "")
+                self.data |= properties
+                continue
+
+            if bpRange not in self.data[genesLabel]:
+                self.data[genesLabel][bpRange] = {}
+
+            properties.pop("translation", None) # Remove translation
+            self.data[genesLabel][bpRange][blockHeader] = properties
+
+        self.data[genesLabel] = str(self.data[genesLabel])

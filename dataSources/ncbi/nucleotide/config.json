@@ -63,13 +63,25 @@
         "maxDepth": 0
     },
     "processing": {
-        "linear": [
+        "parallel": [
             {
                 "path": "./processing.py",
                 "function": "parse",
                 "args": [
-                    "{IN-DIR}",
+                    "{IN-PATH}",
                     "{OUT-PATH}"
+                ],
+                "output": "{IN-PATH.parquet}"
+            }
+        ],
+        "linear": [
+            {
+                "path": ".lib/bigFiles.py",
+                "function": "combineDirectoryFiles",
+                "args": [
+                    "{OUT-PATH}",
+                    "{IN-DIR}",
+                    "*.parquet"
                 ],
                 "output": "{SUBSECTION}.csv"
             }

@@ -1,29 +1,18 @@
-from lib.zipping import RepeatExtractor
-from lib.bigFiles import DFWriter
+# from lib.zipping import RepeatExtractor
+import lib.zipping as zp
 from pathlib import Path
 from llib import flatFileParser as ffp
+from lib.bigFiles import combineFilePaths
 
-def parseNucleotide(folderPath: Path, outputFilePath: Path, verbose: bool = True) -> None:
-    extractor = RepeatExtractor(outputFilePath.parent)
-    writer = DFWriter(outputFilePath)
-
-    for idx, file in enumerate(folderPath.iterdir(), start=1):
-        if verbose:
-            print(f"Extracting file {file.name}")
-        else:
-            print(f"Processing file: {idx}", end="\r")
+def parse(filePath: Path, outputFilePath: Path) -> None:
+    extractedFile = zp.extract(filePath, outputFilePath.parent)
+    if extractedFile is None:
+        return
     
-        extractedFile = extractor.extract(file)
-
-        if extractedFile is None:
-            print(f"Failed to extract file {file.name}, skipping")
-            continue
-
-        if verbose:
-            print(f"Parsing file {extractedFile}")
-
-        df = ffp.parseFlatfile(extractedFile, verbose)
-        writer.write(df)
+    df = ffp.parseFlatfile(extractedFile)
+    if df is None:
         extractedFile.unlink()
-
-    writer.combine(True)
+        return
+    
+    df.to_parquet(outputFilePath)
+    extractedFile.unlink()
