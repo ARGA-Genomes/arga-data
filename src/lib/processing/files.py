@@ -6,6 +6,7 @@ import logging
 import pyarrow.parquet as pq
 from typing import Iterator
 import pyarrow as pa
+import shutil
 
 class Step(Enum):
     DOWNLOADING = "downloading"
@@ -171,6 +172,26 @@ class Folder(FileObject):
 
         if create:
             path.mkdir(exist_ok=True)
+
+    def backUp(self, overwrite: bool = False) -> None:
+        backupPath = self.path.parent / f"{self.path.stem}_backup{self.path.suffix}"
+        if backupPath.exists():
+            if not overwrite:
+                logging.info("Unable to create new backup as it already exists")
+                return
+        
+            cmn.clearFolder(backupPath, True)
+        
+        self._backupPath = shutil.move(self.path, backupPath)
+        print(self._backupPath, type(self._backupPath))
+
+    def restoreBackUp(self) -> None:
+        if self._backupPath is None:
+            return
+        
+        self.delete()
+        shutil.move(self._backupPath, self.path)
+        self._backupPath = None
 
     def delete(self) -> None:
         cmn.clearFolder(self.path, True)
