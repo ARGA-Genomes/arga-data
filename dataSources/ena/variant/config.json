@@ -12,7 +12,7 @@
                 "function": "extract",
                 "args": [
                     "{IN-PATH}",
-                    "{OUTDIR}"
+                    "{OUT-DIR}"
                 ],
                 "output": "{IN-PATH.}",
                 "properties": {
