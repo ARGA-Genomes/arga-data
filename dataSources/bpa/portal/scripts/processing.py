@@ -1,7 +1,7 @@
 from pathlib import Path
 import requests
 import pandas as pd
-import math
+from lib.progressBar import ProgressBar
 
 def build(outputFilePath: Path, entriesPerPage: int) -> None:
     url = "https://data.bioplatforms.com/api/3/action/package_search?q=*:*&rows="
@@ -16,19 +16,19 @@ def build(outputFilePath: Path, entriesPerPage: int) -> None:
         print("No entries found, quitting...")
         return
     
-    numberOfCalls = math.ceil(totalEntries / entriesPerPage)
+    numberOfCalls = (totalEntries / entriesPerPage).__ceil__()
+    progress = ProgressBar(numberOfCalls)
 
     entries = []
     for call in range(numberOfCalls):
-        startEntry = call * entriesPerPage
-        print(f"Reading page: {call+1} / {numberOfCalls}", end='\r')
-        response = requests.get(f"{url}{entriesPerPage}&start={startEntry}")
-        responseData = response.json()
+        response = requests.get(f"{url}{entriesPerPage}&start={call*entriesPerPage}")
+        data: dict = response.json()
 
-        summary = responseData.get("result", {})
-        results = summary.get("results", [])
+        results = data.get("result", {}).get("results", [])
         entries.extend(results)
 
-    print()
+        progress.update()
+
     df = pd.DataFrame.from_records(entries)
+    df["bpa_url"] = "https://data.bioplatforms.com/" + df["type"] + "/" + df["id"]
     df.to_csv(outputFilePath, index=False, encoding='utf-8')
