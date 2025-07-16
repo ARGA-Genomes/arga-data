@@ -5,8 +5,7 @@
         "path": "./processing.py",
         "function": "build",
         "args": [
-            "{OUT-PATH}",
-            "./apiKey.txt"
+            "{OUT-PATH}"
         ],
         "output": "algaeBase.csv"
     },

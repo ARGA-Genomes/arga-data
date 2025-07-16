@@ -3,39 +3,34 @@ from pathlib import Path
 import pandas as pd
 import json
 import lib.dataframes as dff
+from lib.progressBar import ProgressBar
+from lib.secrets import secrets
+import logging
 
-def getUrl(entryCount: int, page: int) -> str:
-    baseURL = "https://api.algaebase.org/v1.3/"
-    endpoint = "species"
-    query = "taxonomicstatus=C"
-    return f"{baseURL}{endpoint}?{query}&count={entryCount}&offset={page * entryCount}"
-
-def build(outputFile: Path, apiKeyPath: Path) -> None:
-    with open(apiKeyPath) as fp:
-        apiKey = fp.read()
-
+def build(outputFile: Path) -> None:
+    entriesPerCall = 1000
     headers = {
-        "abapikey": apiKey
+        "abapikey": secrets.algaebase.key
     }
 
-    entriesPerCall = 1000
-    response = requests.get(getUrl(entriesPerCall, 0), headers=headers)
-    data = response.json()
-    
-    records = data["result"]
+    def getApiPage(page: int) -> dict:
+        url = f"https://api.algaebase.org/v1.3/species?taxonomicstatus=C&count={entriesPerCall}&offset={page * entriesPerCall}"
+        response = requests.get(url, headers=headers)
+        try:
+            return response.json()
+        except json.JSONDecodeError:
+            logging.error(f"Unable to retrieve data on page: {page}")
+            return {}
+
+    data = getApiPage(0)
+    records: list = data["result"]
     totalCalls = data["_pagination"]["_total_number_of_pages"]
 
+    progress = ProgressBar(totalCalls)
     for call in range(1, totalCalls):
-        print(f"At call: {call} / {totalCalls - 1}", end="\r")
-        response = requests.get(getUrl(entriesPerCall, call), headers=headers)
-
-        try:
-            data = response.json()
-        except json.JSONDecodeError:
-            print(f"\nError with call {call}")
-            continue
-
-        records.extend(data["result"])
+        data = getApiPage(call)
+        records.extend(data.get("result", []))
+        progress.update()
 
     df = pd.DataFrame.from_records(records)
     df = dff.removeSpaces(df)
