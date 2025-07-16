@@ -11,7 +11,8 @@
         "output": "bpa.csv"
     },
     "conversion": {
-        "mapID": 1982878906
+        "mapColumnName": "BPA mappings",
+        "entityColumn": "canonical_name"
     },
     "update": {
         "type": "weekly",
