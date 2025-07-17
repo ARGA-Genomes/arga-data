@@ -2,19 +2,18 @@ from pathlib import Path
 import pandas as pd
 import logging
 import lib.processing.files as files
-from lib.processing.files import DataFormat, DataFile, Folder
+from lib.processing.files import DataFormat, DataFile, Folder, StackedFile
 from typing import Iterator
 
 class DFWriter:
 
-    _subDirName = "bigFileWriter"
     _chunkPrefix = "chunk"
 
-    def __init__(self, outputFilePath: Path, chunkFormat: DataFormat = DataFormat.PARQUET):
+    def __init__(self, outputFilePath: Path, chunkFormat: DataFormat = DataFormat.PARQUET, subDirName: str = "bigFileWriter"):
         self.outputFile = DataFile(outputFilePath)
         self._chunkFormat = chunkFormat
 
-        self.workingDir = Folder(outputFilePath.parent / self._subDirName, create=True)
+        self.workingDir = Folder(outputFilePath.parent / subDirName, create=True)
         self._sectionFiles: list[DataFile] = []
         self._uniqueColumns: dict[str, None] = {}
 
@@ -24,7 +23,7 @@ class DFWriter:
             self._uniqueColumns |= {column: None for column in dataFile.getColumns()}
 
         if self._sectionFiles:
-            logging.info(f"Added {len(self._sectionFiles)} existing files from working directory")
+            logging.info(f"Added {len(self._sectionFiles)} existing files from working directory '{self.workingDir.path}'")
 
     def writtenFileCount(self) -> int:
         return len(self._sectionFiles)
@@ -54,8 +53,8 @@ class DFWriter:
             return
 
         logging.info("Combining into one file")
-        self.outputFile.writeIterator(combinedIterator(self._sectionFiles), list(self._uniqueColumns))
-        logging.info(f"\nCreated a single file at {self.outputFile.path}")
+        self.outputFile.writeIterator(combinedIterator(self._sectionFiles, 128*1024), list(self._uniqueColumns))
+        logging.info(f"Created a single file at {self.outputFile.path}")
         
         if removeParts:
             for file in self._sectionFiles:
@@ -99,3 +98,19 @@ def combineDataFiles(outputFilePath: Path, dataFiles: list[DataFile], columns: l
     outputDataFile = DataFile(outputFilePath)
     logging.info(f"Combining into one file at {outputFilePath}")
     outputDataFile.writeIterator(combinedIterator(dataFiles, 1024), list(columns), index=False)
+
+class StackedDFWriter:
+    def __init__(self, outputFilePath: Path, subsections: list[str], chunkFormat: DataFormat = DataFormat.PARQUET):
+        self.outputFile = StackedFile(outputFilePath)
+        self._subWriters = {subsection: DFWriter(outputFilePath / f"{subsection}.csv", chunkFormat=chunkFormat, subDirName=subsection) for subsection in subsections}
+    
+    def uniqueColumns(self, subsection: str) -> list[str]:
+        return self._subWriters[subsection].uniqueColumns()
+
+    def write(self, df: pd.DataFrame) -> None: # Expects multilayer dataframe
+        for outerColumn in df.columns.levels[0]:
+            self._subWriters[outerColumn].write(df[outerColumn])
+
+    def combine(self, removeParts: bool = False) -> None:
+        for writer in self._subWriters.values():
+            writer.combine(removeParts)
