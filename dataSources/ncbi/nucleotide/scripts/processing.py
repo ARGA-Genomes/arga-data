@@ -2,7 +2,6 @@
 import lib.zipping as zp
 from pathlib import Path
 from llib import flatFileParser as ffp
-from lib.bigFiles import combineFilePaths
 
 def parse(filePath: Path, outputFilePath: Path) -> None:
     extractedFile = zp.extract(filePath, outputFilePath.parent)
