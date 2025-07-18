@@ -163,7 +163,6 @@ class Database:
                 dbs.append(dbType(self.locationName, self.databaseName, subsectionName, datasetID, config))
             except AttributeError as e:
                 logging.error(f"Error creating database '{databaseName}' - {e}")
-                logging.error()
                 continue
 
         return dbs
