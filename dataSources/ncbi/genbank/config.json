@@ -6,8 +6,7 @@
             "url": "https://ftp.ncbi.nih.gov/genomes/genbank/assembly_summary_genbank.txt",
             "name": "assembly_summary_genbank.tsv",
             "properties": {
-                "separator": "\t",
-                "firstrow": 1
+                "header": 1
             }
         }
     ],
@@ -18,8 +17,7 @@
                 "function": "getStats",
                 "args": [
                     "{IN-FILE}",
-                    "{OUT-PATH}",
-                    "./apikey.txt"
+                    "{OUT-PATH}"
                 ],
                 "output": "apiData.csv"
             },

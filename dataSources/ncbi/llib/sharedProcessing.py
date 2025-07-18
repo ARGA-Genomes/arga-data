@@ -11,15 +11,24 @@ from typing import Generator
 import requests
 import numpy as np
 import json
+from lib.secrets import secrets
 
-def getStats(summaryFile: DataFile, outputPath: Path, apiKeyPath: Path = None):
-    if apiKeyPath is not None and apiKeyPath.exists():
+def getStats(summaryFile: DataFile, outputPath: Path):
+    if secrets.ncbi.key is None:
+        apiKey = ""
+        maxRequests = 3
+        logging.info("No API key found, limiting requests to 3/second")
+    else:
+        apiKey = secrets.ncbi.key
+        maxRequests = 10
         logging.info("Found API key")
+    if apiKeyPath is not None and apiKeyPath.exists():
+        
         with open(apiKeyPath) as fp:
             apiKey = fp.read().rstrip("\n")
-        maxRequests = 10
+        
     else:
-        logging.info("No API key found, limiting requests to 3/second")
+        
         apiKey = ""
         maxRequests = 3
 
