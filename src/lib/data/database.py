@@ -69,7 +69,7 @@ class BasicDB:
         # System Managers
         self.downloadManager = DownloadManager(self.dataDir, self.scriptsDir, self.databaseDir, scriptImportLibs, username, password)
         self.processingManager = ProcessingManager(self.dataDir, self.scriptsDir, self.databaseDir, scriptImportLibs)
-        self.conversionManager = ConversionManager(self.dataDir, self.scriptsDir, self.databaseDir, self.datasetID, self.location, self.name)
+        self.conversionManager = ConversionManager(self.dataDir, self.scriptsDir, self.databaseDir, scriptImportLibs, self.datasetID, self.location, self.name)
 
         # Config stages
         self.downloadConfig: dict = config.pop(self.downloadManager.stepName, None)

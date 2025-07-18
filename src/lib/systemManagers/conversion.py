@@ -1,6 +1,6 @@
 import pandas as pd
 from pathlib import Path
-from lib.bigFiles import DFWriter
+from lib.bigFiles import StackedDFWriter
 from lib.processing.mapping import Map
 from lib.processing.files import DataFile, StackedFile, Step
 from lib.processing.scripts import FunctionScript
@@ -37,12 +37,8 @@ class Conversion(Task):
             logging.info(f"{self.getOutputPath()} already exists, exiting...")
             return True
         
-        writers: dict[str, DFWriter] = {}
-        for event in self.map.events:
-            cleanedName = event.replace(" ", "_")
-            writers[event] = DFWriter(self.output.path / f"{cleanedName}.csv")
-
         logging.info("Processing chunks for conversion")
+        writer = StackedDFWriter(self.output.path, self.map.events)
 
         totalRows = 0
         chunks = self.inputFile.readIterator(self.chunkSize)
@@ -54,22 +50,18 @@ class Conversion(Task):
             if df is None:
                 return False
 
-            for eventColumn in df.columns.levels[0]:
-                writers[eventColumn].write(df[eventColumn])
+            writer.write(df)
 
             totalRows += len(df)
             del df
             gc.collect()
 
-        totalUnmapped = 0
-        for writer in writers.values():
-            totalUnmapped += sum(1 for column in writer.uniqueColumns() if column not in self.map.translation)
-            writer.combine()
+        writer.combine(True)
 
         self.setAdditionalMetadata(
             {
                 "total columns": len(self.inputFile.getColumns()),
-                "unmapped columns": totalUnmapped,
+                "unmapped columns": writer.uniqueColumns(self.map._unmappedLabel),
                 "rows": totalRows
             }
         )
@@ -110,9 +102,10 @@ class Conversion(Task):
         return df
 
 class ConversionManager(SystemManager):
-    def __init__(self, dataDir: Path, scriptDir: Path, metadataDir: Path, datasetID: str, prefix: str, name: str):
+    def __init__(self, dataDir: Path, scriptDir: Path, metadataDir: Path, scriptImports: dict[str, Path], datasetID: str, prefix: str, name: str):
         super().__init__(dataDir, scriptDir, metadataDir, Step.CONVERSION, "tasks")
 
+        self.scriptImports = scriptImports
         self.datasetID = datasetID
         self.prefix = prefix
         self.name = name
@@ -152,7 +145,7 @@ class ConversionManager(SystemManager):
         output = self._generateFileName(timestamp)
 
         chunkSize = properties.pop("chunkSize", 1024)
-        augments = [FunctionScript(self.scriptDir, augProperties) for augProperties in properties.pop("augment", [])]
+        augments = [FunctionScript(self.scriptDir, augProperties, self.scriptImports) for augProperties in properties.pop("augment", [])]
 
         self._tasks.append(Conversion(self.prefix, self.datasetID, map, file, chunkSize, entityEvent, entityColumn, output, augments))
 

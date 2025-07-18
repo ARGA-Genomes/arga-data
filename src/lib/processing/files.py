@@ -118,7 +118,7 @@ class CSVFile(DataFile):
         return pd.read_csv(self.path, **(self.properties | kwargs))
     
     def readIterator(self, chunkSize: int, **kwargs) -> Iterator[pd.DataFrame]:
-        return self.read(chunkSize=chunkSize, **kwargs)
+        return self.read(chunksize=chunkSize, **kwargs)
     
     def write(self, df: pd.DataFrame, **kwargs: dict) -> None:
         df.to_csv(self.path, **kwargs)
@@ -139,7 +139,7 @@ class TSVFile(CSVFile, DataFile):
     format = DataFormat.TSV
 
     def __init__(self, path: Path, properties: dict = {}):
-        super().__init__(path, {DataProperty.SEPERATOR: "\t"} | properties)
+        super().__init__(path, {DataProperty.SEPERATOR.value: "\t"} | properties)
 
 class ParquetFile(DataFile):
     
@@ -171,7 +171,7 @@ class Folder(FileObject):
         super().__init__(path)
 
         if create:
-            path.mkdir(exist_ok=True)
+            path.mkdir(parents=True, exist_ok=True)
 
     def backUp(self, overwrite: bool = False) -> None:
         backupPath = self.path.parent / f"{self.path.stem}_backup{self.path.suffix}"
@@ -216,7 +216,7 @@ class StackedFile(Folder, DataFile):
         self._sectionFormat = sectionFormat
 
     def _getFiles(self) -> list[DataFile]:
-        return [DataFile(file) for file in self.path.iterdir()]
+        return [dataFile for dataFile in [DataFile(file) for file in self.path.iterdir()] if dataFile.format == self._sectionFormat]
 
     def read(self, **kwargs: dict) -> pd.DataFrame:
         dfs = {file.path.stem: file.read(**kwargs) for file in self._getFiles()}
