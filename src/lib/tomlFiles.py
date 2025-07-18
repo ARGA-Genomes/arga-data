@@ -1,11 +1,11 @@
 import toml
-import logging
 from pathlib import Path
 from typing import Any
 
 class _AttrDict:
-    def __init__(self, data: dict[str, any]):
+    def __init__(self, data: dict[str, any], default: any = None):
         self._data = data
+        self._default = default
 
     def __str__(self) -> str:
         return str(self._data)
@@ -14,7 +14,7 @@ class _AttrDict:
         return str(self)
 
     def __getattr__(self, name: str) -> Any | None:
-        return self._data.get(name, None)
+        return self._data.get(name, self._default)
     
     def __getitem__(self, name: str) -> Any | None:
         return getattr(self, name)
@@ -24,7 +24,7 @@ class TomlLoader(_AttrDict):
         self._path = path
         data = {} if _skipLoad else self._loadToml(path)
 
-        super().__init__(self._parseData(_inheritedData | data))
+        super().__init__(self._parseData(_inheritedData | data), _AttrDict({}))
 
     def _loadToml(self, path: Path) -> dict:
         if not isinstance(path, Path):
