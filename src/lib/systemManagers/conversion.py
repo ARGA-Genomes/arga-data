@@ -33,9 +33,13 @@ class Conversion(Task):
         return self.output.path
 
     def runTask(self, overwrite: bool, verbose: bool) -> bool:
-        if self.output.path.exists() and not overwrite:
+        if self.output.exists() and not overwrite:
             logging.info(f"{self.getOutputPath()} already exists, exiting...")
             return True
+
+        if not self.inputFile.exists():
+            logging.error(f"{self.inputFile.path} does not exist and is required for conversion, exiting...")
+            return False
         
         logging.info("Processing chunks for conversion")
         writer = StackedDFWriter(self.output.path, self.map.events)
