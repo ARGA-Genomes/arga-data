@@ -9,7 +9,7 @@
         "path": "./processing.py",
         "function": "build",
         "args": [
-            "{OUTDIR}",
+            "{OUT-DIR}",
             "{SUBSECTION}"
         ],
         "output": "{SUBSECTION}.csv"

@@ -9,10 +9,11 @@
     "processing": {
         "linear": [
             {
-                "path": "lib/tools/zipping.py",
+                "path": ".lib/zipping.py",
                 "function": "extract",
                 "args": [
-                    "{IN-PATH}"
+                    "{IN-PATH}",
+                    "{OUT-DIR}"
                 ],
                 "output": "datapackage"
             },

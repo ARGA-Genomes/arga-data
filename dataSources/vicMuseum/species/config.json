@@ -6,7 +6,7 @@
         "function": "retrieve",
         "args": [
             "specimens",
-            "{OUTDIR}",
+            "{OUT-DIR}",
             1000
         ],
         "output": "specimens.csv"
