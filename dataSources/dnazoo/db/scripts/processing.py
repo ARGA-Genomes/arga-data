@@ -2,21 +2,22 @@ import requests
 from bs4 import BeautifulSoup
 import pandas as pd
 from pathlib import Path
+from lib.progressBar import ProgressBar
 
 def build(outputFilePath: Path) -> None:
     retrieveURL = "https://dnazoo.s3.wasabisys.com/?delimiter=/"
-    rawHTML = requests.get(retrieveURL)
-    soup = BeautifulSoup(rawHTML.text, "xml")
-    
     baseDLURL = "https://dnazoo.s3.wasabisys.com/"
 
+    rawHTML = requests.get(retrieveURL)
+    soup = BeautifulSoup(rawHTML.text, "xml")
+    allSpecies = soup.find_all("Prefix")
+
+    progress = ProgressBar(len(allSpecies))
+
     allData = []
-    for idx, species in enumerate(soup.find_all("Prefix")):
+    for species in allSpecies:
         if not species.text:
             continue
-
-        print(" " * 100, end="\r")
-        print(f"At species #{idx}: {species.text[:-1]}", end="\r")
 
         dataURL = baseDLURL + species.text + "README.json"
         rawData = requests.get(dataURL)
@@ -38,6 +39,7 @@ def build(outputFilePath: Path) -> None:
                 flatData |= {key: value}
 
         allData.append(flatData)
+        progress.update()
 
     df = pd.DataFrame.from_records(allData)
     df.to_csv(outputFilePath, index=False)
