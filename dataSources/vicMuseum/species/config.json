@@ -5,11 +5,11 @@
         "path": ".llib/processing.py",
         "function": "retrieve",
         "args": [
-            "specimens",
+            "species",
             "{OUT-DIR}",
             1000
         ],
-        "output": "specimens.csv"
+        "output": "species.csv"
     },
     "processing": {
         "linear": [
