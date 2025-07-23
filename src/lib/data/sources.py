@@ -39,7 +39,7 @@ class Location:
         # Setup databases
         self.databases: dict[str, Database] = {}
         for databaseFolder in locationPath.iterdir():
-            if databaseFolder.is_file() or databaseFolder.name == "__pycache__": # Skip files and cached python folder
+            if databaseFolder.is_file() or databaseFolder.name in ("__pycache__", "llib"): # Skip files, cached python folder, and location library
                 continue
 
             self.databases[databaseFolder.stem] = Database(self.locationName, databaseFolder)
