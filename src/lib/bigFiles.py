@@ -64,8 +64,8 @@ class DFWriter:
             self.workingDir.delete()
 
 class RecordWriter(DFWriter):
-    def __init__(self, outputFilePath: Path, rowsPerSubsection: int):
-        super().__init__(outputFilePath)
+    def __init__(self, outputFilePath: Path, rowsPerSubsection: int, chunkFormat: DataFormat = DataFormat.PARQUET, subDirName: str = "bigFileWriter"):
+        super().__init__(outputFilePath, chunkFormat, subDirName)
 
         self._rowsPerSubsection = rowsPerSubsection
         self._records = []
@@ -78,6 +78,10 @@ class RecordWriter(DFWriter):
         self._records.append(record)
         if len(self._records) == self._rowsPerSubsection:
             self._writeRecords()
+
+    def writerMultipleRecords(self, records: list[dict]) -> None:
+        for record in records:
+            self.write(record)
 
     def combine(self, removeParts: bool = False) -> None:
         if self._records:
