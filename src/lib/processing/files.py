@@ -245,5 +245,5 @@ def moveDataFile(inputFile: DataFile, outputFile: DataFile):
         return
     
     iterator = inputFile.readIterator(1024 * 16)
-    outputFile.writeIterator(iterator, index=False)
+    outputFile.writeIterator(iterator, inputFile.getColumns(), index=False)
     inputFile.delete()
