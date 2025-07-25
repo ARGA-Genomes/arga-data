@@ -93,7 +93,7 @@ class DataFile(FileObject):
                 logging.warning(f"Unknown data file property: {property}")
                 continue
 
-            self.properties[dataProperty] = value
+            self.properties[dataProperty.value] = value
 
     def read(self, **kwargs: dict) -> pd.DataFrame:
         raise NotImplementedError
