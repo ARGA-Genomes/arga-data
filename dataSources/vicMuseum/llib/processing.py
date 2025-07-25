@@ -1,29 +1,54 @@
 from pathlib import Path
 import requests
-import math
 import pandas as pd
 import ast
-
-def buildURL(keyword: str, perPage: int, page: int = 1) -> str:
-    return f"https://collections.museumsvictoria.com.au/api/{keyword}?perpage={perPage}&page={page}"
+from lib.progressBar import ProgressBar
+from lib.bigFiles import RecordWriter
+import logging
 
 def retrieve(dataset: str, outputFolder: Path, recordsPerPage: int) -> None:
-    response = requests.get(buildURL(dataset, 1), headers={"User-Agent": ""})
-    data = response.json()
+    session = requests.Session()
 
+    def getRecords(pageNum: int) -> requests.Response:
+        url = f"https://collections.museumsvictoria.com.au/api/{dataset}?perpage={recordsPerPage}&page={pageNum}"
+        return session.get(url, headers={"User-Agent": ""})
+
+    def flattenPageData(pageData: list[dict]) -> list[dict]:
+        def flattenRecord(record: dict) -> dict:
+            flatRecord = {}
+
+            for key, value in record.items():
+                if not isinstance(value, dict):
+                    flatRecord[key] = value
+                    continue
+
+                for subKey, subValue in value.items():
+                    flatRecord[f"{key}_{subKey}"] = subValue
+            
+            return flatRecord
+
+        return [flattenRecord(record) for record in pageData]
+
+    response = getRecords(1)
     totalResults = int(response.headers.get("Total-Results", 0))
-    totalCalls = math.ceil(totalResults / recordsPerPage)
+    if totalResults == 0:
+        logging.error(f"Unable to retrieve dataset {dataset}")
+        return
 
-    records = []
-    for call in range(totalCalls):
-        print(f"At call: {call+1}", end="\r")
-        response = requests.get(buildURL(dataset, recordsPerPage, call+1), headers={"User-Agent": ""})
+    totalCalls = (totalResults / recordsPerPage).__ceil__()
+    progress = ProgressBar(totalCalls - 1)
+    writer = RecordWriter(outputFolder / f"{dataset}.csv", 100000)
+
+    data = response.json()
+    writer.writerMultipleRecords(flattenPageData(data))
+
+    for call in range(2, totalCalls+1):
+        response = getRecords(call)
         data = response.json()
-        records.extend(data)
+        writer.writerMultipleRecords(flattenPageData(data))
+        progress.update()
 
-    df = pd.DataFrame.from_records(records)
-    df.replace(to_replace=[r"\\t|\\n|\\r", "\t|\n|\r"], value=["", ""], regex=True, inplace=True)
-    df.to_csv(outputFolder / f"{dataset}.csv", index=False)
+    writer.combine(True)
 
 def expandTaxa(filePath: Path, outputPath: Path) -> None:
     df = pd.read_csv(filePath)
