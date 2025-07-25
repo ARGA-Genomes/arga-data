@@ -22,15 +22,6 @@ def getStats(summaryFile: DataFile, outputPath: Path):
         apiKey = secrets.ncbi.key
         maxRequests = 10
         logging.info("Found API key")
-    if apiKeyPath is not None and apiKeyPath.exists():
-        
-        with open(apiKeyPath) as fp:
-            apiKey = fp.read().rstrip("\n")
-        
-    else:
-        
-        apiKey = ""
-        maxRequests = 3
 
     accessionCol = "#assembly_accession"
     df = summaryFile.read(dtype=object, usecols=[accessionCol])
