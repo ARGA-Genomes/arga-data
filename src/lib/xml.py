@@ -76,7 +76,6 @@ def xmlGenerator(inputPath: Path) -> Generator[ElementContainer, None, None]:
 def basicXMLProcessor(inputPath: Path, outputPath: Path, entriesPerSection: int = 0) -> None:
     iterator = xmlGenerator(inputPath)
     writer = RecordWriter(outputPath, entriesPerSection)
-    records = []
 
     for idx, element in enumerate(iterator, start=1):
         print(f"At record: {idx}", end="\r")
