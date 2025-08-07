@@ -5,29 +5,50 @@ from lib.bigFiles import RecordWriter
 import time
 import pandas as pd
 from lib.progressBar import ProgressBar
-from threading import Thread
-from queue import Queue
-from typing import Generator
 import requests
+from requests.adapters import HTTPAdapter, Retry
 import numpy as np
-import json
 from lib.secrets import secrets
+import concurrent.futures as cf
 
 def getStats(summaryFile: DataFile, outputPath: Path):
     if secrets.ncbi.key is None:
         apiKey = ""
-        maxRequests = 3
+        maxWorkers = 3
         logging.info("No API key found, limiting requests to 3/second")
     else:
         apiKey = secrets.ncbi.key
-        maxRequests = 10
+        maxWorkers = 10
         logging.info("Found API key")
 
+    recordsPerCall = 200
+    recordsPerSubsection = 30000
     accessionCol = "#assembly_accession"
-    df = summaryFile.read(dtype=object, usecols=[accessionCol])
 
-    writer = RecordWriter(outputPath, 30000)
+    df = summaryFile.read(dtype=object, usecols=[accessionCol])
+    totalAccessions = df.size
+
+    writer = RecordWriter(outputPath, recordsPerSubsection)
     writtenFileCount = writer.writtenFileCount()
+
+    startingAccession = writtenFileCount * recordsPerSubsection
+    totalCalls = ((totalAccessions - startingAccession) / recordsPerCall).__ceil__()
+
+    def generateURLs() -> str:
+        for call in range(totalCalls):
+            start = startingAccession + (call * recordsPerCall)
+            end = startingAccession + ((call + 1) * recordsPerCall)
+            passAccessions = '%2C'.join(df[accessionCol].to_list()[start:end])
+            yield f"https://api.ncbi.nlm.nih.gov/datasets/v2alpha/genome/accession/{passAccessions}/dataset_report?page_size={recordsPerCall}"
+
+    session = requests.Session()
+    retries = Retry(total=5, backoff_factor=0.1)
+    session.mount("https://", HTTPAdapter(max_retries=retries))
+
+    headers = {
+        "accept": "application/json",
+        "api-key": apiKey
+    }
 
     summaryFields = {
         "assembly_name": "asm_name",
@@ -44,85 +65,38 @@ def getStats(summaryFile: DataFile, outputPath: Path):
         "non_coding_gene_count": "non_coding_gene_count"
     }
 
-    recordsPerCall = 200
-    recordsPerSubsection = 30000
+    def getRecords(url: str) -> list[dict]:
+        response = session.get(url, headers=headers)
+        data = response.json()
+        reports = data.get("reports", [])
+        records = []
+        for record in reports:
+            record = parseRecord(record)
+            record = {key: value for key, value in record.items() if key not in summaryFields} # Drop duplicate keys with summary
+            records.append(record)
 
-    totalRecords = len(df)
-    outputSubsections = (totalRecords / recordsPerSubsection).__ceil__()
+        return records
 
-    progress = ProgressBar(totalRecords - (writtenFileCount * recordsPerSubsection))
-    queue = Queue()
-    for subsection in range(writtenFileCount, outputSubsections):
-        workerRecordCount = (recordsPerSubsection / maxRequests).__ceil__()
-        workers: dict[int, Thread] = {}
+    # Suppress logs about retrying urls
+    logging.getLogger("requests").setLevel(logging.CRITICAL)
+    logging.getLogger("urllib3").setLevel(logging.CRITICAL)
 
-        for workerIdx in range(maxRequests):
-            accessions = df[accessionCol].to_list()[(workerIdx + subsection) * workerRecordCount:(workerIdx + subsection + 1) * workerRecordCount]
-            worker = Thread(target=apiWorker, args=(workerIdx, accessions, recordsPerCall, apiKey, set(summaryFields), queue), daemon=True)
-            worker.start()
-            workers[workerIdx] = worker
-            time.sleep(1 / maxRequests)
+    progress = ProgressBar(df.size - (writtenFileCount * recordsPerSubsection))
+    with cf.ThreadPoolExecutor(max_workers=maxWorkers) as executor:
+        futures = (executor.submit(getRecords, url) for url in generateURLs())
+        for future in cf.as_completed(futures):
+            records = future.result()
+            writer.writerMultipleRecords(records)
+            progress.update(len(records))
+            time.sleep(1 / maxWorkers)
 
-        failedAccessions = []
-        while workers:
-            value = queue.get()
-            if isinstance(value, int): # Worker done idx
-                worker = workers.pop(value)
-                worker.join()
-                # failedAccessions.extend(failed)
-            else: # Record
-                writer.write(value)
-                progress.update()
-
-    writer.combine(True)
+    writer.combine(True, index=False)
 
 def merge(summaryFile: DataFile, statsFilePath: Path, outputPath: Path) -> None:
     df = summaryFile.read(low_memory=False)
     df2 = pd.read_csv(statsFilePath, low_memory=False)
     df = df.merge(df2, how="outer", left_on="#assembly_accession", right_on="current_accession")
     df.to_csv(outputPath, index=False)
-
-def apiWorker(idx: int, accessions: Generator[str, None, None], recordsPerCall: int, apiKey: str, dropKeys: set, queue: Queue) -> list[dict]:
-    session = requests.Session()
-    failed = []
-
-    totalCalls = (len(accessions) / recordsPerCall).__ceil__()
-    for call in range(totalCalls):
-        passAccessions = '%2C'.join(accessions[call*recordsPerCall:(call+1)*recordsPerCall])
-        url = f"https://api.ncbi.nlm.nih.gov/datasets/v2alpha/genome/accession/{passAccessions}/dataset_report?page_size={recordsPerCall}"
-        headers = {
-            "accept": "application/json",
-            "api-key": apiKey
-        }
-
-        for _ in range(5):
-            try:
-                response = session.get(url, headers=headers)
-
-                try:
-                    data = response.json()
-                    break
-
-                except json.JSONDecodeError:
-                    continue
-
-            except requests.ConnectionError:
-                continue
-
-        else:
-            data = {}
-        
-        reports = data.get("reports", [])
-        lastRetrieve = time.time()
-
-        for record in reports:
-            record = parseRecord(record)
-            record = {key: value for key, value in record.items() if key not in dropKeys} # Drop duplicate keys with summary
-            queue.put(record)
-
-        time.sleep(1.05 - (time.time() - lastRetrieve))
-
-    queue.put(idx)
 
 def parseRecord(record: dict) -> dict:
     def _extractKeys(d: dict, keys: list[str], prefix: str = "", suffix: str = "") -> dict:
