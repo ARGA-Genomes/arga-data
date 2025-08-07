@@ -38,7 +38,7 @@ class DFWriter:
         self._sectionFiles.append(subfile)
         self._uniqueColumns |= {column: None for column in df.columns}
 
-    def combine(self, removeParts: bool = False) -> None:
+    def combine(self, removeParts: bool = False, **kwargs) -> None:
         if self.outputFile.exists():
             logging.info(f"Removing old file {self.outputFile.path}")
             self.outputFile.delete()
@@ -53,7 +53,7 @@ class DFWriter:
             return
 
         logging.info("Combining into one file")
-        self.outputFile.writeIterator(combinedIterator(self._sectionFiles, 128*1024), list(self._uniqueColumns))
+        self.outputFile.writeIterator(combinedIterator(self._sectionFiles, 128*1024), list(self._uniqueColumns), **kwargs)
         logging.info(f"Created a single file at {self.outputFile.path}")
         
         if removeParts:
@@ -83,11 +83,11 @@ class RecordWriter(DFWriter):
         for record in records:
             self.write(record)
 
-    def combine(self, removeParts: bool = False) -> None:
+    def combine(self, removeParts: bool = False, **kwargs) -> None:
         if self._records:
             self._writeRecords()
 
-        super().combine(removeParts)
+        super().combine(removeParts, **kwargs)
 
 def combinedIterator(dataFiles: list[DataFile], chunkSize: int, **kwargs: dict) -> Iterator[pd.DataFrame]:
     return (chunk for file in dataFiles for chunk in file.readIterator(chunkSize, **kwargs))
