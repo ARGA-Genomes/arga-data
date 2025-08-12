@@ -14,6 +14,7 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
     sources = manager.matchSources(args.source)
+    
     breaker()
     for locationName, databases in sources.items():
         print(locationName)

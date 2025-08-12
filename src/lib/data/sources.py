@@ -50,6 +50,9 @@ class SourceManager:
         
         return {locationName: location.getDatabases(databaseName, subsection)}
 
+    def countSources(self, sources: dict[str, dict[str, list[str]]]) -> int:
+        return sum(1 for databases in sources.values() for subsections in databases.values() for _ in subsections)
+
     def constructDBs(self, sources: dict[str, dict[str, list[str]]]) -> list[BasicDB]:
         dbs = []
         for locationName, databases in sources.items():
