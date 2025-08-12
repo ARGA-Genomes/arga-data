@@ -10,9 +10,9 @@
         "function": "build",
         "args": [
             "{OUT-DIR}",
-            "{SUBSECTION}"
+            "<SUB>"
         ],
-        "output": "{SUBSECTION}.csv"
+        "output": "<SUB>.csv"
     },
     "update": {
         "type": "weekly",

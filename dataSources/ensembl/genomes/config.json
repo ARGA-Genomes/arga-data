@@ -2,30 +2,38 @@
     "subsections": {
         "plants": {
             "id": "ARGA:TL:0002009",
-            "name": "Plants"
+            "tags": {
+                "name": "Plants"
+            }
         },
         "metazoa": {
             "id": "ARGA:TL:0002008",
-            "name": "Metazoa"
+            "tags": {
+                "name": "Metazoa"
+            }
         },
         "protists": {
             "id": "ARGA:TL:0002010",
-            "name": "Protists"
+            "tags": {
+                "name": "Protists"
+            }
         },
         "fungi": {
             "id": "ARGA:TL:0002011",
-            "name": "Fungi"
+            "tags": {
+                "name": "Fungi"
+            }
         }
     },
     "retrieveType": "url",
     "downloading": [
         {
-            "url": "http://ftp.ensemblgenomes.org/pub/{SUBSECTION}/current/species_metadata_Ensembl{SUBSECTION:NAME}.json",
-            "name": "{SUBSECTION}.json"
+            "url": "http://ftp.ensemblgenomes.org/pub/<SUB>/current/species_metadata_Ensembl<SUB:NAME>.json",
+            "name": "<SUB>.json"
         },
         {
-            "url": "http://ftp.ensemblgenomes.org/pub/{SUBSECTION}/current/species_Ensembl{SUBSECTION:NAME}.txt",
-            "name": "{SUBSECTION}.tsv",
+            "url": "http://ftp.ensemblgenomes.org/pub/<SUB>/current/species_Ensembl<SUB:NAME>.txt",
+            "name": "<SUB>.tsv",
             "properties": {
                 "sep": "\t"
             }
@@ -47,7 +55,7 @@
                 "function": "enrich",
                 "args": [
                     "{D1-PATH}",
-                    "{SUBSECTION}",
+                    "<SUB>",
                     "{OUT-PATH}"
                 ],
                 "output": "enrichedStats.csv"
@@ -60,7 +68,7 @@
                     "{P1-PATH}",
                     "{OUT-PATH}"
                 ],
-                "output": "{SUBSECTION}.csv"
+                "output": "<SUB>.csv"
             }
         ]
     }

@@ -12,7 +12,7 @@
         "path": "./processing.py",
         "function": "build",
         "args": [
-            "{SUBSECTION}",
+            "<SUB>",
             "{OUT-PATH}"
         ],
         "output": "genomes.csv"
