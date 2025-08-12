@@ -106,11 +106,11 @@ class Location:
             return {}
         
         databaseSubsections = database.listSubsections()
-        if not databaseSubsections:
-            return {databaseName: noSubsections}
-
         if not subsectionName:
-            return {databaseName: database.listSubsections()}
+            if not databaseSubsections:
+                databaseSubsections = noSubsections
+
+            return {databaseName: databaseSubsections}
 
         if subsectionName not in databaseSubsections:
             logging.error(f"No subsection '{subsectionName}' exists under database '{databaseName}' for location '{self.getName()}'")
