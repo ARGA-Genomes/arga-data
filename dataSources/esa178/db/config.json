@@ -3,25 +3,29 @@
     "subsections": {
         "bird": {
             "id": "ARGA:TL:0000182",
-            "name": "Bird"
+            "tags": {
+                "name": "Bird"
+            }
         },
         "mammal": {
             "id": "ARGA:TL:0000183",
-            "name": "Mam"
+            "tags": {
+                "name": "Mam"
+            }
         }
     },
     "retrieveType": "url",
     "downloading": [
         {
-            "url": "https://www.esapubs.org/archive/ecol/E095/178/{SUBSECTION:NAME}FuncDat.txt",
-            "name": "{SUBSECTION}Data.tsv",
+            "url": "https://www.esapubs.org/archive/ecol/E095/178/<SUB:NAME>FuncDat.txt",
+            "name": "<SUB>Data.tsv",
             "properties": {
                 "encoding": "cp1252"
             }
         },
         {
-            "url": "https://www.esapubs.org/archive/ecol/E095/178/{SUBSECTION:NAME}FuncDatSources.txt",
-            "name": "{SUBSECTION}Sources.tsv",
+            "url": "https://www.esapubs.org/archive/ecol/E095/178/<SUB:NAME>FuncDatSources.txt",
+            "name": "<SUB>Sources.tsv",
             "properties": {
                 "encoding": "cp1252"
             }

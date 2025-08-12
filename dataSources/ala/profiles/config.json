@@ -12,10 +12,10 @@
         "function": "collect",
         "args": [
             "{OUT-DIR}",
-            "{SUBSECTION}",
+            "<SUB>",
             "../token.json"
         ],
-        "output": "{SUBSECTION}.csv"
+        "output": "<SUB>.csv"
     },
     "update": {
         "type": "weekly",
