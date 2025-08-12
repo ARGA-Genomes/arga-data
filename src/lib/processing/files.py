@@ -183,7 +183,6 @@ class Folder(FileObject):
             cmn.clearFolder(backupPath, True)
         
         self._backupPath = shutil.move(self.path, backupPath)
-        print(self._backupPath, type(self._backupPath))
 
     def restoreBackUp(self) -> None:
         if self._backupPath is None:
