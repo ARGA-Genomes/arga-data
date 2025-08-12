@@ -27,19 +27,12 @@ class BasicDB:
 
     retrieveType = Retrieve.URL
 
-    def __init__(self, location: str, database: str, subsection: str, datasetID: str, config: dict):
-        self.location = location
-        self.database = database
-        self.subsection = subsection
+    def __init__(self, name: str, databaseDir: Path, subsection: str, datasetID: str, setupConfig: dict):
+        self.name = name
+        self.locationDir = databaseDir.parent
+        self.databaseDir = databaseDir
+        self.subsectionDir = databaseDir / subsection # Same as databaseDir if no subsection
         self.datasetID = datasetID
-
-        # Database reference name
-        self.name = f"{self.location}-{self.database}" + (f"-{self.subsection}" if self.subsection else "")
-
-        # Relative folders
-        self.locationDir: Path = gcfg.folders.dataSources / location
-        self.databaseDir = self.locationDir / database
-        self.subsectionDir = self.databaseDir / self.subsection # If no subsection, does nothing
 
         # Local storage
         self.libDir = self.locationDir / "llib" # Location based lib for shared scripts
@@ -56,10 +49,10 @@ class BasicDB:
         # Data storage
         self.dataDir = self.subsectionDir / "data" # Default data location
         if self.config.overwrites.storage: # Overwrite data location
-            self.dataDir =  self.config.overwrites.storage / location / database / self.subsection / "data"
+            self.dataDir = self.config.overwrites.storage / self.dataDir.relative_to(self.locationDir.parent) # Change parent of locationDir (dataSources folder) to storage dir
 
         # Username/Password
-        sourceSecrets = secrets[self.location]
+        sourceSecrets = secrets[self.locationDir.name]
         username = sourceSecrets.username if sourceSecrets is not None else ""
         password = sourceSecrets.password if sourceSecrets is not None else ""
 
@@ -69,22 +62,22 @@ class BasicDB:
         # System Managers
         self.downloadManager = DownloadManager(self.dataDir, self.scriptsDir, self.databaseDir, scriptImportLibs, username, password)
         self.processingManager = ProcessingManager(self.dataDir, self.scriptsDir, self.databaseDir, scriptImportLibs)
-        self.conversionManager = ConversionManager(self.dataDir, self.scriptsDir, self.databaseDir, scriptImportLibs, self.datasetID, self.location, self.name)
+        self.conversionManager = ConversionManager(self.dataDir, self.scriptsDir, self.databaseDir, scriptImportLibs, self.datasetID, self.locationDir.name, self.name)
 
         # Config stages
-        self.downloadConfig: dict = config.pop(self.downloadManager.stepName, None)
-        self.processingConfig: dict = config.pop(self.processingManager.stepName, {})
-        self.conversionConfig: dict = config.pop(self.conversionManager.stepName, {})
+        self.downloadConfig: dict = setupConfig.pop(self.downloadManager.stepName, None)
+        self.processingConfig: dict = setupConfig.pop(self.processingManager.stepName, {})
+        self.conversionConfig: dict = setupConfig.pop(self.conversionManager.stepName, {})
 
         if self.downloadConfig is None:
-            raise Exception("No download config specified as required") from AttributeError
+            raise Exception(f"No download config specified as required for {self.name}") from AttributeError
         
         # Updating
-        self.updateConfig: dict = config.pop("updating", {})
+        self.updateConfig: dict = setupConfig.pop("updating", {})
         self.updateManager = UpdateManager(self.updateConfig)
 
         # Report extra config options
-        self._reportLeftovers(config)
+        self._reportLeftovers(setupConfig)
 
         # Preparation Stage
         self._prepStage = -1

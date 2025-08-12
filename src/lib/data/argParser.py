@@ -21,15 +21,17 @@ class ArgParser:
     def parseArgs(self, *args, kwargsDict: bool = False, **kwargs) -> tuple[list[BasicDB], list[Flag], Namespace | dict]:
         parsedArgs = self._parser.parse_args(*args, **kwargs)
 
-        sources = self._manager.requestDBs(self._extract(parsedArgs, "source"))
-        if len(sources) >= self.sourceWarning:
-            passed = self._warnSources(len(sources))
+        sources = self._manager.matchSources(self._extract(parsedArgs, "source"))
+        sourceCount = self._manager.countSources(sources)
+        if sourceCount >= self.sourceWarning:
+            passed = self._warnSources(sourceCount)
             if not passed:
-                sources = []
+                sources = {}
 
         flags = [flag for key, flag in Flag._value2member_map_.items() if self._extract(parsedArgs, key)]
+        constructedSources = self._manager.constructDBs(sources)
 
-        return sources, flags, parsedArgs.__dict__ if kwargsDict else parsedArgs
+        return constructedSources, flags, parsedArgs.__dict__ if kwargsDict else parsedArgs
 
     def addMutuallyExclusiveGroup(self, *args, **kwargs) -> _MutuallyExclusiveGroup:
         return self._parser.add_mutually_exclusive_group(*args, **kwargs)
