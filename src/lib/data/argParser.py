@@ -22,8 +22,9 @@ class ArgParser:
         parsedArgs = self._parser.parse_args(*args, **kwargs)
 
         sources = self._manager.matchSources(self._extract(parsedArgs, "source"))
-        if self._manager.countSources(sources) >= self.sourceWarning:
-            passed = self._warnSources(len(sources))
+        sourceCount = self._manager.countSources(sources)
+        if sourceCount >= self.sourceWarning:
+            passed = self._warnSources(sourceCount)
             if not passed:
                 sources = {}
 

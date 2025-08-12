@@ -51,7 +51,7 @@ class SourceManager:
         return {locationName: location.getDatabases(databaseName, subsection)}
 
     def countSources(self, sources: dict[str, dict[str, list[str]]]) -> int:
-        return sum(1 for databases in sources.values() for subsections in databases.values() for _ in subsections)
+        return sum(1 for _, databases in sources.items() for _, subsections in databases.items() for _ in subsections)
 
     def constructDBs(self, sources: dict[str, dict[str, list[str]]]) -> list[BasicDB]:
         dbs = []
@@ -87,12 +87,14 @@ class Location:
         return self.locationPath.name
     
     def getDatabases(self, databaseName: str = "", subsectionName: str = "") -> dict[str, list[str]]:
+        noSubsections = [""]
+
         if not databaseName:
             dbs = {}
             for databaseName, database in self.databases.items():
                 databaseSubsections = database.listSubsections()
                 if not databaseSubsections:
-                    databaseSubsections = [""] # Valid database but has no subsections
+                    databaseSubsections = noSubsections
 
                 dbs[databaseName] = databaseSubsections
 
@@ -101,20 +103,20 @@ class Location:
         database = self.databases.get(databaseName, None)
         if database is None:
             logging.error(f"Invalid database '{databaseName}' for location '{self.getName()}'")
-            return []
+            return {}
         
         databaseSubsections = database.listSubsections()
         if not databaseSubsections:
-            return [(databaseName, "")]
+            return {databaseName: noSubsections}
 
         if not subsectionName:
-            return [(databaseName, subsection) for subsection in database.listSubsections()]
+            return {databaseName: database.listSubsections()}
 
         if subsectionName not in databaseSubsections:
             logging.error(f"No subsection '{subsectionName}' exists under database '{databaseName}' for location '{self.getName()}'")
-            return []
+            return {}
 
-        return [(databaseName, subsectionName)]
+        return {databaseName: [subsectionName]}
     
     def constructDB(self, databaseName, subsection: str, name: str) -> BasicDB | None:
         database = self.databases[databaseName]

@@ -52,7 +52,7 @@ class BasicDB:
             self.dataDir = self.config.overwrites.storage / self.dataDir.relative_to(self.locationDir.parent) # Change parent of locationDir (dataSources folder) to storage dir
 
         # Username/Password
-        sourceSecrets = secrets[self.location]
+        sourceSecrets = secrets[self.locationDir.name]
         username = sourceSecrets.username if sourceSecrets is not None else ""
         password = sourceSecrets.password if sourceSecrets is not None else ""
 
@@ -62,7 +62,7 @@ class BasicDB:
         # System Managers
         self.downloadManager = DownloadManager(self.dataDir, self.scriptsDir, self.databaseDir, scriptImportLibs, username, password)
         self.processingManager = ProcessingManager(self.dataDir, self.scriptsDir, self.databaseDir, scriptImportLibs)
-        self.conversionManager = ConversionManager(self.dataDir, self.scriptsDir, self.databaseDir, scriptImportLibs, self.datasetID, self.location, self.name)
+        self.conversionManager = ConversionManager(self.dataDir, self.scriptsDir, self.databaseDir, scriptImportLibs, self.datasetID, self.locationDir.name, self.name)
 
         # Config stages
         self.downloadConfig: dict = setupConfig.pop(self.downloadManager.stepName, None)
