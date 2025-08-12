@@ -38,31 +38,33 @@ class SourceManager:
         
         raise Exception("Too many sections in source name, should not contain more than 3.")
 
-    def matchSources(self, sourceHint: str = "") -> list[str]:
+    def matchSources(self, sourceHint: str = "") -> dict[str, dict[str, list[str]]]:
         locationName, databaseName, subsection = self._splitSourceName(sourceHint)
         if not locationName:
-            return [self._buildSourceName(locationName, database, subsection) for locationName, location in self.locations.items() for database, subsection in location.listDatabases()]
+            return {locationName: location.getDatabases() for locationName, location in self.locations.items()}
         
         location = self.locations.get(locationName, None)
         if location is None:
             logging.error(f"Invalid location '{locationName}'")
             return []
         
-        return [self._buildSourceName(locationName, database, subsection) for database, subsection in location.listDatabases(databaseName, subsection)]
+        return {locationName: location.getDatabases(databaseName, subsection)}
 
-    def constructDBs(self, sources: list[str]) -> list[BasicDB]:
+    def constructDBs(self, sources: dict[str, dict[str, list[str]]]) -> list[BasicDB]:
         dbs = []
-        for source in sources:
-            logging.info(f"Constructing database: {source}")
+        for locationName, databases in sources.items():
+            for databaseName, subsections in databases.items():
+                for subsection in subsections:
+                    name = self._buildSourceName(locationName, databaseName, subsection)
 
-            locationName, databaseName, subsection = self._splitSourceName(source)
-            location = self.locations[locationName]
-            constructedDB = location.constructDB(databaseName, subsection, source)
+                    logging.info(f"Constructing database: {name}")
+                    location = self.locations[locationName]
+                    constructedDB = location.constructDB(databaseName, subsection, name)
 
-            if constructedDB is None:
-                continue
+                    if constructedDB is None:
+                        continue
 
-            dbs.append(constructedDB)
+                    dbs.append(constructedDB)
 
         return dbs
 
@@ -81,15 +83,15 @@ class Location:
     def getName(self) -> str:
         return self.locationPath.name
     
-    def listDatabases(self, databaseName: str = "", subsectionName: str = "") -> list[tuple[str, str]]:
+    def getDatabases(self, databaseName: str = "", subsectionName: str = "") -> dict[str, list[str]]:
         if not databaseName:
-            dbs = []
+            dbs = {}
             for databaseName, database in self.databases.items():
                 databaseSubsections = database.listSubsections()
                 if not databaseSubsections:
-                    dbs.append((databaseName, ""))
-                else:
-                    dbs.extend([(databaseName, subsection) for subsection in database.listSubsections()])
+                    databaseSubsections = [""] # Valid database but has no subsections
+
+                dbs[databaseName] = databaseSubsections
 
             return dbs
         

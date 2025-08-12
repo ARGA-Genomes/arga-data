@@ -1,32 +1,37 @@
 import argparse
 from lib.data.sources import SourceManager
 
+def breaker():
+    print("-"*24)
+
 if __name__ == "__main__":
     manager = SourceManager()
-    locations = manager.getLocations()
 
     parser = argparse.ArgumentParser(description="List available datasets for each source")
-    parser.add_argument("-a", "--all", action="store_true", help="Show all databases as well as location sources.")
-    parser.add_argument("-s", "--specific", choices=list(locations), help="Pick a single data source to show, gives all databases too.")
+    parser.add_argument("source", help="Data location to view", metavar="SOURCE", nargs="?", default="")
+    parser.add_argument("-d", "--databases", help="Show databases", action="store_true")
+    parser.add_argument("-s", "--subsections", help="Show subsections", action="store_true")
 
     args = parser.parse_args()
-
-    if args.specific is None:
-        locationItems = locations.items()
-    else:
-        locationItems = [(args.specific, locations[args.specific])]
-        args.all = True
-
-    print("*" * 40)
-    for locationName, location in locationItems:
+    sources = manager.matchSources(args.source)
+    breaker()
+    for locationName, databases in sources.items():
         print(locationName)
 
-        if not args.all:
+        if not args.databases:
+            breaker()
             continue
 
-        for database in location.getDatabases():
-            print(f"{2*' '}- {database}")
-        print("*" * 40)
+        for databaseName, subsections in databases.items():
+            print(f"{2*' '}- {databaseName}")
 
-    if not args.all: # Print missing trailing spacer
-        print("*" * 40)
+            if not args.subsections:
+                continue
+
+            for subsection in subsections:
+                if not subsection:
+                    continue
+
+                print(f"{4*' '}- {subsection}")
+
+        breaker()
