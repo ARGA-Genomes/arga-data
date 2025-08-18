@@ -92,7 +92,7 @@ class RecordWriter(DFWriter):
 def combinedIterator(dataFiles: list[DataFile], chunkSize: int, **kwargs: dict) -> Iterator[pd.DataFrame]:
     return (chunk for file in dataFiles for chunk in file.readIterator(chunkSize, **kwargs))
 
-def combineDirectoryFiles(outputFilePath: Path, inputFolderPath: Path, matchPattern: str = "") -> None:
+def combineDirectoryFiles(outputFilePath: Path, inputFolderPath: Path, matchPattern: str = "*.*") -> None:
     inputDataFiles = [dataFile for dataFile in  [DataFile(path) for path in inputFolderPath.glob(matchPattern)] if dataFile.format != DataFormat.UNKNOWN and dataFile.format != DataFormat.STACKED]
     logging.info(f"Found {len(inputDataFiles)} files to combine")
     columns = {column: None for dataFile in inputDataFiles for column in dataFile.getColumns()}
