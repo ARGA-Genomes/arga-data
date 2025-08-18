@@ -35,11 +35,14 @@ def divider():
     print("-" * 48)
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Find the largest files in the data sources folder")
-    parser.add_argument("count", type=int, help="Amount of files to list", default=10, nargs="?")
+    parser = argparse.ArgumentParser(description="Find the largest items in the data sources folder")
+    parser.add_argument("count", type=int, help="Amount of items to list", default=10, nargs="?")
     parser.add_argument("-f", "--folders", action="store_true", help="Include folders")
 
     args = parser.parse_args()
+    if args.count < 1:
+        print("Largest item amount must be a positive number")
+        exit()
 
     baseDir: Path = gcfg.folders.dataSources
     largestFiles = getLargest(baseDir, args.count, args.folders)
