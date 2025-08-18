@@ -1,11 +1,12 @@
 from pathlib import Path
-from lib.processing.stages import File, Folder
+from lib.processing.files import DataFile, Folder
 import logging
 import importlib.util
 from enum import Enum
 import traceback
-import lib.config as cfg
+from lib.config import globalConfig as gcfg
 from typing import Any
+import sys
 
 class FileSelect(Enum):
     INPUT    = "IN"
@@ -19,28 +20,29 @@ class _FileProperty(Enum):
     PATH = "PATH"
 
 class FunctionScript:
-    _libDir = cfg.Folders.src / "lib"
+    _libDir = gcfg.folders.src / "lib"
 
-    def __init__(self, baseDir: Path, scriptInfo: dict):
-        self.baseDir = baseDir
+    def __init__(self, scriptDir: Path, scriptInfo: dict, imports: dict[str, Path]):
+        self.scriptDir = scriptDir
         self.scriptInfo = scriptInfo
+        self.imports = imports | {".lib": self._libDir}
 
         # Script information
-        self.path: str = scriptInfo.pop("path", None)
+        modulePath: str = scriptInfo.pop("path", None)
         self.function: str = scriptInfo.pop("function", None)
-        self.args: list[str] = scriptInfo.pop("args", [])
-        self.kwargs: dict[str, str] = scriptInfo.pop("kwargs", {})
+        args: list[str] = scriptInfo.pop("args", [])
+        kwargs: dict[str, str] = scriptInfo.pop("kwargs", {})
 
-        if self.path is None:
+        if modulePath is None:
             raise Exception("No script path specified") from AttributeError
         
         if self.function is None:
             raise Exception("No script function specified") from AttributeError
         
-        self.path = self._parsePath(self.path, True)
+        self.modulePath = self._parsePath(modulePath, True)
 
-        self.args = [self._parsePath(arg) for arg in self.args]
-        self.kwargs = {key: self._parsePath(arg) for key, arg in self.kwargs.items()}
+        self.args = [self._parsePath(arg) for arg in args]
+        self.kwargs = {key: self._parsePath(arg) for key, arg in kwargs.items()}
 
         for parameter in scriptInfo:
             logging.debug(f"Unknown script parameter: {parameter}")
@@ -55,21 +57,21 @@ class FunctionScript:
         if not isinstance(arg, str):
             return arg
         
-        if arg.startswith("./"):
-            workingDir = self.baseDir
-            return workingDir / arg[2:]
-         
-        if arg.startswith("../"):
-            workingDir = self.baseDir.parent
-            newStructure = arg[3:]
-            while newStructure.startswith("../"):
-                workingDir = workingDir.parent
-                newStructure = newStructure[3:]
+        if arg.startswith("."):
+            prefix, path = arg.split("/", 1)
+            if prefix == ".":
+                return self.scriptDir / path
+            
+            if prefix == "..":
+                cwd = self.scriptDir.parent
+                while path.startswith("../"):
+                    cwd = cwd.parent
+                    path = path[3:]
 
-            return workingDir / newStructure
-        
-        if arg.startswith(".../"):
-            return self._libDir / arg[4:]
+                return cwd / path
+            
+            if prefix in self.imports:
+                return self.imports[prefix] / path
 
         if forceOutput:
             return Path(arg)
@@ -78,9 +80,12 @@ class FunctionScript:
     
     def run(self, verbose: bool, inputArgs: list = [], inputKwargs: dict = {}) -> tuple[bool, any]:
         try:
-            processFunction = self._importFunction(self.path, self.function)
+            pathExtension = [str(path.parent) for path in self.imports.values()]
+            sys.path.extend(pathExtension)
+            processFunction = self._importFunction(self.modulePath, self.function)
+            sys.path = sys.path[:-len(pathExtension)]
         except:
-            logging.error(f"Error importing function '{self.function}' from path '{self.path}'")
+            logging.error(f"Error importing function '{self.function}' from path '{self.modulePath}'")
             logging.error(traceback.format_exc())
             return False, None
 
@@ -88,7 +93,7 @@ class FunctionScript:
         kwargs = self.kwargs | inputKwargs
 
         if verbose:
-            msg = f"Running {self.path} function '{self.function}'"
+            msg = f"Running {self.modulePath} function '{self.function}'"
             if self.args:
                 msg += f" with args {args}"
             if self.kwargs:
@@ -114,7 +119,7 @@ class FunctionScript:
 class OutputScript(FunctionScript):
     fileLookup = {}
     
-    def __init__(self, baseDir: Path, scriptInfo: dict, outputDir: Path):
+    def __init__(self, scriptDir: Path, scriptInfo: dict, outputDir: Path, imports: dict[str, Path] = {}):
         self.outputDir = outputDir
 
         # Output information
@@ -127,19 +132,19 @@ class OutputScript(FunctionScript):
         self.output = self._parseOutput(outputName, outputProperties)
         self.fileLookup |= {FileSelect.OUTPUT: [self.output]}
 
-        super().__init__(baseDir, scriptInfo)
+        super().__init__(scriptDir, scriptInfo, imports)
 
         self.args = [self._parseArg(arg) for arg in self.args]
         self.kwargs = {key: self._parseArg(arg) for key, arg in self.kwargs.items()}
 
-    def _parseOutput(self, outputName: str, outputProperties: dict) -> File:
+    def _parseOutput(self, outputName: str, outputProperties: dict) -> DataFile:
         return self._createFile(self.outputDir / outputName, outputProperties)
 
-    def _createFile(self, outputPath: Path, outputProperties: dict) -> File:
+    def _createFile(self, outputPath: Path, outputProperties: dict) -> DataFile:
         if not outputPath.suffix:
             return Folder(outputPath)
         
-        return File(outputPath, outputProperties)
+        return DataFile(outputPath, outputProperties)
     
     def _parseArg(self, arg: Any) -> Path | str:
         if not isinstance(arg, str):
@@ -182,7 +187,7 @@ class OutputScript(FunctionScript):
             logging.error(f"File selection '{selection}' out of range for file type '{fType}' which has a length of '{len(files)}")
             return argKey
         
-        file: File = files[selection]
+        file: DataFile = files[selection]
         fProperty, *suffixes = fProperty.split(".")
 
         if fProperty == _FileProperty.FILE.value:
@@ -193,12 +198,12 @@ class OutputScript(FunctionScript):
         if fProperty == _FileProperty.DIR.value:
             if suffixes:
                 logging.warning("Suffix provided for a parent path which cannot be resolved, suffix not applied")
-            return file.filePath.parent
+            return file.path.parent
 
         if fProperty == _FileProperty.PATH.value:
-            pth = file.filePath
+            pth = file.path
             for suffix in suffixes:
-                pth = pth.with_suffix(suffix)
+                pth = pth.with_suffix(suffix if not suffix else f".{suffix}") # Prepend a dot for valid suffixes
             return pth
         
         logging.error(f"Unable to parse file property: '{fProperty}")
@@ -227,15 +232,15 @@ class OutputScript(FunctionScript):
         return True, retVal
 
 class FileScript(OutputScript):
-    def __init__(self, baseDir: Path, scriptInfo: dict, outputDir: Path, inputs: dict[str, File]):
+    def __init__(self, scriptDir: Path, scriptInfo: dict, outputDir: Path, inputs: dict[str, DataFile], imports: dict[str, Path] = {}):
         self.fileLookup |= inputs
 
-        super().__init__(baseDir, scriptInfo, outputDir)
+        super().__init__(scriptDir, scriptInfo, outputDir, imports)
 
-    def _parseOutput(self, outputName: str, outputProperties: dict) -> File:
+    def _parseOutput(self, outputName: str, outputProperties: dict) -> DataFile:
         parsedValue = self._parseArg(outputName)
 
-        if isinstance(parsedValue, str):
-            return super()._parseOutput(parsedValue, outputProperties)
-        
-        return self._createFile(parsedValue, outputProperties)
+        if isinstance(parsedValue, Path): # Redirect path of output to outputDir
+            parsedValue = parsedValue.name
+
+        return super()._parseOutput(parsedValue, outputProperties)

@@ -8,7 +8,7 @@ import json
 import logging
 import lib.downloading as dl
 import time
-from lib.progressBar import SteppableProgressBar
+from lib.progressBar import ProgressBar
 
 depthLimit = 100
 
@@ -45,15 +45,18 @@ class PageData:
         return [urllib.parse.urljoin(baseURL, fileLink) for fileLink in self.fileLinks]
 
 class Crawler:
-    def __init__(self, outputDir: Path, username: str = "", password: str = ""):
+    def __init__(self, outputDir: Path, auth: dl.HTTPBasicAuth = None):
         self.outputDir = outputDir
-        self.auth = dl.buildAuth(username, password) if username else None
+        self.auth = auth
 
         self.progressFile = self.outputDir / "crawlerProgress.json"
         self.session = None
         self.data = []
 
     def run(self, entryURL: str, fileRegex: str = None, maxDepth: int = -1, ignoreProgress: bool = False):
+        if not self.outputDir.exists():
+            self.outputDir.mkdir(parents=True)
+
         self.session = requests.Session()
         pattern = re.compile(fileRegex) if fileRegex is not None else None
         if maxDepth < 0:
@@ -67,6 +70,9 @@ class Crawler:
             self._save()
             logging.info(f"Successfully retrieved entry url {entryURL}, crawling subfolders")
         else:
+            if len(self.data) >= maxDepth:
+                return # Exit early if no crawling necessary
+            
             logging.info(f"Progress found, resuming crawling at depth: {len(self.data)}")
 
         while len(self.data) <= maxDepth:
@@ -82,7 +88,7 @@ class Crawler:
 
     def _parallelPageLinks(self, urlList: list[str], pattern: re.Pattern = None, retries: int = 5,) -> list[PageData]:
         data = []
-        progress = SteppableProgressBar(len(urlList), processName=f"Crawler Depth {len(self.data)}")
+        progress = ProgressBar(len(urlList), processName=f"Crawler Depth {len(self.data)}")
         with cf.ThreadPoolExecutor(max_workers=10) as executor:
             futures = (executor.submit(self._getPageLinks, url, pattern, retries) for url in urlList)
             for future in cf.as_completed(futures):

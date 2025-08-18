@@ -1,49 +1,42 @@
-import argparse
+from argparse import ArgumentParser, Namespace, _MutuallyExclusiveGroup
 from lib.data.sources import SourceManager
 from lib.data.database import BasicDB, Flag
 
 class ArgParser:
-    def __init__(self, description=""):
+    def __init__(self, description: str = "", reprepareHelp: str = "Force redoing source preparation", overwriteHelp: str = "Force overwriting all output"):
         self.sourceWarning = 4
-        self.parser = argparse.ArgumentParser(description=description)
-        self.manager = SourceManager()
 
-        self.parser.add_argument("source", help="Data set to interact with", metavar="SOURCE")
-        self.parser.add_argument("-p", "--prepare", action="store_true", help="Force redoing preparation")
-        self.parser.add_argument("-o", "--overwrite", action="store_true", help="Force overwriting output")
-        self.parser.add_argument("-u", "--update", action="store_true", help="Run update version of database if available")
-        self.parser.add_argument("-q", "--quiet", action="store_false", help="Suppress output")
+        self._parser = ArgumentParser(description=description)
+        self._manager = SourceManager()
 
-    def add_argument(self, *args, **kwargs) -> None:
-        self.parser.add_argument(*args, **kwargs)
+        self.addArgument("source", help="Data set to interact with", metavar="SOURCE")
+        self.addArgument("-q", f"--{Flag.VERBOSE.value}", action="store_false", help="Suppress output during execution")
 
-    def parse_args(self, *args, **kwargs) -> tuple[list[BasicDB], list[Flag], argparse.Namespace]:
-        parsedArgs = self.parser.parse_args(*args, **kwargs)
+        self.addArgument("-p", f"--{Flag.REPREPARE.value}", action="store_true", help=reprepareHelp)
+        self.addArgument("-o", f"--{Flag.OVERWRITE.value}", action="store_true", help=overwriteHelp)
 
-        sources = self.manager.requestDBs(self._extract(parsedArgs, "source"))
-        if len(sources) >= self.sourceWarning:
-            passed = self._warnSources(len(sources))
+    def addArgument(self, *args, **kwargs) -> None:
+        self._parser.add_argument(*args, **kwargs)
+
+    def parseArgs(self, *args, kwargsDict: bool = False, **kwargs) -> tuple[list[BasicDB], list[Flag], Namespace | dict]:
+        parsedArgs = self._parser.parse_args(*args, **kwargs)
+
+        sources = self._manager.matchSources(self._extract(parsedArgs, "source"))
+        sourceCount = self._manager.countSources(sources)
+        if sourceCount >= self.sourceWarning:
+            passed = self._warnSources(sourceCount)
             if not passed:
-                sources = []
+                sources = {}
 
-        flagMap = {
-            "quiet": Flag.VERBOSE,
-            "prepare": Flag.PREPARE_OVERWRITE,
-            "overwrite": Flag.OUTPUT_OVERWRITE,
-            "update": Flag.UPDATE
-        }
+        flags = [flag for key, flag in Flag._value2member_map_.items() if self._extract(parsedArgs, key)]
+        constructedSources = self._manager.constructDBs(sources)
 
-        flags = [flag for key, flag in flagMap.items() if self._extract(parsedArgs, key)]
+        return constructedSources, flags, parsedArgs.__dict__ if kwargsDict else parsedArgs
 
-        return sources, flags, parsedArgs
+    def addMutuallyExclusiveGroup(self, *args, **kwargs) -> _MutuallyExclusiveGroup:
+        return self._parser.add_mutually_exclusive_group(*args, **kwargs)
     
-    def namespaceKwargs(self, namespace: argparse.Namespace) -> dict:
-        return vars(namespace)
-
-    def add_mutually_exclusive_group(self, *args, **kwargs) -> argparse._MutuallyExclusiveGroup:
-        return self.parser.add_mutually_exclusive_group(*args, **kwargs)
-    
-    def _extract(self, namespace: argparse.Namespace, attribute: str) -> any:
+    def _extract(self, namespace: Namespace, attribute: str) -> any:
         attr = getattr(namespace, attribute)
         delattr(namespace, attribute)
         return attr

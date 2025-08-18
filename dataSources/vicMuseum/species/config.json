@@ -2,19 +2,19 @@
     "datasetID": "ARGA:TL:0000190",
     "retrieveType": "script",
     "downloading": {
-        "path": "../processing.py",
+        "path": ".llib/processing.py",
         "function": "retrieve",
         "args": [
-            "specimens",
-            "{OUTDIR}",
+            "species",
+            "{OUT-DIR}",
             1000
         ],
-        "output": "specimens.csv"
+        "output": "species.csv"
     },
     "processing": {
         "linear": [
             {
-                "path": "../processing.py",
+                "path": ".llib/processing.py",
                 "function": "expandTaxa",
                 "args": [
                     "{IN-PATH}",

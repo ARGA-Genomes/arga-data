@@ -1,11 +1,13 @@
 from pathlib import Path
-from lib.processing.stages import File
+from lib.processing.files import DataFile, Step
 from lib.processing.scripts import FileScript, FileSelect
 from lib.systemManagers.baseManager import SystemManager, Task
 import logging
 
 class _Node(Task):
     def __init__(self, index: str, script: FileScript, parents: list['_Node']):
+        super().__init__()
+
         self.index = index
         self.script = script
         self.parents = parents
@@ -14,9 +16,9 @@ class _Node(Task):
         return self.index == other.index
 
     def getOutputPath(self) -> Path:
-        return self.script.output.filePath
+        return self.script.output.path
 
-    def getOutputFile(self) -> File:
+    def getOutputFile(self) -> DataFile:
         return self.script.output
     
     def getRequirements(self, tasks: list['_Node']) -> list['_Node']:
@@ -33,14 +35,14 @@ class _Node(Task):
         return self.script.run(overwrite, verbose)[0] # No retval for processing tasks, just return success
 
 class _Root(_Node):
-    def __init__(self, index: int, file: File):
+    def __init__(self, index: int, file: DataFile):
         self.index = index
         self.file = file
 
     def getOutputPath(self) -> Path:
-        return self.file.filePath
+        return self.file.path
 
-    def getOutputFile(self) -> File:
+    def getOutputFile(self) -> DataFile:
         return self.file
     
     def getRequirements(self, *args) -> list[_Node]:
@@ -50,66 +52,63 @@ class _Root(_Node):
         return True
 
 class ProcessingManager(SystemManager):
-    def __init__(self, dataDir: Path):
-        self.stepName = "processing"
+    def __init__(self, dataDir: Path, scriptDir: Path, metadataDir: Path, scriptImports: dict[str, Path]):
+        super().__init__(dataDir, scriptDir, metadataDir, Step.PROCESSING, "steps")
 
-        super().__init__(dataDir.parent, self.stepName, "steps")
+        self.scriptImports = scriptImports
 
-        self.processingDir = dataDir / self.stepName
-        self.nodes: dict[FileSelect, list[_Node]] = {
-            FileSelect.DOWNLOAD: [],
-            FileSelect.PROCESS: []
+        self._rootNodes: list[_Node] = []
+        self._scriptNodes: list[list[_Node]] = []
+
+    def _createNode(self, step: dict, parents: list[_Node], depth: int) -> _Node | None:
+        fileInput = self._rootNodes[-1] if depth == 0 else self._scriptNodes[depth-1][-1]
+        flatScriptNodes = [node for nodeList in self._scriptNodes for node in nodeList]
+
+        inputs = {
+            FileSelect.INPUT: [fileInput.getOutputFile()],
+            FileSelect.DOWNLOAD: [node.getOutputFile() for node in self._rootNodes],
+            FileSelect.PROCESS: [node.getOutputFile() for node in flatScriptNodes]
         }
         
-        self._lowestNodes: list[_Node] = []
-
-    def _createNode(self, step: dict, parents: list[_Node]) -> _Node | None:
-        inputs = {FileSelect.INPUT: [self.getLatestNodeFile()]} | {select: [node.getOutputFile() for node in nodes] for select, nodes in self.nodes.items()}
-        
         try:
-            script = FileScript(self.baseDir, dict(step), self.processingDir, inputs)
+            script = FileScript(self.scriptDir, dict(step), self.workingDir, inputs, self.scriptImports)
         except AttributeError as e:
             logging.error(f"Invalid processing script configuration: {e}")
             return None
         
-        node = _Node(f"P{len(self.nodes[FileSelect.PROCESS])}", script, parents)
-        self.nodes[FileSelect.PROCESS].append(node)
+        node = _Node(f"P{len(flatScriptNodes)}", script, parents)
+        if depth >= len(self._scriptNodes):
+            self._scriptNodes.append([])
+
+        self._scriptNodes[-1].append(node)
         return node
     
-    def _addProcessing(self, node: _Node, processingSteps: list[dict]) -> _Node:
-        for step in processingSteps:
-            subNode = self._createNode(step, [node])
-            node = subNode
-        return node
+    def _addProcessing(self, node: _Node, processingSteps: list[dict], startingDepth: int) -> None:
+        nextNode = node
+        for idx, step in enumerate(processingSteps):
+            subNode = self._createNode(step, [nextNode], startingDepth + idx)
+            nextNode = subNode
     
-    def getLatestNodeFile(self) -> File:
-        latestNode = self.nodes[FileSelect.DOWNLOAD][-1] if not self.nodes[FileSelect.PROCESS] else self.nodes[FileSelect.PROCESS][-1]
+    def getLatestNodeFile(self) -> DataFile:
+        latestNode = self._rootNodes[-1] if not self._scriptNodes else self._scriptNodes[-1][-1]
         return latestNode.getOutputFile()
 
     def process(self, overwrite: bool = False, verbose: bool = False) -> bool:
-        if all(isinstance(node, _Root) for node in self._lowestNodes): # All root nodes, no processing required
+        if not self._scriptNodes: # All root nodes, no processing required
             logging.info("No processing required for any nodes")
             return True
 
-        if not self.processingDir.exists():
-            self.processingDir.mkdir()
+        for node in self._scriptNodes[-1]:
+            requirements = node.getRequirements(self._tasks)
+            self._tasks.extend(requirements)
 
-        queuedTasks: list[_Node] = []
-        for node in self._lowestNodes:
-            requirements = node.getRequirements(queuedTasks)
-            queuedTasks.extend(requirements)
+        return self.runTasks(overwrite, verbose)
 
-        return self.runTasks(queuedTasks, overwrite, verbose)
-
-    def registerFile(self, file: File, processingSteps: list[dict]) -> None:
-        node = _Root(f"D{len(self.nodes[FileSelect.DOWNLOAD])}", file)
-        self.nodes[FileSelect.DOWNLOAD].append(node)
-        lowestNode = self._addProcessing(node, list(processingSteps))
-        self._lowestNodes.append(lowestNode)
+    def registerFile(self, file: DataFile, processingSteps: list[dict]) -> None:
+        node = _Root(f"D{len(self._rootNodes)}", file)
+        self._rootNodes.append(node)
+        self._addProcessing(node, list(processingSteps), 0)
 
     def addFinalProcessing(self, processingSteps: list[dict]) -> None:
-        if not processingSteps:
-            return
-
-        finalNode = self._createNode(processingSteps[0], self._lowestNodes)
-        self._lowestNodes = [self._addProcessing(finalNode, processingSteps[1:])]
+        finalNode = self._createNode(processingSteps[0], self._scriptNodes[-1] if self._scriptNodes else self._rootNodes, len(self._scriptNodes))
+        self._addProcessing(finalNode, processingSteps[1:], len(self._scriptNodes))

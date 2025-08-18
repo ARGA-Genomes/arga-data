@@ -2,11 +2,11 @@
     "datasetID": "ARGA:TL:0000191",
     "retrieveType": "script",
     "downloading": {
-        "path": "../processing.py",
+        "path": ".llib/processing.py",
         "function": "retrieve",
         "args": [
             "specimens",
-            "{OUTDIR}",
+            "{OUT-DIR}",
             1000
         ],
         "output": "specimens.csv"

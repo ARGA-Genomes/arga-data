@@ -1,169 +1,178 @@
 import json
-import lib.config as cfg
+from lib.config import globalConfig as gcfg
 from pathlib import Path
 from lib.data.database import BasicDB, CrawlDB, ScriptDB, Retrieve
 import logging
 
+sourceConfigName = "config.json"
+
 class SourceManager:
+
+    _divider = "-"
+
     def __init__(self):
         self.locations: dict[str, Location] = {}
+
+        dataSourcesFolder: Path = gcfg.folders.dataSources
+        for locationFolder in dataSourcesFolder.iterdir():
+            if locationFolder.is_file():
+                continue
+
+            location = Location(locationFolder)
+            self.locations[location.getName()] = location
+
+    def _buildSourceName(self, locationName: str, databaseName: str, subsectionName: str) -> str:
+        return f"{locationName}{self._divider}{databaseName}" + (f"{self._divider}{subsectionName}" if subsectionName else "")
+
+    def _splitSourceName(self, sourceName: str) -> tuple[str, str, str]:
+        sourceSections = sourceName.split(self._divider)
+
+        if len(sourceSections) <= 1:
+            return sourceName, "", ""
+
+        if len(sourceSections) == 2:
+            return *sourceSections, ""
         
-        for locationPath in cfg.Folders.dataSources.iterdir():
-            locationObj = Location(locationPath)
-            self.locations[locationObj.locationName] = locationObj
-    
-    def getLocations(self) -> dict[str, 'Location']:
-        return self.locations
-
-    def requestDBs(self, source: str) -> list[BasicDB]:
-        sourceInformation = source.split("-")
-
-        if len(sourceInformation) >= 4:
-            logging.error(f"Unknown source: {source}")
-            return []
+        if len(sourceSections) == 3:
+            return tuple(sourceSections)
         
-        locationStr, databaseStr, subsectionStr = (sourceInformation + ["", ""])[:3] # Force sourceInformation to be 3 long
+        raise Exception("Too many sections in source name, should not contain more than 3.")
 
-        location = self.locations.get(locationStr, None)
+    def matchSources(self, sourceHint: str = "") -> dict[str, dict[str, list[str]]]:
+        locationName, databaseName, subsection = self._splitSourceName(sourceHint)
+        if not locationName:
+            return {locationName: location.getDatabases() for locationName, location in self.locations.items()}
+        
+        location = self.locations.get(locationName, None)
         if location is None:
-            logging.error(f"Invalid location: {locationStr}")
+            logging.error(f"Invalid location '{locationName}'")
             return []
         
-        return location.loadDBs(databaseStr, subsectionStr)
+        return {locationName: location.getDatabases(databaseName, subsection)}
+
+    def countSources(self, sources: dict[str, dict[str, list[str]]]) -> int:
+        return sum(1 for _, databases in sources.items() for _, subsections in databases.items() for _ in subsections)
+
+    def constructDBs(self, sources: dict[str, dict[str, list[str]]]) -> list[BasicDB]:
+        dbs = []
+        for locationName, databases in sources.items():
+            for databaseName, subsections in databases.items():
+                for subsection in subsections:
+                    name = self._buildSourceName(locationName, databaseName, subsection)
+
+                    logging.info(f"Constructing database: {name}")
+                    location = self.locations[locationName]
+                    constructedDB = location.constructDB(databaseName, subsection, name)
+
+                    if constructedDB is None:
+                        continue
+
+                    dbs.append(constructedDB)
+
+        return dbs
 
 class Location:
     def __init__(self, locationPath: Path):
         self.locationPath = locationPath
-        self.locationName = locationPath.stem
+        self.databases: dict[str, DatabaseConstructor] = {}
 
-        # Setup databases
-        self.databases: dict[str, Database] = {}
         for databaseFolder in locationPath.iterdir():
-            if databaseFolder.is_file() or databaseFolder.name == "__pycache__": # Skip files and cached python folder
+            if databaseFolder.is_file() or databaseFolder.name in ("__pycache__", "llib"): # Skip files, cached python folder, and location library
                 continue
 
-            self.databases[databaseFolder.stem] = Database(self.locationName, databaseFolder)
+            generalDatabase = DatabaseConstructor(databaseFolder)
+            self.databases[generalDatabase.getName()] = generalDatabase
 
-    def getDatabases(self) -> dict[str, 'Database']:
-        return self.databases
+    def getName(self) -> str:
+        return self.locationPath.name
+    
+    def getDatabases(self, databaseName: str = "", subsectionName: str = "") -> dict[str, list[str]]:
+        noSubsections = [""]
 
-    def loadDBs(self, database: str, subsection: str) -> list[BasicDB]:
-        constructDBs = []
-        if database:
-            if database not in self.databases:
-                logging.error(f"Invalid database: {database}")
-                return []
-            constructDBs.append(database)
-        else: # Load all dbs if database is empty string
-            constructDBs.extend(self.databases.keys())
+        if not databaseName:
+            dbs = {}
+            for databaseName, database in self.databases.items():
+                databaseSubsections = database.listSubsections()
+                if not databaseSubsections:
+                    databaseSubsections = noSubsections
 
-        dbs = []
-        for dbName in constructDBs:
-            databaseObject = self.databases[dbName]
-            dbs.extend(databaseObject.constructDBs(subsection))
+                dbs[databaseName] = databaseSubsections
 
-        return dbs
+            return dbs
         
-class Database:
-    configFile = "config.json"
-    dbMapping = {
+        database = self.databases.get(databaseName, None)
+        if database is None:
+            logging.error(f"Invalid database '{databaseName}' for location '{self.getName()}'")
+            return {}
+        
+        databaseSubsections = database.listSubsections()
+        if not subsectionName:
+            if not databaseSubsections:
+                databaseSubsections = noSubsections
+
+            return {databaseName: databaseSubsections}
+
+        if subsectionName not in databaseSubsections:
+            logging.error(f"No subsection '{subsectionName}' exists under database '{databaseName}' for location '{self.getName()}'")
+            return {}
+
+        return {databaseName: [subsectionName]}
+    
+    def constructDB(self, databaseName, subsection: str, name: str) -> BasicDB | None:
+        database = self.databases[databaseName]
+        return database.construct(subsection, name)
+
+class DatabaseConstructor:
+    _dbMapping: dict[Retrieve, BasicDB] = {
         Retrieve.URL: BasicDB,
         Retrieve.CRAWL: CrawlDB,
         Retrieve.SCRIPT: ScriptDB
     }
 
-    def __init__(self, locationName: str, databasePath: Path):
-        self.locationName = locationName
+    def __init__(self, databasePath: Path):
         self.databasePath = databasePath
-        self.databaseName = databasePath.stem
 
-    def _loadConfig(self) -> dict | None:
-        configPath = self.databasePath / self.configFile
-        if not configPath.exists():
-            logging.error(f"No config file found for database '{self.locationName}-{self.databaseName}'")
-            return None
-        
-        with open(configPath) as fp:
-            return json.load(fp)
+        configPath = databasePath / sourceConfigName
+        if configPath.exists():
+            with open(configPath) as fp:
+                configData = json.load(fp)
+        else:
+            configData = {}
+
+        self.retrieveType: str = configData.pop("retrieveType", "")
+        self.datasetID: str = configData.pop("datasetID", "")
+        self.subsections: dict[str, dict[str, str]] = configData.pop("subsections", {})
+        self.configData = configData
+
+    def getName(self) -> str:
+        return self.databasePath.name
     
-    def _translateSubsection(self, config: dict, subsectionName: str, subsectionProperties: dict) -> dict:
-
-        def translate(obj: any) -> any:
-            if isinstance(obj, str):
-                obj = obj.replace("{SUBSECTION}", subsectionName)
-                for key, value in subsectionProperties.items():
-                    obj = obj.replace(f"{{SUBSECTION:{key.upper()}}}", value)
-
-                return obj
-            
-            if isinstance(obj, list):
-                return [translate(item) for item in obj]
-            
-            if isinstance(obj, dict):
-                return {key: translate(value) for key, value in obj.items()}
-            
-            return obj
-
-        return {key: translate(value) for key, value in config.items()}
+    def listSubsections(self) -> list[str]:
+        return list(self.subsections)
+    
+    def construct(self, subsection: str, name: str) -> BasicDB | None:
+        if not self.retrieveType:
+            logging.error("No retrieve type specified")
+            return
         
-    def constructDBs(self, subsection: str) -> list[BasicDB]:
-        databaseConfig = self._loadConfig()
-        if databaseConfig is None:
-            return []
-        
-        retrieveType = databaseConfig.pop("retrieveType", None)
+        if not self.datasetID:
+            logging.warning("No datasetID specified, conversion process will not work")
+
+        retrieveType = Retrieve._value2member_map_.get(self.retrieveType, None)
         if retrieveType is None:
-            logging.error(f"No retrieve type specified for database '{self.locationName}-{self.databaseName}'")
-            return []
-        
-        retrieveType = Retrieve(retrieveType)
-        dbType = self.dbMapping.get(retrieveType, None)
-        if dbType is None:
-            logging.error(f"Database {self.databaseName} has invalid retrieve type: {retrieveType.value}. Should be one of: {', '.join(key.value for key in self.dbMapping)}")
-            return []
-        
-        # Determine which subsections to load
-        subsections = databaseConfig.pop("subsections", {})
-        loadSubsections = {}
-        if subsections: # Subsections in config
-            if subsection: # User defined subsection
-                if subsection not in subsections:
-                    logging.error(f"Invalid subsection: {subsection}")
-                    return []
-                else: # Valid subsection provided
-                    loadSubsections[subsection] = subsections[subsection]
-            else: # No subsection provided, collect all
-                loadSubsections = subsections
-        else: # No subsection provided and none exist, no need to translate
-            loadSubsections = {"": {}}
+            logging.error(f"Invalid retrieve type: {self.retrieveType}. Should be one of: {', '.join(key.value for key in self._dbMapping)}")
+            return
 
-        # Derive configs for each subsection and check for dataset ID
-        configs = {}
-        for subsectionName, subsectionProperties in loadSubsections.items():
-            config = databaseConfig if not subsectionName else self._translateSubsection(databaseConfig, subsectionName, subsectionProperties)
+        dbObject = self._dbMapping[retrieveType]
+        if not subsection:
+            config = dict(self.configData)
+        else:
+            rawConfig = json.dumps(self.configData)
+            rawConfig = rawConfig.replace("<SUB>", subsection)
+            tags = self.subsections.get("tags", {})
+            for tag, replaceValue in tags.items():
+                rawConfig = rawConfig.replace(f"<SUB:{tag.upper()}>", replaceValue)
 
-            datasetID = config.pop("datasetID", None)
-            if datasetID is None:
-                error = f"No datasetID specified for database '{self.locationName}-{self.databaseName}'"
-                if subsectionName:
-                    error += f" with subsection '{subsectionName}'"
-                error += f" - Conversion process will not work."
+            config = json.loads(rawConfig)
 
-                logging.warning(error)
-
-            configs[subsectionName] = (datasetID, config)
-        
-        dbs = []
-        for subsectionName, configData in configs.items():
-            datasetID, config = configData
-            databaseName = f"{self.locationName}-{self.databaseName}{f'-{subsectionName}' if subsectionName else ''}"
-
-            try:
-                logging.info(f"Creating database '{databaseName}'")
-                dbs.append(dbType(self.locationName, self.databaseName, subsectionName, datasetID, config))
-            except AttributeError as e:
-                logging.error(f"Error creating database '{databaseName}' - {e}")
-                logging.error()
-                continue
-
-        return dbs
+        return dbObject(name, self.databasePath, subsection, self.datasetID, config)

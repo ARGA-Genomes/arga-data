@@ -1,61 +1,40 @@
-import lib.config as cfg
+from lib.config import globalConfig as gcfg
 import argparse
-from lib.data.sources import SourceManager
+from lib.data.sources import sourceConfigName
 from pathlib import Path
 import json
 from lib.data.database import Retrieve
 
-def _urlConfig() -> dict:
-    return {
-        "retrieveType": "url",
-        "downloading": [
-            {
-                "url": "",
-                "name": ""
-            }
-        ],
-        "conversion": {}
+urlDLConfig = [
+    {
+        "url": "",
+        "name": ""
     }
+]
 
-def _crawlConfig() -> dict:
-    return {
-        "retrieveType": "crawl",
-        "downloading": {
-            "url": "",
-            "regex": ""
-        },
-        "conversion": {}
-    }
+crawlDLConfig = {
+    "url": "",
+    "regex": "",
+    "urlPrefix": ""
+}
 
-def _scriptConfig() -> dict:
-    return {
-        "retrieveType": "script",
-        "downloading": {
-            "path": "",
-            "function": "",
-            "args": [],
-            "output": []
-        },
-        "conversion": {}
-    }
-
-def _defaultConfig() -> dict:
-    return {
-        "retrieveType": "",
-        "downloading": {},
-        "conversion": {}
-    }
+scriptDLConfig = {
+    "path": "",
+    "function": "",
+    "args": [],
+    "output": ""
+}
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Generate folders for a new data source")
     parser.add_argument("location", help="Location of the data source")
     parser.add_argument("database", help="Database name for location")
-    parser.add_argument("-t", "--type", choices=list(Retrieve._value2member_map_), help="Extra setup if db type is known")
+    parser.add_argument("type", choices=list(Retrieve._value2member_map_), help="Type of database to set up")
     args = parser.parse_args()
 
-    sourceManager = SourceManager()
-    locationFolder: Path = cfg.Folders.dataSources / args.location
+    locationFolder: Path = gcfg.folders.dataSources / args.location
     databaseFolder: Path = locationFolder / args.database
+    configFilePath: Path = databaseFolder / sourceConfigName
 
     if databaseFolder.exists():
         print(f"Database {args.location}-{args.database} already exists, exiting...")
@@ -70,19 +49,25 @@ if __name__ == "__main__":
     print(f"Creating database folder: {args.database}")
     databaseFolder.mkdir()
 
-    # Setting up database folder
-    dataFolder = databaseFolder / "data"
-    dataFolder.mkdir()
-
-    configs = {
-        Retrieve.URL: _urlConfig,
-        Retrieve.CRAWL: _crawlConfig,
-        Retrieve.SCRIPT: _scriptConfig,
+    dlconfigs = {
+        Retrieve.URL: urlDLConfig,
+        Retrieve.CRAWL: crawlDLConfig,
+        Retrieve.SCRIPT: scriptDLConfig,
     }
 
-    retriveType = Retrieve._value2member_map_.get(args.type, None)
-    config = configs.get(retriveType, _defaultConfig)
+    retriveType = Retrieve._value2member_map_[args.type]
+    config = {
+        "retrieveType": retriveType.value,
+        "datasetID": "",
+        "downloading": dlconfigs[retriveType],
+        "conversion": {},
+        "update": {
+            "type": "weekly",
+            "day": "sunday",
+            "time": 9,
+            "repeat": 2
+        }
+    }
 
-    configFile = databaseFolder / "config.json"
-    with open(configFile, "w") as fp:
-        json.dump(config(), fp, indent=4)
+    with open(configFilePath, "w") as fp:
+        json.dump(config, fp, indent=4)

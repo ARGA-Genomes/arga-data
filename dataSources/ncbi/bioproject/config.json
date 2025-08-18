@@ -10,28 +10,13 @@
     "processing": {
         "linear": [
             {
-                "path": "tools/processing/xmlProcess.py",
-                "function": "process",
+                "path": ".lib/xml.py",
+                "function": "basicXMLProcessor",
                 "args": [
                     "{IN-PATH}",
-                    "{OUT-PATH}"
+                    "{OUT-PATH}",
+                    150000
                 ],
-                "kwargs": {
-                    "subfileRows": 150000,
-                    "compressChild": [
-                        "ProjectDescr",
-                        "RepliconSet",
-                        "ProjectLinks",
-                        "AuthorSet",
-                        "Grant",
-                        "Description",
-                        "Morphology",
-                        "Objectives",
-                        "ProjectDataTypeSet",
-                        "BioSampleSet",
-                        "IntendedDataTypeSet"
-                    ]
-                },
                 "output": "bioproject.csv"
             }
         ]

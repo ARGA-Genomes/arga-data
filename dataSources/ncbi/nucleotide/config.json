@@ -2,76 +2,124 @@
     "datasetID": "ARGA:TL:0000160",
     "subsections": {
         "bacteria": {
-            "name" : "bct"
+            "tags": {
+                "name" : "bct"
+            }
         },
         "constructed": {
-            "name": "con"
+            "tags": {
+                "name": "con"
+            }
         },
         "environmental": {
-            "name": "env"
+            "tags": {
+                "name": "env"
+            }
         },
         "expressedSeq": {
-            "name": "est"
+            "tags": {
+                "name": "est"
+            }
         },
         "genomeSurvey": {
-            "name": "gss"
+            "tags": {
+                "name": "gss"
+            }
         },
         "highCDNA": {
-            "name": "htc"
+            "tags": {
+                "name": "htc"
+            }
         },
         "invertebrate": {
-            "name": "inv"
+            "tags": {
+                "name": "inv"
+            }
         },
         "mammalian": {
-            "name": "mam"
+            "tags": {
+                "name": "mam"
+            }
         },
         "otherVertebrate": {
-            "name": "vrt"
+            "tags": {
+                "name": "vrt"
+            }
         },
         "patent": {
-            "name": "pat"
+            "tags": {
+                "name": "pat"
+            }
         },
         "phage": {
-            "name": "phg"
+            "tags": {
+                "name": "phg"
+            }
         },
         "plant": {
-            "name": "pln"
+            "tags": {
+                "name": "pln"
+            }
         },
         "primate": {
-            "name": "pri"
+            "tags": {
+                "name": "pri"
+            }
         },
         "rodent": {
-            "name": "rod"
+            "tags": {
+                "name": "rod"
+            }
         },
         "sequenceTagged": {
-            "name": "sts"
+            "tags": {
+                "name": "sts"
+            }
         },
         "synthetic": {
-            "name": "syn"
+            "tags": {
+                "name": "syn"
+            }
         },
         "transcriptome": {
-            "name": "tsa"
+            "tags": {
+                "name": "tsa"
+            }
         },
         "viral": {
-            "name": "vrl"
+            "tags": {
+                "name": "vrl"
+            }
         }
     },
     "retrieveType": "crawl",
     "downloading": {
         "url": "https://ftp.ncbi.nlm.nih.gov/genbank/",
-        "regex": "gb{SUBSECTION:NAME}\\d+\\.seq\\.gz",
+        "regex": "gb<SUB:NAME>\\d+\\.seq\\.gz",
         "maxDepth": 0
     },
     "processing": {
-        "linear": [
+        "parallel": [
             {
                 "path": "./processing.py",
                 "function": "parse",
                 "args": [
-                    "{IN-DIR}",
+                    "{IN-PATH}",
                     "{OUT-PATH}"
                 ],
-                "output": "{SUBSECTION}.csv"
+                "output": "{IN-PATH.parquet}"
+            }
+        ],
+        "linear": [
+            {
+                "path": ".lib/bigFiles.py",
+                "function": "combineDirectoryFiles",
+                "args": [
+                    "{OUT-PATH}",
+                    "{IN-DIR}",
+                    "*.parquet"
+                ],
+                "output": "<SUB>.csv"
             }
         ]
     },

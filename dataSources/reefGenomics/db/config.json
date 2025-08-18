@@ -9,10 +9,10 @@
         "path": "./processing.py",
         "function": "build",
         "args": [
-            "{OUTDIR}",
-            "{SUBSECTION}"
+            "{OUT-DIR}",
+            "<SUB>"
         ],
-        "output": "{SUBSECTION}.csv"
+        "output": "<SUB>.csv"
     },
     "update": {
         "type": "weekly",

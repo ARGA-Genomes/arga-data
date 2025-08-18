@@ -1,0 +1,40 @@
+{
+    "retrieveType": "script",
+    "downloading": {
+        "path": "./processing.py",
+        "function": "retrieve",
+        "args": [
+            "{OUT-PATH}"
+        ],
+        "output": "worms.zip"
+    },
+    "processing": {
+        "linear": [
+            {
+                "path": ".lib/zipping.py",
+                "function": "extract",
+                "args": [
+                    "{IN-PATH}",
+                    "{OUT-DIR}"
+                ],
+                "output": "{IN-PATH.}"
+            },
+            {
+                "path": "./processing.py",
+                "function": "combine",
+                "args": [
+                    "{IN-PATH}",
+                    "{OUT-PATH}"
+                ],
+                "output": "worms.csv"
+            }
+        ]
+    },
+    "conversion": {},
+    "update": {
+        "type": "weekly",
+        "day": "sunday",
+        "time": 9,
+        "repeat": 2
+    }
+}

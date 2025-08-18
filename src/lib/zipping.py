@@ -28,7 +28,7 @@ class RepeatExtractor:
 def extract(filePath: Path, outputDir: Path = None, addSuffix: str = "", overwrite: bool = False, verbose: bool = True) -> Path | None:
     if not filePath.exists():
         logging.warning(f"No file exists at path: {filePath}.")
-        return None
+        return
     
     if outputDir is None:
         outputDir = filePath.parent
@@ -43,7 +43,12 @@ def extract(filePath: Path, outputDir: Path = None, addSuffix: str = "", overwri
     if verbose:
         logging.info(f"Extracting {filePath} to {outputPath}")
 
-    shutil.unpack_archive(filePath, outputPath)
+    try:
+        shutil.unpack_archive(filePath, outputPath)
+    except:
+        outputPath.unlink(missing_ok=True)
+        return
+
     return outputPath
 
 def compress(filePath: Path, outputDir: Path = None, zipName: str = None) -> Path | None:

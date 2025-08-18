@@ -7,8 +7,8 @@
     },
     "downloading": [
         {
-            "url": "https://s3.ap-southeast-2.amazonaws.com/wilderlab.publicdata/{SUBSECTION}3.csv",
-            "name": "{SUBSECTION}.csv"
+            "url": "https://s3.ap-southeast-2.amazonaws.com/wilderlab.publicdata/<SUB>3.csv",
+            "name": "<SUB>.csv"
         }
     ],
     "processing": {
@@ -20,7 +20,7 @@
                     "{IN-PATH}",
                     "{OUT-PATH}"
                 ],
-                "output": "cleaned{SUBSECTION}.csv"
+                "output": "cleaned<SUB>.csv"
             }
         ]
     },
