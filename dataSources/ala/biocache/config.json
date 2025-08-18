@@ -1,0 +1,50 @@
+{
+    "datasetID": "0007001",
+    "retrieveType": "script",
+    "downloading": {
+        "path": "./processing.py",
+        "function": "collectBiocache",
+        "args": [
+            {
+                "q": "*:*",
+                "fq": "(basis_of_record:\"PRESERVED_SPECIMEN\" OR basis_of_record:\"MATERIAL_SAMPLE\" OR basis_of_record:\"LIVING_SPECIMEN\" OR basis_of_record:\"MATERIAL_CITATION\")",
+                "disableAllQualityFilters": true,
+                "qualityProfile": "ALA",
+                "qc": "-_nest_parent_:*"
+            },
+            "{OUT-PATH}"
+        ],
+        "output": "biocache.zip"
+    },
+    "processing": {
+        "linear": [
+            {
+                "path": ".lib/zipping.py",
+                "function": "extract",
+                "args": [
+                    "{IN-PATH}",
+                    "{OUT-DIR}"
+                ],
+                "output": "biocache"
+            },
+            {
+                "path": "./processing.py",
+                "function": "cleanup",
+                "args": [
+                    "{IN-PATH}",
+                    "{OUT-PATH}"
+                ],
+                "output": "biocache.csv"
+            }
+        ]
+    },
+    "conversion": {
+        "mapColumnName": "ala-biocache mappings"
+    },
+    "update": {
+        "type": "weekly",
+        "day": "sunday",
+        "time": 9,
+        "repeat": 2
+    }
+}
