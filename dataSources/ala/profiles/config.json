@@ -3,17 +3,16 @@
     "subsections": {
         "kamilaroi": {},
         "noongar": {},
-        "southeastarnhemland": {},
-        "mangrovewatch": {},
-        "weeds-australia": {}
+        "southEastarnHemland": {},
+        "mangroveWatch": {},
+        "weedsAustralia": {}
     },
     "downloading": {
         "path": "./processing.py",
         "function": "collect",
         "args": [
             "{OUT-DIR}",
-            "<SUB>",
-            "../token.json"
+            "<SUB>"
         ],
         "output": "<SUB>.csv"
     },
