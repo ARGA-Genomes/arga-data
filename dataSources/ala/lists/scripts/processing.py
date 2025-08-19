@@ -1,58 +1,28 @@
 from pathlib import Path
-import pandas as pd
-import requests
+import lib.downloading as dl
+import lib.bigFiles as bf
+import lib.common as cmn
+
+relevantLists = {
+    "ARGA Threatened Species": "dr23195",
+    "ARGA Useful Species": "dr23194",
+    "ARGA Venomous and Poisonous Species": "dr23195",
+    "ARGA Migratory Species": "dr23193",
+    "ARGA Native Species": "dr23205",
+    "ARGA Milestone Species": "dr23177",
+    "ARGA Edible Species": "dr23094",
+    "ARGA Exotic Species": "dr23197",
+    "ARGA Bushfire Recovery": "dr25948",
+    "ARGA Commercial Species": "dr23169",
+    "ARGA Crop Wild Relatives": "dr23173",
+}
 
 def collect(outputPath: Path) -> None:
-    baseURL = "https://lists-ws.test.ala.org.au/"
-    session = requests.Session()
-    recordsPerPage = 100
+    subDir = outputPath.parent / "sections"
+    subDir.mkdir()
+
+    for listName, dataResourceUID in relevantLists.items():
+        dl.download(f"https://lists-ws.test.ala.org.au/v2/download/{dataResourceUID}?zip=false", subDir / f"{listName.replace(' ', '_')}.csv", verbose=True)
     
-    def getURL(endpoint: str, params: dict, pageSize: int, page: int = 1) -> dict:
-        fields = dict(params)
-        fields["page"] = page
-        fields["pageSize"] = pageSize
-
-        url = f"{baseURL}{endpoint}?" + "&".join(f"{k}={v}" for k, v in fields.items())
-        response = session.get(url)
-        data = response.json()
-        return data
-    
-    listsMetadata = outputPath.parent / "metadata.csv"
-    if not listsMetadata.exists():
-        records = []
-        metadataEndpoint = "speciesList/"
-        
-        query = {"tag": "arga"}
-        data = getURL(metadataEndpoint, query, recordsPerPage)
-        records.extend(data["lists"])
-        totalItems = data["listCount"]
-        remainingCalls = ((totalItems / recordsPerPage).__ceil__()) - 1
-        
-        for call, _ in enumerate(range(remainingCalls), start=2):
-            data = getURL(metadataEndpoint, query, recordsPerPage, call)
-            records.extend(data["lists"])
-
-        df = pd.DataFrame.from_records(records)
-        df = df.drop(["description"], axis=1)
-        df.to_csv(listsMetadata, index=False)
-    else:
-        df = pd.read_csv(listsMetadata)
-
-    records = []
-    for id in df["id"]:
-        page = 1
-        while True:
-            print(f"Getting page #{page} for id {id}", end="\r")
-            data = getURL(f"speciesListItems/{id}", {}, recordsPerPage, page)
-            if not data:
-                break
-
-            records.extend(data)
-            page += 1
-
-        print()
-        
-    df2 = pd.DataFrame.from_records(records)
-    df = df.rename(columns={"id": "speciesListID", "version": "speciesListVersion"})
-    df = df.merge(df2, "outer", on="speciesListID")
-    df2.to_csv(outputPath, index=False)
+    bf.combineDirectoryFiles(outputPath, subDir)
+    cmn.clearFolder(subDir, True)
