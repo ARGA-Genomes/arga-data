@@ -1,6 +1,7 @@
 import math
 import requests
 import pandas as pd
+from pathlib import Path
 
 def getPortalData(outputFilePath: Path) -> None:
     baseURL = "https://data.csiro.au/dap/ws/v2/collections"
