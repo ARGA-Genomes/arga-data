@@ -4,6 +4,9 @@
     "downloading": {
         "path": "./processing.py",
         "function": "retrieve",
+        "args": [
+            "{OUT-PATH}"
+        ],
         "output": "datapackage.tar.gz"
     },
     "processing": {
