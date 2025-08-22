@@ -38,7 +38,7 @@ def retrieve(outputFilePath: Path):
 
 def cleanUp(folderPath: Path, outputFilePath: Path) -> None:
     for file in folderPath.iterdir():
-        if file.suffix == ".tsv":
+        if file.name.startswith("BOLD_Public") and file.suffix == ".tsv":
             file.rename(outputFilePath)
             continue
 

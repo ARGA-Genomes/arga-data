@@ -24,11 +24,11 @@
                 "path": "./processing.py",
                 "function": "cleanUp",
                 "args": [
-                    "{IN-PATH}"
+                    "{IN-PATH}",
+                    "{OUT-PATH}"
                 ],
                 "output": "dataPackage.tsv",
                 "properties": {
-                    "separator": "\t",
                     "encoding": "iso-8859-1"
                 }
             }
