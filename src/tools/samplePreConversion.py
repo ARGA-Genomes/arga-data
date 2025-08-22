@@ -7,25 +7,40 @@ import lib.dataframes as dff
 from typing import Generator
 
 def _collectFields(iterator: Generator[pd.DataFrame, None, None], entryLimit: int, seed: int) -> dict[str, pd.Series]:
-    df = next(iterator).fillna("").drop_duplicates()
+
+    def columnCleanup(series: pd.Series) -> pd.Series:
+        shortSeries = series.dropna()
+        if len(shortSeries) > entryLimit:
+            return shortSeries.sample(n=entryLimit, random_state=seed)
+        
+        return shortSeries.add(["" * (entryLimit - len(shortSeries))])
+
+    df = next(iterator)
     for idx, chunk in enumerate(iterator, start=1):
         print(f"Scanning chunk: {idx}", end='\r')
-        chunk = chunk.fillna("").drop_duplicates()
         df = pd.concat([df, chunk], ignore_index=True)
-        df = df.drop_duplicates().sample(n=entryLimit, replace=True, random_state=seed)
+        df = df.drop_duplicates()
+        df = df.apply(columnCleanup, axis=0)
 
     return df
 
 def _collectRecords(iterator: Generator[pd.DataFrame, None, None], entryLimit: int, seed: int) -> dict[str, pd.Series]:
+    nanColumn = "NaN"
     df = next(iterator)
-    df = df.sample(n=min(len(df), entryLimit), random_state=seed)
     for idx, chunk in enumerate(iterator, start=1):
         print(f"Scanning chunk: {idx}", end='\r')
-        chunk = chunk.drop_duplicates().sample(n=min(len(chunk), entryLimit), random_state=seed)
-        df = pd.concat([df, chunk])
-        emptyDF = df.isna().sum(axis=1)
-        indexes = [idx for idx, _ in sorted(emptyDF.items(), key=lambda x: x[1])]
-        df = df.loc[indexes[:entryLimit]]
+        df = pd.concat([df, chunk], ignore_index=True)
+        df = df.drop_duplicates()
+
+        if len(df) > entryLimit:
+            df = df.sample(n=entryLimit, random_state=seed)
+
+        df.reset_index()
+        df[nanColumn] = df.isna().sum(axis=1).sort_values(ascending=True)
+        df = df.sort_values(nanColumn, axis=0, ignore_index=True)
+        df = df.drop([nanColumn], axis=1)
+        df = df.head(entryLimit)
+        df.reset_index()
 
     return df
 
@@ -57,7 +72,7 @@ if __name__ == '__main__':
         random.seed(seed)
         outputPath = outputDir / f"{'fields' if kwargs.ignoreRecord else 'records'}_{kwargs.chunksize}_{seed}.tsv"
 
-        dfIterator = stageFile.loadDataFrameIterator(kwargs.chunksize, kwargs.firstrow, kwargs.rows)
+        dfIterator = stageFile.readIterator(kwargs.chunksize, on_bad_lines="skip")
         df = _collectFields(dfIterator, kwargs.entries, seed) if kwargs.ignoreRecord else _collectRecords(dfIterator, kwargs.entries, seed)
 
         df = dff.removeSpaces(df)
