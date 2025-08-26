@@ -18,9 +18,6 @@ class RepeatDownloader:
         chunkSize = customChunkSize if customChunkSize >= 0 else self.chunkSize
         return download(url, filePath, chunkSize, self.verbose, self.headers | additionalHeaders, self.auth)
 
-def buildAuth(username: str, password: str) -> HTTPBasicAuth:
-    return HTTPBasicAuth(username, password)
-
 def download(url: str, filePath: Path, chunkSize: int = 1024*1024, verbose: bool = False, headers: dict = {}, auth: HTTPBasicAuth = None) -> bool:
     if chunkSize <= 0:
         logging.error(f"Invalid chunk size `{chunkSize}`, value must be greater than 0")
@@ -59,27 +56,6 @@ def download(url: str, filePath: Path, chunkSize: int = 1024*1024, verbose: bool
                     print(f"Downloaded chunk: {idx}", end="\r")
 
     return True
-
-def urlBuilder(url: str, parameters: dict) -> str:
-    def encode(key: str, value: any) -> str:
-        if isinstance(value, bool):
-            value = str(value).lower()
-
-        if isinstance(value, int):
-            value = str(value)
-
-        return f"{key}={quote(value)}"
-
-    flatParams = []
-    for paramterName, parameterValue in parameters.items():
-        if isinstance(parameterValue, list):
-            for item in parameterValue:
-                flatParams.append(encode(paramterName, item))
-            continue
-
-        flatParams.append(encode(paramterName, parameterValue))
-
-    return f"{url}" + "&".join(flatParams)
 
 def asyncRunner(checkURL: str, statusField: str, completedStr: str, downloadField: str, outputFilePath: Path, recheckDelay: int = 10) -> bool:
     session = requests.Session()
