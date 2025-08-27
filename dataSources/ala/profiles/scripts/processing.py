@@ -1,33 +1,45 @@
-import json
 import requests
-from pathlib import Path
-import lib.dataframes as dff
 import pandas as pd
+from pathlib import Path
+from lib.secrets import secrets
+import lib.downloading as dl
+from lib.progressBar import ProgressBar
+import logging
+import lib.dataframes as dff
 
-def collect(outputDir: Path, profile: str, tokenFilePath: Path) -> None:
-    with open(tokenFilePath) as fp:
-        token = json.load(fp)
+def collect(outputDir: Path, profile: str) -> None:
+    session = requests.session()
 
-    bearerToken = token["access_token"]
+    response = session.post(
+        "https://auth.ala.org.au/cas/oidc/oidcAccessToken",
+        headers={"Content-Type": "application/x-www-form-urlencoded"},
+        data="grant_type=client_credentials&scope=openid email profile roles",
+        auth=dl.buildAuth(secrets.ala.id, secrets.ala.secret)
+    )
+
+    accessToken = response.json()["access_token"]
+
     baseURL = "https://api.ala.org.au/profiles"
     endpoint = f"/api/opus/{profile}/profile?pageSize=1000"
-    response = requests.get(baseURL + endpoint, headers={"Authorization": f"Bearer {bearerToken}"})
+    response = requests.get(baseURL + endpoint, headers={"Authorization": f"Bearer {accessToken}"})
     data = response.json()
 
     if "message" in data and "not authorized" in data["message"]:
-        print("Failed to authorize, please make sure bearer token is valid.")
+        logging.error("Failed to authorize, please make sure bearer token is valid.")
         return
     
-    print(f"Accessing profile: {profile}")
+    logging.info(f"Accessing profile: {profile}")
 
+    dataLength = len(data)
+    logging.info(f"Found {dataLength} records")
+
+    progress = ProgressBar(dataLength)
     records = []
-    for idx, entry in enumerate(data, start=1):
+    for entry in data:
         uuid = entry["uuid"]
-        print(f"At record: {idx}", end="\r")
-
-        response = requests.get(baseURL + f"/api/opus/{profile}/profile/{uuid}", headers={"Authorization": f"Bearer {bearerToken}"})
+        response = requests.get(baseURL + f"/api/opus/{profile}/profile/{uuid}", headers={"Authorization": f"Bearer {accessToken}"})
         records.append(response.json())
-    print()
+        progress.update()
 
     df = pd.DataFrame.from_records(records)
     df = dff.removeSpaces(df)

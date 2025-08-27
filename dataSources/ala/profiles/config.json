@@ -3,8 +3,8 @@
     "subsections": {
         "kamilaroi": {},
         "noongar": {},
-        "southeastarnhemland": {},
-        "mangrovewatch": {},
+        "southEastarnHemland": {},
+        "mangroveWatch": {},
         "weeds-australia": {}
     },
     "downloading": {
@@ -12,8 +12,7 @@
         "function": "collect",
         "args": [
             "{OUT-DIR}",
-            "<SUB>",
-            "../token.json"
+            "<SUB>"
         ],
         "output": "<SUB>.csv"
     },
