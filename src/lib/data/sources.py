@@ -25,7 +25,7 @@ class SourceManager:
         return f"{locationName}{self._divider}{databaseName}" + (f"{self._divider}{subsectionName}" if subsectionName else "")
 
     def _splitSourceName(self, sourceName: str) -> tuple[str, str, str]:
-        sourceSections = sourceName.split(self._divider)
+        sourceSections = sourceName.split(self._divider, 2)
 
         if len(sourceSections) <= 1:
             return sourceName, "", ""
