@@ -4,6 +4,7 @@ from lib.processing.files import DataFile, Step
 from lib.processing.scripts import OutputScript
 import logging
 import lib.downloading as dl
+import lib.networking as nw
 
 class _Download(Task):
     def __init__(self, filePath: Path, properties: dict):
@@ -43,7 +44,7 @@ class DownloadManager(SystemManager):
         super().__init__(dataDir, scriptDir, metadataDir, Step.DOWNLOADING, "files")
 
         self.scriptImports = scriptImports
-        self.auth = dl.buildAuth(username, password) if username else None
+        self.auth = nw.buildAuth(username, password)
 
     def getFiles(self) -> list[DataFile]:
         return [download.file for download in self._tasks]

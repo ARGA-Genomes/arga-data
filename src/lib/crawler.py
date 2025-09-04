@@ -6,7 +6,7 @@ import concurrent.futures as cf
 from pathlib import Path
 import json
 import logging
-import lib.downloading as dl
+import lib.networking as nw
 import time
 from lib.progressBar import ProgressBar
 
@@ -45,7 +45,7 @@ class PageData:
         return [urllib.parse.urljoin(baseURL, fileLink) for fileLink in self.fileLinks]
 
 class Crawler:
-    def __init__(self, outputDir: Path, auth: dl.HTTPBasicAuth = None):
+    def __init__(self, outputDir: Path, auth: nw.HTTPBasicAuth = None):
         self.outputDir = outputDir
         self.auth = auth
 

@@ -1,6 +1,7 @@
 import requests
 from pathlib import Path
 import lib.downloading as dl
+import lib.networking as nw
 import logging
 from lib.secrets import secrets
 import lib.bigFiles as bf
@@ -11,10 +12,8 @@ def collectBiocache(queryParamters: dict, outputFilePath: Path) -> None:
         "emailNotify": False
     }
 
-    baseURL = "https://api.ala.org.au/occurrences/occurrences/offline/download?"
-    url = dl.urlBuilder(baseURL, paramters | queryParamters)
-
-    response = requests.get(url)
+    url = "https://api.ala.org.au/occurrences/occurrences/offline/download?"
+    response = requests.get(url, params=nw.encodeParameters(paramters | queryParamters))
     data = response.json()
 
     statusURL = data["statusUrl"]

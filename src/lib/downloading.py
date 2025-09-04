@@ -1,30 +1,31 @@
 import requests
 from pathlib import Path
-from requests.auth import HTTPBasicAuth
 from requests.exceptions import HTTPError
 import logging
 from lib.progressBar import ProgressBar
-from urllib.parse import quote
 import time
+import lib.networking as nw
 
 class RepeatDownloader:
-    def __init__(self, headers: dict = {}, username: str = "", password: str = "", chunkSize: int = 1024*1024, verbose: bool = False):
+    def __init__(self, headers: dict = {}, chunkSize: int = 1024*1024, username: str = "", password: str = "", verbose: bool = False):
         self.headers = headers
-        self.auth = buildAuth(username, password) if username else None
         self.chunkSize = chunkSize
+        self.username = username
+        self.password = password
         self.verbose = verbose
 
-    def download(self, url: str, filePath: Path, customChunkSize: int = -1, additionalHeaders: dict = {}) -> bool:
-        chunkSize = customChunkSize if customChunkSize >= 0 else self.chunkSize
-        return download(url, filePath, chunkSize, self.verbose, self.headers | additionalHeaders, self.auth)
+    def download(self, url: str, filePath: Path, additionalHeaders: dict = {}) -> bool:
+        return download(url, filePath, self.chunkSize, self.headers | additionalHeaders, self.username, self.password, self.verbose)
 
-def download(url: str, filePath: Path, chunkSize: int = 1024*1024, verbose: bool = False, headers: dict = {}, auth: HTTPBasicAuth = None) -> bool:
+def download(url: str, filePath: Path, chunkSize: int = 1024*1024, headers: dict = {}, username: str = "", password: str = "", verbose: bool = False) -> bool:
     if chunkSize <= 0:
         logging.error(f"Invalid chunk size `{chunkSize}`, value must be greater than 0")
         return False
     
     if verbose:
         logging.info(f"Downloading from {url} to file {filePath.absolute()}")
+
+    auth = nw.buildAuth(username, password)
 
     try:
         requests.head(url, auth=auth, headers=headers)
@@ -66,7 +67,7 @@ def asyncRunner(checkURL: str, statusField: str, completedStr: str, downloadFiel
             logging.warning(f"Failed to retrieve {checkURL}, received status code {response.status_code}. Reason: {response.reason}")
             return True, None, None
         
-        data = response.json()
+        data: dict = response.json()
 
         statusValue = data.get(statusField, "Unknown")
         downloadURL = data.get(downloadField, "")
