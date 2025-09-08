@@ -1,30 +1,42 @@
 import requests
 from requests.auth import HTTPBasicAuth
 import urllib.parse
+from enum import Enum
+
+class RequestType(Enum):
+    HEAD = "HEAD"
+    GET  = "GET"
+    POST = "POST"
 
 class RepeatRequester:
-    def __init__(self, baseURL: str, headers: dict):
+    def __init__(self, baseURL: str, headers: dict, params: dict, username: str = "", password: str = ""):
         self.baseURL = baseURL
         self.headers = headers
+        self.params = params
+        self.auth = buildAuth(username, password)
 
         self.session: requests.Session | None = None
 
-    def _setsession(self, func: callable):
-        def wrapped(*args, **kwargs):
-            if self.session is None:
-                self.session = requests.Session()
+    def request(self, endpoint: str, method: RequestType = RequestType.GET, **kwargs: dict) -> requests.Response:
+        if self.session is None:
+            self.session = requests.session()
 
-            return func(*args, **kwargs)
+        return self.session.request(
+            method.value,
+            urllib.parse.urljoin(self.baseURL, endpoint),
+            headers=self.headers | kwargs.pop("headers", {}),
+            params=encodeParameters(self.params | kwargs.pop("params", {})),
+            **kwargs
+        )
+    
+    def get(self, endpoint: str, **kwargs: dict) -> requests.Response:
+        return self.request(endpoint, RequestType.GET, **kwargs)
 
-        return wrapped
-
-    @_setsession
-    def get(self, endpoint: str, params: dict = {}, headers: dict = {}, **kwargs: dict) -> requests.Response:
-        return self.session.get(self.baseURL, endpoint=endpoint, params=encodeParameters(params), headers=self.headers | headers, **kwargs)
-
-    @_setsession
-    def post(self, endpoint: str, params: dict = {}, headers: dict = {}, **kwargs: dict) -> requests.Response:
-        return self.session.post(self.baseURL, endpoint=endpoint, params=encodeParameters(params), headers=self.headers | headers, **kwargs)
+    def post(self, endpoint: str, **kwargs: dict) -> requests.Response:
+        return self.request(endpoint, RequestType.POST, **kwargs)
+    
+    def head(self, endpoint: str, **kwargs: dict) -> requests.Response:
+        return self.request(endpoint, RequestType.HEAD, **kwargs)
 
 def buildAuth(username: str, password: str) -> HTTPBasicAuth | None:
     if not username:

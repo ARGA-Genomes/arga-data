@@ -45,9 +45,10 @@ class PageData:
         return [urllib.parse.urljoin(baseURL, fileLink) for fileLink in self.fileLinks]
 
 class Crawler:
-    def __init__(self, outputDir: Path, auth: nw.HTTPBasicAuth = None):
+    def __init__(self, outputDir: Path, username: str, password: str):
         self.outputDir = outputDir
-        self.auth = auth
+        self.username = username
+        self.password = password
 
         self.progressFile = self.outputDir / "crawlerProgress.json"
         self.session = None
@@ -86,7 +87,7 @@ class Crawler:
     def getFileURLs(self, altDLURL: str = "") -> list[str]:
         return [fileURL for layer in self.data for pageData in layer for fileURL in pageData.getFullFiles(altDLURL)]
 
-    def _parallelPageLinks(self, urlList: list[str], pattern: re.Pattern = None, retries: int = 5,) -> list[PageData]:
+    def _parallelPageLinks(self, urlList: list[str], pattern: re.Pattern = None, retries: int = 5) -> list[PageData]:
         data = []
         progress = ProgressBar(len(urlList), processName=f"Crawler Depth {len(self.data)}")
         with cf.ThreadPoolExecutor(max_workers=10) as executor:

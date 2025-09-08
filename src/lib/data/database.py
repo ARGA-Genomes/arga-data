@@ -53,14 +53,14 @@ class BasicDB:
 
         # Username/Password
         sourceSecrets = secrets[self.locationDir.name]
-        username = sourceSecrets.username if sourceSecrets is not None else ""
-        password = sourceSecrets.password if sourceSecrets is not None else ""
+        self.username = sourceSecrets.username if sourceSecrets is not None else ""
+        self.password = sourceSecrets.password if sourceSecrets is not None else ""
 
         # Location Library
         scriptImportLibs = {".llib": self.libDir}
 
         # System Managers
-        self.downloadManager = DownloadManager(self.dataDir, self.scriptsDir, self.databaseDir, scriptImportLibs, username, password)
+        self.downloadManager = DownloadManager(self.dataDir, self.scriptsDir, self.databaseDir, scriptImportLibs, self.username, self.password)
         self.processingManager = ProcessingManager(self.dataDir, self.scriptsDir, self.databaseDir, scriptImportLibs)
         self.conversionManager = ConversionManager(self.dataDir, self.scriptsDir, self.databaseDir, scriptImportLibs, self.datasetID, self.locationDir.name, self.name)
 
@@ -212,7 +212,7 @@ class CrawlDB(BasicDB):
         properties = self.downloadConfig.pop("properties", {})
         filenameURLParts = self.downloadConfig.pop("urlPrefix", 1)
 
-        crawler = Crawler(self.subsectionDir, self.downloadManager.auth)
+        crawler = Crawler(self.subsectionDir, self.username, self.password)
         crawler.run(url, regex, maxDepth, Flag.REPREPARE in flags)
         urlList = crawler.getFileURLs(link)
 
