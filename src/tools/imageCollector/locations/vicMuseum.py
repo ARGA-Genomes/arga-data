@@ -1,16 +1,7 @@
 import requests
 import pandas as pd
-import math
 from pathlib import Path
-
-def buildURL(keyword: str, perPage: int, page: int = 1) -> str:
-    return f"https://collections.museumsvictoria.com.au/api/{keyword}?perpage={perPage}&page={page}&hasimages=yes"
-
-def getAndCheck(propertyDict: dict, property: str, default: any) -> any:
-    value = propertyDict.get(property, default)
-    if value is None and default is not None:
-        return default
-    return value
+from lib.progressBar import ProgressBar
 
 def processEntry(entry: dict) -> list[dict]:
     media = entry["media"]
@@ -20,18 +11,23 @@ def processEntry(entry: dict) -> list[dict]:
 
     images = []
     for mediaObject in media:
+
+        def getAndReplaceNone(obj: dict, attr: str, default: any) -> any:
+            value = obj.get(attr, default)
+            return value if value is not None else default
+
         if not mediaObject["type"] == "image":
             continue
 
         for size in ("large", "medium", "small", "thumbnail"):
-            image = getAndCheck(mediaObject, size, {})
+            image = getAndReplaceNone(mediaObject, size, {})
             if image:
                 break
         else:
             continue
 
         imageFormat = image["uri"].rsplit(".", 1)[-1]
-        caption = getAndCheck(mediaObject, "caption", "")
+        caption = getAndReplaceNone(mediaObject, "caption", "")
         caption = caption.replace("<em>", "").replace("</em>", "")
 
         info = {
@@ -39,20 +35,20 @@ def processEntry(entry: dict) -> list[dict]:
             "format": imageFormat,
             "identifier": image.get("uri", ""),
             "references": f"https://collections.museumsvictoria.com.au/{speciesID}",
-            "title": getAndCheck(mediaObject, "alternativeText", ""),
+            "title": getAndReplaceNone(mediaObject, "alternativeText", ""),
             "description": caption,
-            "created": getAndCheck(mediaObject, "dateModiied", ""),
-            "creator": getAndCheck(mediaObject, "creators", ""),
+            "created": getAndReplaceNone(mediaObject, "dateModiied", ""),
+            "creator": getAndReplaceNone(mediaObject, "creators", ""),
             "contributor": "",
             "publisher": "Museums Victoria",
             "audience": "",
-            "source": getAndCheck(mediaObject, "sources", ""),
-            "license": getAndCheck(mediaObject, "licence", {}).get("name", ""),
-            "rightsHolder": getAndCheck(mediaObject, "rightsStatement", ""),
-            "datasetID": getAndCheck(mediaObject, "id", ""),
+            "source": getAndReplaceNone(mediaObject, "sources", ""),
+            "license": getAndReplaceNone(mediaObject, "licence", {}).get("name", ""),
+            "rightsHolder": getAndReplaceNone(mediaObject, "rightsStatement", ""),
+            "datasetID": getAndReplaceNone(mediaObject, "id", ""),
             "taxonName": taxonName,
-            "width": getAndCheck(image, "width", 0),
-            "height": getAndCheck(image, "height", 0)
+            "width": getAndReplaceNone(image, "width", 0),
+            "height": getAndReplaceNone(image, "height", 0)
         }
 
         images.append(info)
@@ -60,30 +56,35 @@ def processEntry(entry: dict) -> list[dict]:
     return images
 
 def run():
-    baseDir = Path(__file__).parent
+    baseDir = Path(__file__).parents[1]
+    dataDir = baseDir / "data"
 
-    keywords = ["species", "specimens"]
+    baseURL = "https://collections.museumsvictoria.com.au/api/"
+    # keywords = ["species", "specimens"]
     entriesPerPage = 100
 
     headers = {
         "User-Agent": ""
     }
 
-    response = requests.get(buildURL("species", 1), headers=headers)
+    def getParams(page: int, perPage: int) -> dict:
+        return {"page": page, "perPage": perPage, "hasimages": "yes"}
+
+    session = requests.Session()
+
+    response = session.head(baseURL + "species", headers=headers, params=getParams(1, 1))
     totalResults = int(response.headers.get("Total-Results", 0))
-    totalCalls = math.ceil(totalResults / entriesPerPage)
+    totalCalls = (totalResults / entriesPerPage).__ceil__()
+    progress = ProgressBar(totalResults)
 
     entries = []
-    for call in range(1, totalCalls+1):
-        print(f"At call: {call} / {totalCalls}", end="\r")
-        response = requests.get(buildURL("species", entriesPerPage, call), headers=headers)
+    for call in range(totalCalls):
+        response = session.get(baseURL + "species", headers=headers, params=getParams(call, entriesPerPage))
         data = response.json()
 
         for entry in data:
             entries.extend(processEntry(entry))
+            progress.update()
 
     df = pd.DataFrame.from_records(entries)
-    df.to_csv(baseDir / "vicMuseumImages.csv", index=False)
-
-if __name__ == "__main__":
-    run()
+    df.to_csv(dataDir / "vicMuseumImages.csv", index=False)
