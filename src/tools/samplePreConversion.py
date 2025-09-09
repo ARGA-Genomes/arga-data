@@ -40,7 +40,6 @@ def _collectRecords(iterator: Generator[pd.DataFrame, None, None], entryLimit: i
         df = df.sort_values(nanColumn, axis=0, ignore_index=True)
         df = df.drop([nanColumn], axis=1)
         df = df.head(entryLimit)
-        df.reset_index()
 
     return df
 
@@ -70,13 +69,17 @@ if __name__ == '__main__':
 
         seed = kwargs.seed if kwargs.seed >= 0 else random.randrange(2**32 - 1) # Max value for pandas seed
         random.seed(seed)
-        outputPath = outputDir / f"{'fields' if kwargs.ignoreRecord else 'records'}_{kwargs.chunksize}_{seed}.tsv"
+        outputPath = outputDir / f"{source.name}_{'fields' if kwargs.ignoreRecord else 'records'}_{kwargs.chunksize}_{seed}.tsv"
 
-        dfIterator = stageFile.readIterator(kwargs.chunksize, on_bad_lines="skip")
+        dfIterator = stageFile.readIterator(kwargs.chunksize, on_bad_lines="skip", low_memory=False)
         df = _collectFields(dfIterator, kwargs.entries, seed) if kwargs.ignoreRecord else _collectRecords(dfIterator, kwargs.entries, seed)
 
         df = dff.removeSpaces(df)
-        df = df.reset_index()
         df.index += 1 # Increment index so output is 1-indexed numbers
+
+        unknownColumn = "Unnamed: 0"
+        if unknownColumn in df.columns:
+            df = df.drop([unknownColumn], axis=1)
+
         df.to_csv(outputPath, sep="\t", index_label="Example #")
         logging.info(f"Created file {outputPath}")
