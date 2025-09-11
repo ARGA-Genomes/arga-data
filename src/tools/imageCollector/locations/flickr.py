@@ -1,51 +1,8 @@
 import requests
 import pandas as pd
-# import concurrent.futures as cf
 from pathlib import Path
 from lib.tomlFiles import TomlLoader
 from lib.progressBar import ProgressBar
-
-# def processPhoto(session: requests.Session, apiKey: str, licenses: dict, photo: dict) -> dict:
-#     photoID = photo["id"]
-
-#     response = session.get(buildURL(apiKey, "flickr.photos.getInfo", photo_id=photoID))
-#     if response.status_code != 200:
-#         print(f"Info error with id: {photoID}")
-#         return {}
-    
-#     photoInfo = response.json()["photo"]
-
-#     response = requests.get(buildURL(apiKey, "flickr.photos.getSizes", photo_id=photoID))
-#     if response.status_code != 200:
-#         print(f"Size error with id: {photoID}")
-#         return {}
-    
-#     photoSizes = response.json()["sizes"]
-#     image = sorted(photoSizes["size"], key=lambda x: (1 if x["width"] is None else int(x["width"])) * (1 if x["height"] is None else int(x["height"])), reverse=True)[0]
-    
-#     tags = [tag["raw"] for tag in photoInfo["tags"]["tag"]]
-
-#     return {
-#         "type": "image",
-#         "format": image["source"].rsplit(".", 1)[-1],
-#         "identifier": image["source"],
-#         "references": image["url"].rsplit("/", 3)[0],
-#         "title": photoInfo["title"]["_content"],
-#         "description": photoInfo["description"]["_content"],
-#         "created": photoInfo["dates"]["taken"],
-#         "creator": photoInfo["owner"]["username"],
-#         "contributor": "",
-#         "publisher": photoInfo["owner"]["username"],
-#         "audience": "",
-#         "source": "flickr.com",
-#         "license": licenses[int(photoInfo["license"])],
-#         "rightsHolder": "",
-#         "datasetID": photoID,
-#         "taxonName": "",
-#         "width": image["width"],
-#         "height": image["height"],
-#         "tags": tags
-#     }
 
 def run():
     baseDir = Path(__file__).parents[1]
@@ -76,76 +33,59 @@ def run():
         data = response.json()
 
         totalPhotos = data["photos"]["total"]
+        print(f"Found {totalPhotos} photos")
+
         totalCalls = (totalPhotos / photosPerCall).__ceil__()
         progress = ProgressBar(totalPhotos)
 
-        userPhotoParams = params | {"user_id": user, "per_page": photosPerCall}
+        userPhotoParams = params | {
+            "user_id": user,
+            "per_page": photosPerCall,
+            "extras": "description, license, date_taken, owner_name, original_format, tags, media, path_alias, url_sq, url_t, url_s, url_q, url_m, url_n, url_z, url_c, url_l, url_o"
+        }
 
         photos = []
         for call in range(totalCalls):
             response = session.get(baseURL + "flickr.people.getPhotos", params=userPhotoParams | {"page": call})
-            photoData = response.json()["photos"]
-            photoList = photoData.get("photo", [])
+            data: dict = response.json().get("photos", {})
+            photoList: list[dict] = data.get("photo", [])
 
             for photo in photoList:
-                photoID = photo["id"]
-                photoParams = params | {"photo_id": photoID}
+                if "url_o" not in photo:
+                    largest = 0
+                    suffix = ""
 
-                response = session.get(baseURL + "flickr.photos.getInfo", params=photoParams)
-                if response.status_code != 200:
-                    print(f"Info error with id: {photoID}")
-                    print(response.content)
-                    return
-                
-                photoInfo = response.json()["photo"]
-                response = session.get(baseURL + "flickr.photos.getSizes", params=photoParams)
-                if response.status_code != 200:
-                    print(f"Size error with id: {photoID}")
-                    print(response.content)
-                    return
-                
-                photoSizes = response.json()["sizes"]
-                image = sorted(photoSizes["size"], key=lambda x: (1 if x["width"] is None else int(x["width"])) * (1 if x["height"] is None else int(x["height"])), reverse=True)[0]
-                tags = [tag["raw"] for tag in photoInfo["tags"]["tag"]]
+                    for imageSuffix in ("sq", "t", "s", "q", "m", "n", "z", "c", "l"):
+                        size = photo.get(f"height_{imageSuffix}", 0) * photo.get(f"width_{imageSuffix}", 0)
+                        if size >= largest:
+                            largest = size
+                            suffix = imageSuffix
+                else:
+                    suffix = "o"
 
                 photos.append({
                     "type": "image",
-                    "format": image["source"].rsplit(".", 1)[-1],
-                    "identifier": image["source"],
-                    "references": image["url"].rsplit("/", 3)[0],
-                    "title": photoInfo["title"]["_content"],
-                    "description": photoInfo["description"]["_content"],
-                    "created": photoInfo["dates"]["taken"],
-                    "creator": photoInfo["owner"]["username"],
+                    "format": photo.get("originalformat", photo.get(f"url_{suffix}", "")),
+                    "identifier": photo.get(f"url_{suffix}", ""),
+                    "references": photo.get(f"url_{suffix}", "").rsplit("/", 1)[-1].split("_", 1)[0],
+                    "title": photo.get("title", ""),
+                    "description": photo.get("description", {}).get("_content", "").replace("\n", " "),
+                    "created": photo.get("datetaken", ""),
+                    "creator": photo.get("ownername", ""),
                     "contributor": "",
-                    "publisher": photoInfo["owner"]["username"],
+                    "publisher": photo.get("ownername", ""),
                     "audience": "",
                     "source": "flickr.com",
-                    "license": licenses[int(photoInfo["license"])],
+                    "license": licenses[int(photo.get("license", 0))],
                     "rightsHolder": "",
-                    "datasetID": photoID,
+                    "datasetID": photo.get("id", ""),
                     "taxonName": "",
-                    "width": image["width"],
-                    "height": image["height"],
-                    "tags": tags
+                    "width": photo.get(f"width_{suffix}", 0),
+                    "height": photo.get(f"height_{suffix}", 0),
+                    "tags": photo.get("tags", "")
                 })
-
+                
                 progress.update()
-
-            # with cf.ProcessPoolExecutor() as executor:
-            #     futures = (executor.submit(processPhoto, session, secrets.flickr.key, licenses, photo) for photo in photoList)
-            
-            #     try:
-            #         for future in cf.as_completed(futures):
-            #             result = future.result()
-            #             progress.update()
-            #             if result:
-            #                 photos.append(result)
-
-            #     except (KeyboardInterrupt, ValueError):
-            #         print("\nExiting...")
-            #         executor.shutdown(cancel_futures=True)
-            #         exit()
 
         df = pd.DataFrame.from_records(photos)
         df.to_csv(dataDir / f"flickr_{user}.csv", index=False)
