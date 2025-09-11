@@ -87,4 +87,4 @@ def run():
             progress.update()
 
     df = pd.DataFrame.from_records(entries)
-    df.to_csv(dataDir / "vicMuseumImages.csv", index=False)
+    df.to_csv(dataDir / "vicMuseum.csv", index=False)
