@@ -7,6 +7,6 @@ if __name__ == '__main__':
         reprepareHelp="Force retrieval of download information"
     )
 
-    sources, flags, kwargs = parser.parseArgs()
+    sources, flags, args = parser.parseArgs()
     for source in sources:
         source.create(Step.DOWNLOADING, flags)

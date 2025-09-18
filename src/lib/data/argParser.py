@@ -18,7 +18,7 @@ class ArgParser:
     def addArgument(self, *args, **kwargs) -> None:
         self._parser.add_argument(*args, **kwargs)
 
-    def parseArgs(self, *args, kwargsDict: bool = False, **kwargs) -> tuple[list[BasicDB], list[Flag], Namespace | dict]:
+    def parseArgs(self, *args, **kwargs) -> tuple[list[BasicDB], list[Flag], Namespace]:
         parsedArgs = self._parser.parse_args(*args, **kwargs)
 
         sources = self._manager.matchSources(self._extract(parsedArgs, "source"))
@@ -31,11 +31,14 @@ class ArgParser:
         flags = [flag for key, flag in Flag._value2member_map_.items() if self._extract(parsedArgs, key)]
         constructedSources = self._manager.constructDBs(sources)
 
-        return constructedSources, flags, parsedArgs.__dict__ if kwargsDict else parsedArgs
+        return constructedSources, flags, parsedArgs
 
     def addMutuallyExclusiveGroup(self, *args, **kwargs) -> _MutuallyExclusiveGroup:
         return self._parser.add_mutually_exclusive_group(*args, **kwargs)
     
+    def convertDict(self, ns: Namespace) -> dict:
+        return ns.__dict__
+
     def _extract(self, namespace: Namespace, attribute: str) -> any:
         attr = getattr(namespace, attribute)
         delattr(namespace, attribute)
