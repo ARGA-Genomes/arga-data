@@ -6,7 +6,7 @@ if __name__ == '__main__':
     parser = ArgParser(description="Clean up source to save space")
     parser.addArgument("-r", "--raw", action="store_true", help="Clear raw/downloaded files too")
 
-    sources, flags, kwargs = parser.parseArgs()
+    sources, flags, args = parser.parseArgs()
     for source in sources:
         dataDir = source.baseDir / "data"
 
