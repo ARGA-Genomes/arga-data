@@ -62,8 +62,7 @@ def collectPhotoIDs(datafolderPath: Path) -> Path:
     df = pd.concat(sections)
     df.to_csv(photoIDsPath, index=False)
 
-def run():
-    dataDir = Path(__file__).parents[1] / "data"
+def run(dataDir: Path):
     inaturalistFolder = downloadFile(dataDir)
     photoIDsPath = collectPhotoIDs(inaturalistFolder)
 

@@ -55,10 +55,7 @@ def processEntry(entry: dict) -> list[dict]:
 
     return images
 
-def run():
-    baseDir = Path(__file__).parents[1]
-    dataDir = baseDir / "data"
-
+def run(dataDir: Path):
     baseURL = "https://collections.museumsvictoria.com.au/api/"
     # keywords = ["species", "specimens"]
     entriesPerPage = 100

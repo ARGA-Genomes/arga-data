@@ -4,10 +4,8 @@ from pathlib import Path
 from lib.tomlFiles import TomlLoader
 from lib.progressBar import ProgressBar
 
-def run():
-    baseDir = Path(__file__).parents[1]
-    dataDir = baseDir / "data"
-    secrets = TomlLoader(baseDir / "secrets.toml")
+def run(dataDir: Path):
+    secrets = TomlLoader(dataDir.parent / "secrets.toml")
 
     photosPerCall = 500
     session = requests.Session()
