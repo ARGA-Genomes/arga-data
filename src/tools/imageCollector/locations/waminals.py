@@ -1,44 +1,68 @@
 import requests
 from bs4 import BeautifulSoup
+from pathlib import Path
+from lib.progressBar import ProgressBar
+import pandas as pd
 
-def collect():
+def run(dataDir: Path):
     baseURL = "https://museum.wa.gov.au"
+    endpoint = "/online-collections/waminals"
     page = 0
+    session = requests.Session()
 
-    
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Android 4.4; Mobile; rv:41.0) Gecko/41.0 Firefox/41.0"
-    }
+    species = {}
+    while True:
+        print(f"Collecting page: {page}", end="\r")
+        response = session.get(baseURL + endpoint, params={"page": page})
+        soup = BeautifulSoup(response.content, "html.parser")
+        teasers = soup.find_all("div", {"class": "teasernode"})
 
-    response = requests.get(f"{baseURL}/online-collections/waminals?page={page}")
-    soup = BeautifulSoup(response.content, "html.parser")
+        if not teasers:
+            break
 
-    container = soup.find("div", {"class": "view-content"})
-    for div in container.find_all("div", recursive=False):
-        child = div.find("div")
-        endpoint = child["about"]
-        # print(endpoint)
-        childResponse = requests.get(f"{baseURL}{endpoint}", headers=headers)
-        # childResponse = session.get(f"{baseURL}{endpoint}")
-        
-        childSoup = BeautifulSoup(childResponse.content, "html.parser")
+        for teaser in teasers:
+            href = teaser.find("a")["href"]
 
-        imageContainer = childSoup.find("div", {"class": "rsContainer"})
-        print(imageContainer)
-        # for imageContainer in childSoup.find("div", {"class": "rsSlide"}):
-        #     image = imageContainer.find("image")
-        #     print(image["src"])
+            italicText = teaser.find("i")
+            if italicText is None:
+                species[href] = ("", teaser.text.strip())
+                continue
 
-        # print(childSoup)
-        data = {}
-        for table in childSoup.find_all("table"):
-            for row in table.find_all("tr"):
-                key = row.find("th").text.replace(u"\xa0", " ").strip(": ")
-                value = row.find("td").text
-                data[key] = value
+            scientificNamePos = teaser.text.find(italicText.text)
+            species[href] = (teaser.text[:scientificNamePos].strip(), teaser.text[scientificNamePos:].strip())
 
-        print(data)
-        return
+        page += 1
 
-if __name__ == "__main__":
-    collect()
+    print("Collecting images for each species")
+    imageData = []
+    progress = ProgressBar(len(species))
+    for href, (commonName, taxonName) in species.items():
+        response = session.get(baseURL + href)
+        soup = BeautifulSoup(response.content, "html.parser")
+
+        images = soup.find("div", {"class": "royalslider royalSlider rsDefault"})
+        for div in images.find_all("div", recursive=False):
+            imageInfo = div.find("a")
+            imageURL = imageInfo["href"]
+
+            response = requests.head(imageURL)
+            dataType, dataFormat = response.headers["Content-Type"].split("/")
+
+            imageData.append({
+                "type": dataType,
+                "format": dataFormat,
+                "identifier": imageURL,
+                "references": Path(imageInfo["href"]).stem,
+                "title": imageInfo["title"],
+                "created": response.headers["Last-Modified"],
+                "publisher": "WA Museum",
+                "source": "https://museum.wa.gov.au/",
+                "taxonName": taxonName,
+                "commonName" : commonName,
+                "size": response.headers["Content-Length"]
+            })
+
+        progress.update()
+
+    df = pd.DataFrame.from_records(imageData)
+    df.to_csv(dataDir / "waminals.csv", index=False)

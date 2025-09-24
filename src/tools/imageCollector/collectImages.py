@@ -1,4 +1,4 @@
-from locations import flickr, inaturalist, vicMuseum, qm, frogwatch
+from locations import flickr, inaturalist, vicMuseum, qm, frogwatch, waminals
 import argparse
 from pathlib import Path
 
@@ -9,7 +9,8 @@ if __name__ == "__main__":
         "flickr": ("Flickr", flickr),
         "inaturalist": ("iNaturalist", inaturalist),
         "qm": ("Queensland Museum", qm),
-        "frogwatch": ("Frog Watch", frogwatch)
+        "frogwatch": ("Frog Watch", frogwatch),
+        "waminals": ("Waminals", waminals)
     }
 
     allOptions = "all"
