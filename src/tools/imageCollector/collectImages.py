@@ -1,4 +1,4 @@
-from locations import flickr, inaturalist, vicMuseum, qm
+from locations import flickr, inaturalist, vicMuseum, qm, frogwatch
 import argparse
 from pathlib import Path
 
@@ -8,7 +8,8 @@ if __name__ == "__main__":
         "vicmuseum": ("Vic Museum", vicMuseum),
         "flickr": ("Flickr", flickr),
         "inaturalist": ("iNaturalist", inaturalist),
-        "qm": ("Queensland Museum", qm)
+        "qm": ("Queensland Museum", qm),
+        "frogwatch": ("Frog Watch", frogwatch)
     }
 
     allOptions = "all"
