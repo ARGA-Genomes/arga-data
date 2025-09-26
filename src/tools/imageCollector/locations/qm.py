@@ -23,11 +23,21 @@ def parseObject(id: str, data: dict) -> list[dict]:
     return records
 
 def run(dataDir):
-    def getURL(offset: int, count: int) -> str:
-        return f"https://collections.qm.qld.gov.au/api/v3/opacobjects?query=collections%3A%2216%22&offset={offset}&limit={count}&direction=asc&hasImages=true&deletedRecords=false&facetedResults=false"
+    idsPerCall = 100
+    baseURL = "https://collections.qm.qld.gov.au/api/v3/opacobjects"
 
-    def getIDUrl(id: str) -> str:
-        return f"https://collections.qm.qld.gov.au/api/v3/opacobjects/{id}?view=detail&imageAttributes=true"
+    query = {
+        "query": "collections:\"16\"",
+        "direction": "asc",
+        "hasImages": True,
+        "deletedRecords": False,
+        "facetedResults": False,
+    }
+
+    idParams = {
+        "view": "detail",
+        "imageAttributes": True
+    }
 
     secrets = TomlLoader(dataDir.parent / "secrets.toml")
 
@@ -37,11 +47,10 @@ def run(dataDir):
         "Accept": "application/json"
     }
 
-    retries = Retry(backoff_factor=0.5)
+    retries = Retry(backoff_factor=1, status_forcelist=[403])
     session.mount("https://", HTTPAdapter(max_retries=retries))
-
-    idsPerCall = 100
-    response = session.get(getURL(0, 0))
+    
+    response = session.get(baseURL, params=query | {"offset": 0, "limit": 0})
     data = response.json()
 
     totalObjects = data["totalObjects"]
@@ -50,20 +59,16 @@ def run(dataDir):
     progress = ProgressBar(totalObjects)
     records = []
     for call in range(totalCalls):
-        response = session.get(getURL(call, idsPerCall))
+        response = session.get(baseURL, params=query | {"offset": call, "limit": idsPerCall})
         data = response.json()
-        print(data)
 
         for obj in data["opacObjects"]:
-            value = obj["opacObjectId"]
-            objResponse = session.get(getIDUrl(value))
-            try:
-                objData = objResponse.json()
-            except:
-                print(objResponse.content, objResponse.status_code)
-                return
+            opacID = obj["opacObjectId"]
 
-            records.extend(parseObject(value, objData))
+            response = session.get(f"{baseURL}/{opacID}", params=idParams)
+            data = response.json()
+            
+            records.extend(parseObject(opacID, data))
             progress.update()
 
     df = pd.DataFrame.from_records(records)
