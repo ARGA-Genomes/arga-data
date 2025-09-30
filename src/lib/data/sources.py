@@ -156,7 +156,7 @@ class DatabaseConstructor:
             return
         
         if not self.datasetID:
-            logging.warning("No datasetID specified, conversion process will not work")
+            logging.warning("No datasetID specified")
 
         retrieveType = Retrieve._value2member_map_.get(self.retrieveType, None)
         if retrieveType is None:

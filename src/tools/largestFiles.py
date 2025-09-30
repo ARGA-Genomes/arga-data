@@ -19,7 +19,7 @@ def getLargest(directory: Path, amountToReturn: int, includeFolders: bool, depth
             if size < smallestSize:
                 continue
 
-            if includeFolders and depth > 3: # Within a download/processing/conversion folder
+            if includeFolders and depth > 3: # Within a download/processing folder
                 largest.append((size, item))
 
             subDirLargest = getLargest(item, amountToReturn, includeFolders, depth+1)
