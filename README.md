@@ -21,14 +21,12 @@ All interaction with this pipeline are best done through the available command l
 - purgeSource: Removes a source in the data sources folder and cleans it up.
 - download: Run the download process outlined in the config file.
 - process: Run the processing process outlined in the config file.
-- convert: Run the conversion process to remap and restructure data for ingestion.
 - package: Package up the converted file and the downloading/processing/converting metadata into a zip file.
 - update: Run download/process/convert/package sequentially, limited by the update information in the config
-- samplePreConversion: Collect a sample of the file that is to be converted.
-- sampleConversion: Collect a sample of the converted file.
+- sampleData: Collect a sample of processed data.
 
 ## Data Storage Redirection
-A global `config.toml` file exists in the base directory for general global settings. The overwrites section can be replicated within any level of the data sources folder and the deeper `config.json` files will use that config. For example, many of the databases are quite large and so modifying the `storage` overwrite allows all downloading/processing/conversion files to be placed in a new location. To do this for all databases within the `ncbi` location, a `config.toml` file can be created within the `ncbi` folder with the overwrites section of the global config but either a relative or absolute path defined as the value, and all the databases will respect it. If instead you only wanted the `nucleotide` database to put it's data in a different location, you could instead place `config.toml` file within the `nucleotide` folder. This would allow all other `ncbi` databases to place their data as normal (whatever is outlined in the global `config.toml`), but have the `nucleotide` database place it's downloading/processing/conversion data in a separate location.
+A global `config.toml` file exists in the base directory for general global settings. The overwrites section can be replicated within any level of the data sources folder and the deeper `config.json` files will use that config. For example, many of the databases are quite large and so modifying the `storage` overwrite allows all downloading/processing files to be placed in a new location. To do this for all databases within the `ncbi` location, a `config.toml` file can be created within the `ncbi` folder with the overwrites section of the global config but either a relative or absolute path defined as the value, and all the databases will respect it. If instead you only wanted the `nucleotide` database to put it's data in a different location, you could instead place `config.toml` file within the `nucleotide` folder. This would allow all other `ncbi` databases to place their data as normal (whatever is outlined in the global `config.toml`), but have the `nucleotide` database place it's downloading/processing data in a separate location.
 
 ## Issues repository
 - [List of issues](https://github.com/ARGA-Genomes/arga-data/issues)

@@ -5,7 +5,6 @@ from pathlib import Path
 
 from lib.systemManagers.downloading import DownloadManager
 from lib.systemManagers.processing import ProcessingManager
-from lib.systemManagers.conversion import ConversionManager
 from lib.systemManagers.updating import UpdateManager
 
 from lib.processing.files import Step
@@ -37,7 +36,7 @@ class BasicDB:
         # Local storage
         self.libDir = self.locationDir / "llib" # Location based lib for shared scripts
         self.scriptsDir = self.databaseDir / "scripts" # Database specific scripts
-        self.exampleDir = self.subsectionDir / "examples" # Pre and post conversion sample location
+        self.exampleDir = self.subsectionDir / "examples" # Data sample storage location
 
         # Local settings
         self.settings = gs
@@ -62,12 +61,10 @@ class BasicDB:
         # System Managers
         self.downloadManager = DownloadManager(self.dataDir, self.scriptsDir, self.databaseDir, scriptImportLibs, username, password)
         self.processingManager = ProcessingManager(self.dataDir, self.scriptsDir, self.databaseDir, scriptImportLibs)
-        self.conversionManager = ConversionManager(self.dataDir, self.scriptsDir, self.databaseDir, scriptImportLibs, self.datasetID, self.locationDir.name, self.name)
 
         # Config stages
         self.downloadConfig: dict = setupConfig.pop(self.downloadManager.stepName, None)
         self.processingConfig: dict = setupConfig.pop(self.processingManager.stepName, {})
-        self.conversionConfig: dict = setupConfig.pop(self.conversionManager.stepName, {})
 
         if self.downloadConfig is None:
             raise Exception(f"No download config specified as required for {self.name}") from AttributeError
@@ -115,16 +112,11 @@ class BasicDB:
 
         if linearProcessing:
             self.processingManager.addFinalProcessing(linearProcessing)
-    
-    def _prepareConversion(self, flags: list[Flag]) -> None:
-        fileToConvert = self.processingManager.getLatestNodeFile()
-        self.conversionManager.prepare(fileToConvert, self.conversionConfig, Flag.REPREPARE in flags)
 
     def _prepare(self, fileStep: Step, flags: list[Flag]) -> bool:
         callbacks = {
             Step.DOWNLOADING: self._prepareDownload,
             Step.PROCESSING: self._prepareProcessing,
-            Step.CONVERSION: self._prepareConversion
         }
 
         if fileStep not in callbacks:
@@ -158,9 +150,6 @@ class BasicDB:
 
         if fileStep == Step.PROCESSING:
             return self.processingManager.process(overwrite, verbose)
-        
-        if fileStep == Step.CONVERSION:
-            return self.conversionManager.convert(overwrite, verbose)
 
         logging.error(f"Unknown step to execute: {fileStep}")
         return False
@@ -179,20 +168,12 @@ class BasicDB:
         except KeyboardInterrupt:
             logging.info(f"Process ended early when attempting to execute step '{fileStep.name}' for {self}")
 
-    def package(self) -> Path:
-        outputDir = self.localConfigfolders.package if isinstance(self.localConfigfolders.package, Path) else self.dataDir
-        outputPath = self.conversionManager.package(outputDir)
-        if outputPath is not None:
-            logging.info(f"Successfully zipped converted data source file to {outputPath}")
-
-        return outputPath
-
     def checkUpdateReady(self) -> bool:
         lastUpdate = self.downloadManager.getLastUpdate()
         return self.updateManager.isUpdateReady(lastUpdate)
     
     def update(self, flags: list[Flag]) -> bool:
-        for fileStep in (Step.DOWNLOADING, Step.PROCESSING, Step.CONVERSION):
+        for fileStep in (Step.DOWNLOADING, Step.PROCESSING):
             self.create(fileStep, list(set(flags).add(Flag.OVERWRITE)))
 
         self.package()

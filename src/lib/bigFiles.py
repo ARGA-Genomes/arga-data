@@ -2,7 +2,7 @@ from pathlib import Path
 import pandas as pd
 import logging
 import lib.processing.files as files
-from lib.processing.files import DataFormat, DataFile, Folder, StackedFile
+from lib.processing.files import DataFormat, DataFile, Folder
 from typing import Iterator
 
 class DFWriter:
@@ -104,24 +104,7 @@ def combineDataFiles(outputFilePath: Path, dataFiles: list[DataFile], columns: l
     outputDataFile = DataFile(outputFilePath)
     logging.info(f"Combining into one file at {outputFilePath}")
     outputDataFile.writeIterator(combinedIterator(dataFiles, 1024), columns, index=False, **kwargs)
-
     if deleteOld:
         logging.info(f"Cleaning up old sections of combined file")
         for dataFile in dataFiles:
             dataFile.delete()
-
-class StackedDFWriter:
-    def __init__(self, outputFilePath: Path, subsections: list[str], chunkFormat: DataFormat = DataFormat.PARQUET):
-        self.outputFile = StackedFile(outputFilePath)
-        self._subWriters = {subsection: DFWriter(outputFilePath / f"{subsection}.csv", chunkFormat=chunkFormat, subDirName=subsection) for subsection in subsections}
-    
-    def uniqueColumns(self, subsection: str) -> list[str]:
-        return self._subWriters[subsection].uniqueColumns()
-
-    def write(self, df: pd.DataFrame) -> None: # Expects multilayer dataframe
-        for outerColumn in df.columns.levels[0]:
-            self._subWriters[outerColumn].write(df[outerColumn])
-
-    def combine(self, removeParts: bool = False) -> None:
-        for writer in self._subWriters.values():
-            writer.combine(removeParts)

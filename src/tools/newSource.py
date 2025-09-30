@@ -60,7 +60,6 @@ if __name__ == "__main__":
         "retrieveType": retriveType.value,
         "datasetID": "",
         "downloading": dlconfigs[retriveType],
-        "conversion": {},
         "update": {
             "type": "weekly",
             "day": "sunday",
