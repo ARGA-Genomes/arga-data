@@ -1,4 +1,3 @@
-import urllib.error
 import requests
 from pathlib import Path
 from requests.auth import HTTPBasicAuth
