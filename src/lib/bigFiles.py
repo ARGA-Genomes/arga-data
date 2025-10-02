@@ -104,6 +104,7 @@ def combineDataFiles(outputFilePath: Path, dataFiles: list[DataFile], columns: l
     outputDataFile = DataFile(outputFilePath)
     logging.info(f"Combining into one file at {outputFilePath}")
     outputDataFile.writeIterator(combinedIterator(dataFiles, 1024), columns, index=False, **kwargs)
+    
     if deleteOld:
         logging.info(f"Cleaning up old sections of combined file")
         for dataFile in dataFiles:

@@ -26,6 +26,7 @@ class DataProperty(Enum):
 class FileObject:
     def __init__(self, path: Path):
         self.path = path
+        self.properties: dict[DataProperty, any] = {}
         self._backupPath = None
 
     def __str__(self) -> str:
@@ -84,7 +85,6 @@ class DataFile(FileObject):
     def __init__(self, path: Path, properties: dict = {}):
         super().__init__(path)
 
-        self.properties: dict[DataProperty, any] = {}
         for property, value in properties.items():
             dataProperty = DataProperty._value2member_map_.get(property, None)
             if dataProperty is None:
