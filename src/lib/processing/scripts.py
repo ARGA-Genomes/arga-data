@@ -83,7 +83,6 @@ class FunctionScript:
             pathExtension = [str(path.parent) for path in self.imports.values()]
             sys.path.extend(pathExtension)
             processFunction = self._importFunction(self.modulePath, self.function)
-            sys.path = sys.path[:-len(pathExtension)]
         except:
             logging.error(f"Error importing function '{self.function}' from path '{self.modulePath}'")
             logging.error(traceback.format_exc())
@@ -106,14 +105,18 @@ class FunctionScript:
             retVal = processFunction(*args, **kwargs)
         except KeyboardInterrupt:
             logging.info("Cancelled external script")
+            sys.path = sys.path[:-len(pathExtension)]
             return False, None
         except PermissionError:
             logging.info("External script does not have permission to modify file, potentially open")
+            sys.path = sys.path[:-len(pathExtension)]
             return False, None
         except:
             logging.error(f"Error running external script:\n{traceback.format_exc()}")
+            sys.path = sys.path[:-len(pathExtension)]
             return False, None
-                
+        
+        sys.path = sys.path[:-len(pathExtension)]
         return True, retVal
 
 class OutputScript(FunctionScript):
