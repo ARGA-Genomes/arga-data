@@ -44,7 +44,7 @@ def apiWorker(queue: Queue, id: int, apiKey: str, recordsPerCall: int, accession
 
     try:
         for string in accessionStrings:
-            url = f"https://api.ncbi.nlm.nih.gov/datasets/v2alpha/genome/accession/{string}/dataset_report"
+            url = f"https://api.ncbi.nlm.nih.gov/datasets/v2/genome/accession/{string}/dataset_report"
             response = session.get(url, headers=headers, params=params)
             data = response.json()
             records = data.get("reports", [])

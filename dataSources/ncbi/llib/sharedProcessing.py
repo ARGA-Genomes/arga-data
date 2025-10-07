@@ -13,15 +13,12 @@ from llib.apiWorker import apiWorker
 
 def getStats(summaryFile: DataFile, outputPath: Path):
     apiKey = secrets.ncbi.key
+    if not isinstance(apiKey, str):
+        logging.error("No API key found in secrets file, and is required to access NCBI api. Please update 'secrets.toml' with 'key' field under 'ncbi'.")
+        return
+    
+    logging.info("Found API key")
     processes = 10
-    if apiKey is None:
-        apiKey = "" # Use empty string
-        processes = 3 # Reduce processes count due to reduced api call rate
-        logging.info("No API key found")
-
-    else:
-        logging.info("Found API key")
-
     recordsPerCall = 200
     recordsPerSubsection = 30000
     accessionCol = "#assembly_accession"
@@ -68,6 +65,14 @@ def getStats(summaryFile: DataFile, outputPath: Path):
     writer.combine(False, index=False)
 
 def merge(summaryFile: DataFile, statsFilePath: Path, outputPath: Path) -> None:
+    if not summaryFile.exists():
+        logging.error("Unable to merge files as summary file doesn't exist")
+        return
+    
+    if not statsFilePath.exists():
+        logging.error("Unable to merge files as stats file doesn't exist")
+        return
+
     df = summaryFile.read(low_memory=False)
     df2 = pd.read_csv(statsFilePath, low_memory=False)
     df = df.merge(df2, how="outer", left_on="#assembly_accession", right_on="current_accession")
