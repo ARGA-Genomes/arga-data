@@ -4,18 +4,26 @@ import logging
 import lib.processing.files as files
 from lib.processing.files import DataFormat, DataFile, Folder, StackedFile
 from typing import Iterator
+from lib.json import JsonSynchronizer
 
 class DFWriter:
 
     _chunkPrefix = "chunk"
+    _metadataFiles = "files"
 
     def __init__(self, outputFilePath: Path, chunkFormat: DataFormat = DataFormat.PARQUET, subDirName: str = "bigFileWriter"):
         self.outputFile = DataFile(outputFilePath)
         self._chunkFormat = chunkFormat
 
         self.workingDir = Folder(outputFilePath.parent / subDirName, create=True)
+
+        self._metadata = JsonSynchronizer(self.workingDir.path / "metadata.json", True)
         self._sectionFiles: list[DataFile] = []
         self._uniqueColumns: dict[str, None] = {}
+
+        for fileName in self._metadata.data[self._metadataFiles]:
+            dataFile = DataFile()
+
 
         for path in self.workingDir.getMatchingPaths(f"{self._chunkPrefix}_*"):
             dataFile = DataFile(path)
@@ -25,16 +33,23 @@ class DFWriter:
         if self._sectionFiles:
             logging.info(f"Added {len(self._sectionFiles)} existing files from working directory '{self.workingDir.path}'")
 
+    def _wroteFile(self, name: str) -> None:
+        pass
+
     def writtenFileCount(self) -> int:
         return len(self._sectionFiles)
     
     def uniqueColumns(self) -> list[str]:
         return list(self._uniqueColumns.keys())
 
-    def write(self, df: pd.DataFrame) -> None:
-        fileName = f"{self._chunkPrefix}_{len(self._sectionFiles)}{self._chunkFormat.value}"
-        subfile = DataFile(self.workingDir.path / fileName)
+    def write(self, df: pd.DataFrame, fileName: str = "") -> None:
+        if not fileName:
+            fileName = f"{self._chunkPrefix}_{len(self._sectionFiles)}"
+            
+        subfile = DataFile(self.workingDir.path / (fileName + self._chunkFormat.value))
         subfile.write(df, index=False)
+        self._wroteFile(fileName)
+
         self._sectionFiles.append(subfile)
         self._uniqueColumns |= {column: None for column in df.columns}
 
