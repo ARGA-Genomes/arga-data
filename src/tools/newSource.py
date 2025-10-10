@@ -1,4 +1,4 @@
-from lib.config import globalConfig as gcfg
+from lib.settings import dataSourcesDir
 import argparse
 from lib.data.sources import sourceConfigName
 from pathlib import Path
@@ -32,7 +32,7 @@ if __name__ == "__main__":
     parser.add_argument("type", choices=list(Retrieve._value2member_map_), help="Type of database to set up")
     args = parser.parse_args()
 
-    locationFolder: Path = gcfg.folders.dataSources / args.location
+    locationFolder: Path = dataSourcesDir / args.location
     databaseFolder: Path = locationFolder / args.database
     configFilePath: Path = databaseFolder / sourceConfigName
 
