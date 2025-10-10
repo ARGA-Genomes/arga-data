@@ -4,7 +4,6 @@ import logging
 import importlib.util
 from enum import Enum
 import traceback
-from lib.config import globalConfig as gcfg
 from typing import Any
 import sys
 
@@ -20,7 +19,7 @@ class _FileProperty(Enum):
     PATH = "PATH"
 
 class FunctionScript:
-    _libDir = gcfg.folders.src / "lib"
+    _libDir = Path(__file__).parents[2]
 
     def __init__(self, scriptDir: Path, scriptInfo: dict, imports: dict[str, Path]):
         self.scriptDir = scriptDir

@@ -1,5 +1,5 @@
 import json
-from lib.config import globalConfig as gcfg
+from lib.settings import dataSourcesDir
 from pathlib import Path
 from lib.data.database import BasicDB, CrawlDB, ScriptDB, Retrieve
 import logging
@@ -13,7 +13,7 @@ class SourceManager:
     def __init__(self):
         self.locations: dict[str, Location] = {}
 
-        dataSourcesFolder: Path = gcfg.folders.dataSources
+        dataSourcesFolder: Path = dataSourcesDir
         for locationFolder in dataSourcesFolder.iterdir():
             if locationFolder.is_file():
                 continue

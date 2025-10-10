@@ -1,5 +1,5 @@
 import logging
-from lib.config import globalConfig as gcfg
+from lib.settings import globalSettings as gs
 from pathlib import Path
 from datetime import datetime
 import sys
@@ -14,8 +14,8 @@ logLevelLookup = {
 
 def createLogger() -> logging.Logger:
     logger = logging.getLogger()
-    logToConsole = gcfg.settings.logToConsole
-    logLevel = gcfg.settings.logLevel
+    logToConsole = gs.logging.logToConsole
+    logLevel = gs.logging.logLevel
 
     level = logLevelLookup.get(logLevel, None)
     if level is None:
@@ -25,7 +25,7 @@ def createLogger() -> logging.Logger:
 
     formatter = logging.Formatter("[%(asctime)s] %(levelname)s: %(message)s", "%H:%M:%S")
 
-    logFolder: Path = gcfg.folders.logs
+    logFolder: Path = gs.folders.logs
     logFileName = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
     logFilePath = logFolder / f"{logFileName}.log"
 

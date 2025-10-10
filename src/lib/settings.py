@@ -1,7 +1,7 @@
 from lib.tomlFiles import TomlLoader, Any
 from pathlib import Path
 
-class Configs(TomlLoader):
+class Settings(TomlLoader):
     def parse(self, value: any) -> Any:
         if isinstance(value, str):
             if value.startswith("./"):
@@ -12,4 +12,6 @@ class Configs(TomlLoader):
         
         return value
 
-globalConfig = Configs(Path(__file__).parents[2] / "config.toml")
+rootDir = Path(__file__).parents[2]
+dataSourcesDir = rootDir / "dataSources"
+globalSettings = Settings(rootDir / "settings.toml")

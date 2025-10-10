@@ -1,4 +1,4 @@
-from lib.config import globalConfig as gcfg
+from lib.settings import globalSettings as gs
 from lib.secrets import secrets
 from enum import Enum
 from pathlib import Path
@@ -39,17 +39,17 @@ class BasicDB:
         self.scriptsDir = self.databaseDir / "scripts" # Database specific scripts
         self.exampleDir = self.subsectionDir / "examples" # Pre and post conversion sample location
 
-        # Local configs
-        self.config = gcfg
+        # Local settings
+        self.settings = gs
         for dir in (self.locationDir, self.databaseDir, self.subsectionDir):
-            subdirConfig = Path(dir / "config.toml")
+            subdirConfig = Path(dir / "settings.toml")
             if subdirConfig.exists():
-                self.config = self.config.createChild(subdirConfig)
+                self.settings = self.settings.createChild(subdirConfig)
 
         # Data storage
         self.dataDir = self.subsectionDir / "data" # Default data location
-        if self.config.overwrites.storage: # Overwrite data location
-            self.dataDir = self.config.overwrites.storage / self.dataDir.relative_to(self.locationDir.parent) # Change parent of locationDir (dataSources folder) to storage dir
+        if self.settings.storage.data: # Overwrite data location
+            self.dataDir = self.settings.storage.data / self.dataDir.relative_to(self.locationDir.parent) # Change parent of locationDir (dataSources folder) to storage dir
 
         # Username/Password
         sourceSecrets = secrets[self.locationDir.name]
