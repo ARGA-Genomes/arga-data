@@ -1,6 +1,6 @@
 from lib.settings import dataSourcesDir
 import argparse
-from lib.data.sources import sourceConfigName
+from lib.data.database import sourceConfigName
 from pathlib import Path
 import json
 from lib.data.database import Retrieve

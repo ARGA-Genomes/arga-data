@@ -1,18 +1,15 @@
 {
-    "datasetID": "ARGA:TL:0005000",
-    "retrieveType": "script",
     "downloading": {
-        "path": "./processing.py",
-        "function": "build",
-        "args": [
-            "{OUT-PATH}",
-            1000
-        ],
-        "output": "bpa.csv"
-    },
-    "conversion": {
-        "mapColumnName": "BPA mappings",
-        "entityColumn": "canonical_name"
+        "retrieveType": "script",
+        "tasks": {
+            "path": "./processing.py",
+            "function": "build",
+            "args": [
+                "{OUT-PATH}",
+                1000
+            ],
+            "output": "bpa.csv"
+        }
     },
     "update": {
         "type": "weekly",
