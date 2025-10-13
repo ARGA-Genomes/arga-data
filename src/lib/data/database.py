@@ -2,36 +2,59 @@ from lib.config import globalConfig as gcfg
 from lib.secrets import secrets
 from enum import Enum
 from pathlib import Path
-
 from lib.systemManagers.downloading import DownloadManager
 from lib.systemManagers.processing import ProcessingManager
-from lib.systemManagers.updating import UpdateManager
-
-from lib.processing.files import Step
-
+from lib.processing.updating import UpdateManager
 from lib.crawler import Crawler
 import logging
+import json
 
-class Retrieve(Enum):
-    URL     = "url"
-    CRAWL   = "crawl"
-    SCRIPT  = "script"
+class Step(Enum):
+    DOWNLOADING = "downloading"
+    PROCESSING  = "processing"
 
 class Flag(Enum):
     VERBOSE   = "quiet" # Verbosity enabled by default, flag is used when silenced
     REPREPARE = "reprepare"
     OVERWRITE = "overwrite"
 
-class BasicDB:
+sourceConfigName = "config.json"
 
-    retrieveType = Retrieve.URL
-
-    def __init__(self, name: str, databaseDir: Path, subsection: str, datasetID: str, setupConfig: dict):
-        self.name = name
-        self.locationDir = databaseDir.parent
+class Database:
+    def __init__(self, databaseDir: Path):
         self.databaseDir = databaseDir
-        self.subsectionDir = databaseDir / subsection # Same as databaseDir if no subsection
-        self.datasetID = datasetID
+
+        configPath = databaseDir / sourceConfigName
+        if configPath.exists():
+            with open(configPath) as fp:
+                configData = json.load(fp)
+        else:
+            configData = {}
+
+        self.subsections: dict[str, dict[str, str]] = configData.pop("subsections", {})
+        self.configData = configData
+
+    def shortName(self) -> str:
+        return self.databaseDir.name
+
+    def listSubsections(self) -> list[str]:
+        return list(self.subsections)
+
+    def constuct(self, name: str, subsection: str):
+        self.name = name
+        self.locationDir = self.databaseDir.parent
+        self.databaseDir = self.databaseDir
+        self.subsectionDir = self.databaseDir / subsection # Same as databaseDir if no subsection
+
+        # Subsection remapping
+        if subsection:
+            rawConfig = json.dumps(self.configData)
+            rawConfig = rawConfig.replace("<SUB>", subsection)
+            tags = self.subsections.get("tags", {})
+            for tag, replaceValue in tags.items():
+                rawConfig = rawConfig.replace(f"<SUB:{tag.upper()}>", replaceValue)
+
+            self.config = json.loads(rawConfig)
 
         # Local storage
         self.libDir = self.locationDir / "llib" # Location based lib for shared scripts
@@ -63,18 +86,18 @@ class BasicDB:
         self.processingManager = ProcessingManager(self.dataDir, self.scriptsDir, self.databaseDir, scriptImportLibs)
 
         # Config stages
-        self.downloadConfig: dict = setupConfig.pop(self.downloadManager.stepName, None)
-        self.processingConfig: dict = setupConfig.pop(self.processingManager.stepName, {})
+        self.downloadConfig: dict = self.config.pop(self.downloadManager.stepName, None)
+        self.processingConfig: dict = self.config.pop(self.processingManager.stepName, {})
 
         if self.downloadConfig is None:
             raise Exception(f"No download config specified as required for {self.name}") from AttributeError
         
         # Updating
-        self.updateConfig: dict = setupConfig.pop("updating", {})
+        self.updateConfig: dict = self.config.pop("updating", {})
         self.updateManager = UpdateManager(self.updateConfig)
 
         # Report extra config options
-        self._reportLeftovers(setupConfig)
+        self._reportLeftovers()
 
         # Preparation Stage
         self._prepStage = -1
@@ -85,8 +108,8 @@ class BasicDB:
     def __repr__(self):
         return str(self)
     
-    def _reportLeftovers(self, properties: dict) -> None:
-        for property in properties:
+    def _reportLeftovers(self) -> None:
+        for property in self.config:
             logging.debug(f"{self.name} unknown config item: {property}")
 
     def _prepareDownload(self, flags: list[Flag]) -> None:
@@ -181,29 +204,29 @@ class BasicDB:
     def _printFlags(self, flags: list[Flag]) -> str:
         return " | ".join(f"{flag.value}={flag in flags}" for flag in Flag)
 
-class CrawlDB(BasicDB):
+# class CrawlDB(BasicDB):
 
-    retrieveType = Retrieve.CRAWL
+#     retrieveType = Retrieve.CRAWL
 
-    def _prepareDownload(self, flags: list[Flag]) -> None:
-        url = self.downloadConfig.pop("url", None)
-        regex = self.downloadConfig.pop("regex", None)
-        link = self.downloadConfig.pop("link", "")
-        maxDepth = self.downloadConfig.pop("maxDepth", -1)
-        properties = self.downloadConfig.pop("properties", {})
-        filenameURLParts = self.downloadConfig.pop("urlPrefix", 1)
+#     def _prepareDownload(self, flags: list[Flag]) -> None:
+#         url = self.downloadConfig.pop("url", None)
+#         regex = self.downloadConfig.pop("regex", None)
+#         link = self.downloadConfig.pop("link", "")
+#         maxDepth = self.downloadConfig.pop("maxDepth", -1)
+#         properties = self.downloadConfig.pop("properties", {})
+#         filenameURLParts = self.downloadConfig.pop("urlPrefix", 1)
 
-        crawler = Crawler(self.subsectionDir, self.downloadManager.auth)
-        crawler.run(url, regex, maxDepth, Flag.REPREPARE in flags)
-        urlList = crawler.getFileURLs(link)
+#         crawler = Crawler(self.subsectionDir, self.downloadManager.auth)
+#         crawler.run(url, regex, maxDepth, Flag.REPREPARE in flags)
+#         urlList = crawler.getFileURLs(link)
 
-        for url in urlList:
-            fileName = "_".join(url.split("/")[-filenameURLParts:])
-            self.downloadManager.registerFromURL(url, fileName, properties)
+#         for url in urlList:
+#             fileName = "_".join(url.split("/")[-filenameURLParts:])
+#             self.downloadManager.registerFromURL(url, fileName, properties)
 
-class ScriptDB(BasicDB):
+# class ScriptDB(BasicDB):
 
-    retrieveType = Retrieve.SCRIPT
+#     retrieveType = Retrieve.SCRIPT
 
-    def _prepareDownload(self, flags: list[Flag]) -> None:
-        self.downloadManager.registerFromScript(self.downloadConfig)
+#     def _prepareDownload(self, flags: list[Flag]) -> None:
+#         self.downloadManager.registerFromScript(self.downloadConfig)

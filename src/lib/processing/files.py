@@ -8,10 +8,6 @@ from typing import Iterator
 import pyarrow as pa
 import shutil
 
-class Step(Enum):
-    DOWNLOADING = "downloading"
-    PROCESSING  = "processing"
-
 class DataFormat(Enum):
     CSV     = ".csv"
     TSV     = ".tsv"
