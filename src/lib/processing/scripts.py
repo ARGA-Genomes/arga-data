@@ -125,14 +125,24 @@ class OutputScript(FunctionScript):
         self.outputDir = outputDir
 
         # Output information
-        outputName = scriptInfo.pop("output", None)
-        outputProperties = scriptInfo.pop("properties", {})
+        outputs = scriptInfo.pop("outputs", None)
 
-        if outputName is None:
+        if outputs is None:
             raise Exception("No output specified, please use FunctionScript if intentionally has no output") from AttributeError
 
-        self.output = self._parseOutput(outputName, outputProperties)
-        self.fileLookup |= {FileSelect.OUTPUT: [self.output]}
+        self.outputs: list[DataFile] = []
+        if isinstance(outputs, list): # Generic list of outputs, no properties
+            for outputName in outputs:
+                self.outputs.append(self._parseOutput(outputName, {}))
+
+        elif isinstance(outputs, dict): # Outputs are keys, value is a dict of properties
+            for outputName, properties in outputs.items():
+                self.outputs.append(self._parseOutput(outputName, properties))
+
+        else:
+            raise Exception(f"Invalid format for outputs: '{type(outputs)}'. Should be of type list (no output properties) or dict (properties as values to output key)")
+        
+        self.fileLookup |= {FileSelect.OUTPUT: self.outputs}
 
         super().__init__(scriptDir, scriptInfo, libraryDirs)
 
@@ -212,25 +222,36 @@ class OutputScript(FunctionScript):
         return argKey
 
     def run(self, overwrite: bool, verbose: bool, inputArgs: list = [], inputKwargs: dict = {}) -> tuple[bool, any]:
-        if self.output.exists():
+        if all(output.exists() for output in self.outputs):
             if not overwrite:
-                logging.info(f"Output {self.output} exist and not overwriting, skipping '{self.function}'")
+                logging.info(f"All outputs for function '{self.function}' exist and not overwriting, skipping ...")
                 return True, None
             
-            self.output.backUp(True)
+        # All files don't exist and forced rerun OR overwriting
+        for output in self.outputs:
+            if output.exists():
+                output.backUp(True)
 
         success, retVal = super().run(verbose, inputArgs, inputKwargs)
+
         if not success:
-            self.output.restoreBackUp()
+            for output in self.outputs:
+                output.restoreBackUp()
+
             return False, retVal
         
-        if not self.output.exists():
-            logging.warning(f"Output {self.output} was not created")
-            self.output.restoreBackUp()
+        if not all(output.exists() for output in self.outputs):
+            logging.warning(f"Output {self.outputs[0]} was not created" if len(self.outputs) == 1 else f"Failed to create all {len(self.outputs)} files")
+
+            for output in self.outputs:
+                output.restoreBackUp()
+
             return False, retVal
         
-        logging.info(f"Created file {self.output}")
-        self.output.deleteBackup()
+        logging.info(f"Created file {self.outputs[0]}" if len(self.outputs) == 1 else f"Created all {len(self.outputs)} files")
+        for output in self.outputs:
+            output.deleteBackup()
+
         return True, retVal
 
 class FileScript(OutputScript):

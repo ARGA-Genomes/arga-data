@@ -28,6 +28,10 @@ class Database:
 
     _retrieveType = "retrieveType"
     _downloadTasks = "tasks"
+
+    _parallelProcessing = "parallel"
+    _linearProcessing = "linear"
+
     _localLibrary = "llib"
 
     def __init__(self, databaseDir: Path):
@@ -109,14 +113,15 @@ class Database:
             logging.debug(f"{self.name} unknown{f' {sectionName}' if sectionName else ''} config item: {property}")
 
     def _prepareDownload(self, flags: list[Flag]) -> None:
-        if not self.downloadConfig:
+        downloadConfig: dict = self.configData.pop(Step.DOWNLOADING.value, {})
+        if not downloadConfig:
             raise Exception(f"No download config specified as required for {self.name}") from AttributeError
 
-        retrieveType = self.downloadConfig.pop(self._retrieveType, None)
+        retrieveType = downloadConfig.pop(self._retrieveType, None)
         if retrieveType is None:
             raise Exception(f"No retrieve type specified in download config for {self.name}") from AttributeError
         
-        downloadTasks = self.downloadConfig.pop(self._downloadTasks, None)
+        downloadTasks = downloadConfig.pop(self._downloadTasks, None)
         if downloadTasks is None:
             raise Exception(f"No download tasks specified in download config for {self.name}") from AttributeError
 
@@ -150,12 +155,16 @@ class Database:
         raise Exception(f"Unknown retrieve type '{retrieveType}' specified for {self.name}") from AttributeError
 
     def _prepareProcessing(self, flags: list[Flag]) -> None:
-        parallelProcessing: list[dict] = self.processingConfig.pop("parallel", [])
-        linearProcessing: list[dict] = self.processingConfig.pop("linear", [])
+        processingConfig: dict = self.configData.pop(Step.PROCESSING.value, {})
 
-        for file in self.downloadManager.getFiles():
+        parallelProcessing: list[dict] = processingConfig.pop(self._parallelProcessing, [])
+        for task in self._queuedTasks[Step.DOWNLOADING]:
+            for output in task.getOutputs():
+                self._queuedTasks[Step.PROCESSING]
+
             self.processingManager.registerFile(file, parallelProcessing)
 
+        linearProcessing: list[dict] = processingConfig.pop(self._linearProcessing, [])
         if linearProcessing:
             self.processingManager.addFinalProcessing(linearProcessing)
 
