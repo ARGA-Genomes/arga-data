@@ -8,7 +8,9 @@
                 "{OUT-PATH}",
                 1000
             ],
-            "output": "bpa.csv"
+            "outputs": [
+                "bpa.csv"
+            ]
         }
     },
     "update": {

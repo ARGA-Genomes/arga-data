@@ -9,7 +9,7 @@ class Task:
     def __init__(self):
         self._runMetadata = {}
 
-    def getOutputPath(self) -> Path:
+    def getOutputs(self) -> list[DataFile]:
         raise NotImplementedError
 
     def runTask(self, overwrite: bool, verbose: bool) -> bool:
@@ -45,8 +45,8 @@ class URLDownload(Task):
         properties = config.get(self._properties, {})
         self.file = DataFile(self.workingDir / fileName, properties)
 
-    def getOutputPath(self) -> Path:
-        return self.file.path
+    def getOutputs(self) -> list[DataFile]:
+        return [self.file]
 
     def runTask(self, overwrite: bool, verbose: bool) -> bool:
         if not overwrite and self.file.exists():
@@ -88,6 +88,9 @@ class CrawlDownload(Task):
             fileName = "_".join(url.split("/")[-filenameURLParts:])
             self.downloads.append((url, DataFile(self.workingDir / fileName, properties)))
 
+    def getOutputs(self) -> list[DataFile]:
+        return [downloadFile for _, downloadFile in self.downloads]
+
     def runTask(self, overwrite: bool, verbose: bool) -> bool:
         downloadsRun = False
         for downloadURL, downloadFile in self.downloads:
@@ -109,8 +112,8 @@ class ScriptDownload(Task):
 
         self.script = OutputScript(scriptDir, dict(config), workingDir, [libraryDir])
 
-    def getOutputPath(self) -> Path:
-        return self.script.output.path
+    def getOutputs(self) -> list[DataFile]:
+        return self.script.output
 
     def runTask(self, overwrite: bool, verbose: bool) -> bool:
         return self.script.run(overwrite, verbose)[0] # No retval for downloading tasks, just return success
