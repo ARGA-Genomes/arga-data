@@ -22,10 +22,10 @@ class _FileProperty(Enum):
 class FunctionScript:
     _libDir = gcfg.folders.src / "lib"
 
-    def __init__(self, scriptDir: Path, scriptInfo: dict, imports: dict[str, Path]):
+    def __init__(self, scriptDir: Path, scriptInfo: dict, libraryDirs: list[Path]):
         self.scriptDir = scriptDir
         self.scriptInfo = scriptInfo
-        self.imports = imports | {".lib": self._libDir}
+        self.imports = {".lib": self._libDir} | {f".{libraryPath.name}": libraryPath for libraryPath in libraryDirs}
 
         # Script information
         modulePath: str = scriptInfo.pop("path", None)
@@ -119,7 +119,7 @@ class FunctionScript:
 class OutputScript(FunctionScript):
     fileLookup = {}
     
-    def __init__(self, scriptDir: Path, scriptInfo: dict, outputDir: Path, imports: dict[str, Path] = {}):
+    def __init__(self, scriptDir: Path, scriptInfo: dict, outputDir: Path, libraryDirs: list[Path]):
         self.outputDir = outputDir
 
         # Output information
@@ -132,7 +132,7 @@ class OutputScript(FunctionScript):
         self.output = self._parseOutput(outputName, outputProperties)
         self.fileLookup |= {FileSelect.OUTPUT: [self.output]}
 
-        super().__init__(scriptDir, scriptInfo, imports)
+        super().__init__(scriptDir, scriptInfo, libraryDirs)
 
         self.args = [self._parseArg(arg) for arg in self.args]
         self.kwargs = {key: self._parseArg(arg) for key, arg in self.kwargs.items()}
