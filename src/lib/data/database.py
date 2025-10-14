@@ -2,16 +2,20 @@ from lib.settings import globalSettings as gs
 from lib.secrets import secrets
 from enum import Enum
 from pathlib import Path
-from lib.systemManagers.downloading import DownloadManager
-from lib.systemManagers.processing import ProcessingManager
 from lib.processing.updating import UpdateManager
-from lib.crawler import Crawler
+from lib.processing.metadata import MetadataManager
+import lib.processing.tasks as tasks
 import logging
 import json
 
 class Step(Enum):
     DOWNLOADING = "downloading"
     PROCESSING  = "processing"
+
+class Retrieve(Enum):
+    URL     = "url"
+    CRAWL   = "crawl"
+    SCRIPT  = "script"
 
 class Flag(Enum):
     VERBOSE   = "quiet" # Verbosity enabled by default, flag is used when silenced
@@ -21,6 +25,11 @@ class Flag(Enum):
 sourceConfigName = "config.json"
 
 class Database:
+
+    _retrieveType = "retrieveType"
+    _downloadTasks = "tasks"
+    _localLibrary = "llib"
+
     def __init__(self, databaseDir: Path):
         self.databaseDir = databaseDir
 
@@ -57,7 +66,7 @@ class Database:
             self.config = json.loads(rawConfig)
 
         # Local storage
-        self.libDir = self.locationDir / "llib" # Location based lib for shared scripts
+        self.libDir = self.locationDir / self._localLibrary # Location based lib for shared scripts
         self.scriptsDir = self.databaseDir / "scripts" # Database specific scripts
         self.exampleDir = self.subsectionDir / "examples" # Data sample storage location
 
@@ -71,33 +80,20 @@ class Database:
         # Data storage
         self.dataDir = self.subsectionDir / "data" # Default data location
         if self.settings.storage.data: # Overwrite data location
-            self.dataDir = self.settings.storage.data / self.dataDir.relative_to(self.locationDir.parent) # Change parent of locationDir (dataSources folder) to storage dir
+            self.dataDir: Path = self.settings.storage.data / self.dataDir.relative_to(self.locationDir.parent) # Change parent of locationDir (dataSources folder) to storage dir
 
-        # Username/Password
-        sourceSecrets = secrets[self.locationDir.name]
-        username = sourceSecrets.username if sourceSecrets is not None else ""
-        password = sourceSecrets.password if sourceSecrets is not None else ""
+        self.downloadDir = self.dataDir / Step.DOWNLOADING.value
+        self.processingDir = self.dataDir / Step.PROCESSING.value
 
-        # Location Library
-        scriptImportLibs = {".llib": self.libDir}
+        # Tasks
+        self._queuedTasks: dict[Step, list[tasks.Task]] = {}
 
-        # System Managers
-        self.downloadManager = DownloadManager(self.dataDir, self.scriptsDir, self.databaseDir, scriptImportLibs, username, password)
-        self.processingManager = ProcessingManager(self.dataDir, self.scriptsDir, self.databaseDir, scriptImportLibs)
+        # Metadata
+        self.metadataManager = MetadataManager(self.databaseDir)
 
-        # Config stages
-        self.downloadConfig: dict = self.config.pop(self.downloadManager.stepName, None)
-        self.processingConfig: dict = self.config.pop(self.processingManager.stepName, {})
-
-        if self.downloadConfig is None:
-            raise Exception(f"No download config specified as required for {self.name}") from AttributeError
-        
         # Updating
         self.updateConfig: dict = self.config.pop("updating", {})
         self.updateManager = UpdateManager(self.updateConfig)
-
-        # Report extra config options
-        self._reportLeftovers()
 
         # Preparation Stage
         self._prepStage = -1
@@ -108,24 +104,51 @@ class Database:
     def __repr__(self):
         return str(self)
     
-    def _reportLeftovers(self) -> None:
-        for property in self.config:
-            logging.debug(f"{self.name} unknown config item: {property}")
+    def _reportLeftovers(self, config: dict, sectionName: str) -> None:
+        for property in config:
+            logging.debug(f"{self.name} unknown{f' {sectionName}' if sectionName else ''} config item: {property}")
 
     def _prepareDownload(self, flags: list[Flag]) -> None:
-        for file in self.downloadConfig:
-            url = file.get("url", None)
-            name = file.get("name", None)
-            properties = file.get("properties", {})
+        if not self.downloadConfig:
+            raise Exception(f"No download config specified as required for {self.name}") from AttributeError
 
-            if url is None:
-                raise Exception("No url provided for source") from AttributeError
+        retrieveType = self.downloadConfig.pop(self._retrieveType, None)
+        if retrieveType is None:
+            raise Exception(f"No retrieve type specified in download config for {self.name}") from AttributeError
+        
+        downloadTasks = self.downloadConfig.pop(self._downloadTasks, None)
+        if downloadTasks is None:
+            raise Exception(f"No download tasks specified in download config for {self.name}") from AttributeError
 
-            if name is None:
-                raise Exception("No filename provided to download to") from AttributeError
+        # Get username/password for url/crawl downloads
+        sourceSecrets = secrets[self.locationDir.name]
+        username = sourceSecrets.username if sourceSecrets is not None else ""
+        password = sourceSecrets.password if sourceSecrets is not None else ""
+
+        overwrite = Flag.REPREPARE in flags
+
+        retrieve = Retrieve._value2member_map_.get(retrieveType, None)
+        if retrieve == Retrieve.URL: # Tasks should be a list of dicts
+            if not isinstance(downloadTasks, list):
+                raise Exception(f"URL retrieve type expects a list of task configs for {self.name}") from AttributeError
+
+            for taskConfig in downloadTasks:
+                self._queuedTasks[Step.DOWNLOADING].append(tasks.URLDownload(self.downloadDir, username, password, taskConfig))
+
+        if retrieveType == Retrieve.CRAWL: # Tasks should be dict
+            if not isinstance(downloadTasks, dict):
+                raise Exception(f"Crawl retrieve type expects a dict config for {self.name}")
             
-            self.downloadManager.registerFromURL(url, name, properties)
-    
+            self._queuedTasks[Step.DOWNLOADING].append(tasks.CrawlDownload(self.downloadDir, username, password, downloadTasks, overwrite))
+
+        if retrieveType == Retrieve.SCRIPT: # Tasks should be dict
+            if not isinstance(downloadTasks, dict):
+                raise Exception(f"Script retrieve type expects a dict config for {self.name}")
+            
+            self._queuedTasks[Step.DOWNLOADING].append(tasks.ScriptDownload(self.scriptsDir, self.downloadDir, self.libDir, downloadTasks))
+
+        raise Exception(f"Unknown retrieve type '{retrieveType}' specified for {self.name}") from AttributeError
+
     def _prepareProcessing(self, flags: list[Flag]) -> None:
         parallelProcessing: list[dict] = self.processingConfig.pop("parallel", [])
         linearProcessing: list[dict] = self.processingConfig.pop("linear", [])
@@ -203,30 +226,3 @@ class Database:
 
     def _printFlags(self, flags: list[Flag]) -> str:
         return " | ".join(f"{flag.value}={flag in flags}" for flag in Flag)
-
-# class CrawlDB(BasicDB):
-
-#     retrieveType = Retrieve.CRAWL
-
-#     def _prepareDownload(self, flags: list[Flag]) -> None:
-#         url = self.downloadConfig.pop("url", None)
-#         regex = self.downloadConfig.pop("regex", None)
-#         link = self.downloadConfig.pop("link", "")
-#         maxDepth = self.downloadConfig.pop("maxDepth", -1)
-#         properties = self.downloadConfig.pop("properties", {})
-#         filenameURLParts = self.downloadConfig.pop("urlPrefix", 1)
-
-#         crawler = Crawler(self.subsectionDir, self.downloadManager.auth)
-#         crawler.run(url, regex, maxDepth, Flag.REPREPARE in flags)
-#         urlList = crawler.getFileURLs(link)
-
-#         for url in urlList:
-#             fileName = "_".join(url.split("/")[-filenameURLParts:])
-#             self.downloadManager.registerFromURL(url, fileName, properties)
-
-# class ScriptDB(BasicDB):
-
-#     retrieveType = Retrieve.SCRIPT
-
-#     def _prepareDownload(self, flags: list[Flag]) -> None:
-#         self.downloadManager.registerFromScript(self.downloadConfig)
