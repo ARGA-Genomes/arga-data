@@ -6,14 +6,15 @@ import lib.downloading as dl
 from lib.crawler import Crawler
 
 class Task:
-    def __init__(self):
+    def __init__(self, outputs: list[DataFile]):
         self._runMetadata = {}
+        self._outputs = outputs
 
     def getOutputs(self) -> list[DataFile]:
-        raise NotImplementedError
+        return self._outputs
 
-    def runTask(self, overwrite: bool, verbose: bool) -> bool:
-        raise NotImplementedError
+    def run(self, overwrite: bool, verbose: bool) -> bool:
+        return True
     
     def setAdditionalMetadata(self, metadata: dict) -> None:
         self._runMetadata.update(metadata)
@@ -28,8 +29,6 @@ class URLDownload(Task):
     _properties = "properties"
 
     def __init__(self, workingDir: Path, username: str, password: str, config: dict):
-        super().__init__()
-
         self.workingDir = workingDir
         self.username = username
         self.password = password
@@ -44,6 +43,8 @@ class URLDownload(Task):
     
         properties = config.get(self._properties, {})
         self.file = DataFile(self.workingDir / fileName, properties)
+
+        super().__init__([self.file])
 
     def getOutputs(self) -> list[DataFile]:
         return [self.file]
@@ -66,8 +67,6 @@ class CrawlDownload(Task):
     _filenameURLParts = "urlPrefix"
 
     def __init__(self, workingDir: Path, username: str, password: str, config: dict, overwrite: bool):
-        super().__init__()
-
         self.workingDir = workingDir
         self.username = username
         self.password = password
@@ -88,8 +87,7 @@ class CrawlDownload(Task):
             fileName = "_".join(url.split("/")[-filenameURLParts:])
             self.downloads.append((url, DataFile(self.workingDir / fileName, properties)))
 
-    def getOutputs(self) -> list[DataFile]:
-        return [downloadFile for _, downloadFile in self.downloads]
+        super().__init__([downloadFile for _, downloadFile in self.downloads])
 
     def runTask(self, overwrite: bool, verbose: bool) -> bool:
         downloadsRun = False
@@ -108,59 +106,18 @@ class ScriptDownload(Task):
     _libraryLink = ".llib"
 
     def __init__(self, scriptDir: Path, workingDir: Path, libraryDir: Path, config: dict):
-        super().__init__(workingDir)
-
         self.script = OutputScript(scriptDir, dict(config), workingDir, [libraryDir])
 
-    def getOutputs(self) -> list[DataFile]:
-        return self.script.output
+        super().__init__(self.script.outputs)
 
     def runTask(self, overwrite: bool, verbose: bool) -> bool:
         return self.script.run(overwrite, verbose)[0] # No retval for downloading tasks, just return success
     
 class ProcessingNode(Task):
-    def __init__(self, index: str, script: FileScript, parents: list['ProcessingNode']):
-        super().__init__()
+    def __init__(self, scriptDir: Path, workingDir: Path, libraryDir: Path, inputs: list[DataFile], config: dict):
+        self.script = FileScript(scriptDir, dict(config), workingDir, ..., [libraryDir])
 
-        self.index = index
-        self.script = script
-        self.parents = parents
-
-    def __eq__(self, other: 'ProcessingNode'):
-        return self.index == other.index
-
-    def getOutputPath(self) -> Path:
-        return self.script.output.path
-
-    def getOutputFile(self) -> DataFile:
-        return self.script.output
-    
-    def getRequirements(self, tasks: list['ProcessingNode']) -> list['ProcessingNode']:
-        newTasks = []
-
-        for parent in self.parents:
-            if parent not in tasks:
-                newTasks.extend(parent.getRequirements(tasks + newTasks))
-
-        newTasks.append(self)
-        return newTasks
+        super().__init__(self.script.outputs)
 
     def runTask(self, overwrite: bool, verbose: bool) -> bool:
         return self.script.run(overwrite, verbose)[0] # No retval for processing tasks, just return success
-
-class ProcessingRoot(ProcessingNode):
-    def __init__(self, index: int, file: DataFile):
-        self.index = index
-        self.file = file
-
-    def getOutputPath(self) -> Path:
-        return self.file.path
-
-    def getOutputFile(self) -> DataFile:
-        return self.file
-    
-    def getRequirements(self, *args) -> list[ProcessingNode]:
-        return []
-    
-    def runTask(self, *args) -> bool:
-        return True
