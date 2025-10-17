@@ -5,6 +5,7 @@ from pathlib import Path
 from lib.processing.updating import UpdateManager
 from lib.processing.metadata import MetadataManager
 import lib.processing.tasks as tasks
+from lib.processing import configParsing as cfParsing
 import logging
 import json
 
@@ -61,13 +62,8 @@ class Database:
 
         # Subsection remapping
         if subsection:
-            rawConfig = json.dumps(self.configData)
-            rawConfig = rawConfig.replace("<SUB>", subsection)
-            tags = self.subsections.get("tags", {})
-            for tag, replaceValue in tags.items():
-                rawConfig = rawConfig.replace(f"<SUB:{tag.upper()}>", replaceValue)
-
-            self.config = json.loads(rawConfig)
+            subsectionTags = self.subsections.get(subsection, {}).get("tags", {})
+            self.config = cfParsing.translateSubsection(self.configData, subsection, subsectionTags)
 
         # Local storage
         self.libDir = self.locationDir / self._localLibrary # Location based lib for shared scripts
@@ -90,7 +86,9 @@ class Database:
         self.processingDir = self.dataDir / Step.PROCESSING.value
 
         # Tasks
-        self._queuedTasks: dict[Step, list[tasks.Task]] = {}
+        self._queuedTasks: list[list[tasks.Task]] = [[]]
+        # Layer 0 = download
+        # Layer 1+ = processing
 
         # Metadata
         self.metadataManager = MetadataManager(self.databaseDir)
@@ -138,19 +136,19 @@ class Database:
                 raise Exception(f"URL retrieve type expects a list of task configs for {self.name}") from AttributeError
 
             for taskConfig in downloadTasks:
-                self._queuedTasks[Step.DOWNLOADING].append(tasks.URLDownload(self.downloadDir, username, password, taskConfig))
+                self._queuedTasks[0].append(tasks.URLDownload(self.downloadDir, username, password, taskConfig))
 
         if retrieveType == Retrieve.CRAWL: # Tasks should be dict
             if not isinstance(downloadTasks, dict):
                 raise Exception(f"Crawl retrieve type expects a dict config for {self.name}")
             
-            self._queuedTasks[Step.DOWNLOADING].append(tasks.CrawlDownload(self.downloadDir, username, password, downloadTasks, overwrite))
+            self._queuedTasks[0].append(tasks.CrawlDownload(self.downloadDir, username, password, downloadTasks, overwrite))
 
         if retrieveType == Retrieve.SCRIPT: # Tasks should be dict
             if not isinstance(downloadTasks, dict):
                 raise Exception(f"Script retrieve type expects a dict config for {self.name}")
             
-            self._queuedTasks[Step.DOWNLOADING].append(tasks.ScriptDownload(self.scriptsDir, self.downloadDir, self.libDir, downloadTasks))
+            self._queuedTasks[0].append(tasks.ScriptDownload(self.scriptsDir, self.downloadDir, self.libDir, downloadTasks))
 
         raise Exception(f"Unknown retrieve type '{retrieveType}' specified for {self.name}") from AttributeError
 
@@ -158,11 +156,9 @@ class Database:
         processingConfig: dict = self.configData.pop(Step.PROCESSING.value, {})
 
         parallelProcessing: list[dict] = processingConfig.pop(self._parallelProcessing, [])
-        for task in self._queuedTasks[Step.DOWNLOADING]:
-            for output in task.getOutputs():
-                self._queuedTasks[Step.PROCESSING]
-
-            self.processingManager.registerFile(file, parallelProcessing)
+        for idx, process in enumerate(parallelProcessing):
+            for task in self._queuedTasks[idx]:
+                self._queuedTasks[Step.PROCESSING].append(tasks.ProcessingNode(self.scriptsDir, self.processingDir, self.libDir, task.getOutputs(), process))
 
         linearProcessing: list[dict] = processingConfig.pop(self._linearProcessing, [])
         if linearProcessing:
