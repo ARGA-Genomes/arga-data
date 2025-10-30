@@ -1,13 +1,22 @@
+import json
+import logging
 from lib.config import globalConfig as gcfg
 from lib.secrets import secrets
 from enum import Enum
 from pathlib import Path
-from lib.processing.updating import UpdateManager
-from lib.processing.metadata import MetadataManager
-import lib.processing.tasks as tasks
-from lib.processing import configParsing as cfParsing
-import logging
-import json
+from lib.processing import tasks
+import lib.processing.updating as upd
+from typing import Any
+from lib.processing.files import DataFile
+import time
+from datetime import datetime
+
+sourceConfigName = "config.json"
+
+class Flag(Enum):
+    VERBOSE   = "quiet" # Verbosity enabled by default, flag is used when silenced
+    REPREPARE = "reprepare"
+    OVERWRITE = "overwrite"
 
 class Step(Enum):
     DOWNLOADING = "downloading"
@@ -18,22 +27,37 @@ class Retrieve(Enum):
     CRAWL   = "crawl"
     SCRIPT  = "script"
 
-class Flag(Enum):
-    VERBOSE   = "quiet" # Verbosity enabled by default, flag is used when silenced
-    REPREPARE = "reprepare"
-    OVERWRITE = "overwrite"
+class FileSelect(Enum):
+    INPUT    = "IN"
+    OUTPUT   = "OUT"
+    DOWNLOAD = "D"
+    PROCESS  = "P"
 
-sourceConfigName = "config.json"
+class _FileProperty(Enum):
+    DIR  = "DIR"
+    FILE = "FILE"
+    PATH = "PATH"
+
+class Updates(Enum):
+    DAILY = "daily"
+    WEEKLY = "weekly"
+    MONTHLY = "monthly"
+
+class Metadata(Enum):
+    OUTPUT = "output"
+    SUCCESS = "success"
+    TASK_START = "task started"
+    TASK_END = "task completed"
+    TASK_DURATION = "duration"
+    LAST_SUCCESS_START = "last success started"
+    LAST_SUCCESS_END = "last success completed"
+    LAST_SUCCESS_DURATION = "last success duration"
+    TOTAL_DURATION = "total duration"
+    LAST_SUCCESS_TOTAL_DURATION = "last success total duration"
+    CUSTOM = ""
 
 class Database:
-
-    _retrieveType = "retrieveType"
-    _downloadTasks = "tasks"
-
-    _parallelProcessing = "parallel"
-    _linearProcessing = "linear"
-
-    _localLibrary = "llib"
+    _metadataFileName = "metadata.json"
 
     def __init__(self, databaseDir: Path):
         self.databaseDir = databaseDir
@@ -56,19 +80,30 @@ class Database:
 
     def constuct(self, name: str, subsection: str):
         self.name = name
-        self.locationDir = self.databaseDir.parent
-        self.databaseDir = self.databaseDir
         self.subsectionDir = self.databaseDir / subsection # Same as databaseDir if no subsection
+        self.locationDir = self.databaseDir.parent
 
         # Subsection remapping
         if subsection:
             subsectionTags = self.subsections.get(subsection, {}).get("tags", {})
-            self.config = cfParsing.translateSubsection(self.configData, subsection, subsectionTags)
+            rawConfig = json.dumps(self.configData)
+            rawConfig = rawConfig.replace("<SUB>", subsection)
 
-        # Local storage
-        self.libDir = self.locationDir / self._localLibrary # Location based lib for shared scripts
-        self.scriptsDir = self.databaseDir / "scripts" # Database specific scripts
+            for tag, replaceValue in subsectionTags.items():
+                rawConfig = rawConfig.replace(f"<SUB:{tag.upper()}>", replaceValue)
+
+            self.config = json.loads(rawConfig)
+
+        # Local storage and libraries
         self.exampleDir = self.subsectionDir / "examples" # Data sample storage location
+
+        locationLib = self.locationDir / "llib" # Location based library for scripts shared across a location
+        scriptsLib = self.databaseDir / "scripts" # Database specific scripts
+
+        self.libLookup = {
+            f".{locationLib.name}": locationLib,
+            f".{scriptsLib.name}": scriptsLib 
+        }
 
         # Local configs
         self.config = gcfg
@@ -86,16 +121,13 @@ class Database:
         self.processingDir = self.dataDir / Step.PROCESSING.value
 
         # Tasks
-        self._queuedTasks: list[list[tasks.Task]] = [[]]
-        # Layer 0 = download
-        # Layer 1+ = processing
-
-        # Metadata
-        self.metadataManager = MetadataManager(self.databaseDir)
+        self._queuedTasks = [[]] # Layer 0 = downloading; Layer 1+ = processing
+        self._metadataPath = self.subsectionDir / self._metadataFileName
+        self._metadata = self._loadMetadata()
 
         # Updating
-        self.updateConfig: dict = self.config.pop("updating", {})
-        self.updateManager = UpdateManager(self.updateConfig)
+        updateConfig: dict = self.config.pop("updating", {})
+        self._update = self._getUpdater(updateConfig)
 
         # Preparation Stage
         self._prepStage = -1
@@ -115,12 +147,12 @@ class Database:
         if not downloadConfig:
             raise Exception(f"No download config specified as required for {self.name}") from AttributeError
 
-        retrieveType = downloadConfig.pop(self._retrieveType, None)
+        retrieveType = downloadConfig.pop("retrieveType", None)
         if retrieveType is None:
             raise Exception(f"No retrieve type specified in download config for {self.name}") from AttributeError
         
-        downloadTasks = downloadConfig.pop(self._downloadTasks, None)
-        if downloadTasks is None:
+        downloadTaskConfig = downloadConfig.pop("tasks", None)
+        if downloadTaskConfig is None:
             raise Exception(f"No download tasks specified in download config for {self.name}") from AttributeError
 
         # Get username/password for url/crawl downloads
@@ -132,35 +164,38 @@ class Database:
 
         retrieve = Retrieve._value2member_map_.get(retrieveType, None)
         if retrieve == Retrieve.URL: # Tasks should be a list of dicts
-            if not isinstance(downloadTasks, list):
+            if not isinstance(downloadTaskConfig, list):
                 raise Exception(f"URL retrieve type expects a list of task configs for {self.name}") from AttributeError
 
-            for taskConfig in downloadTasks:
-                self._queuedTasks[0].append(tasks.URLDownload(self.downloadDir, username, password, taskConfig))
+            for taskConfig in downloadTaskConfig:
+                parsedConfig = self.parseTaskConfig(taskConfig, self.downloadDir)
+                self._queuedTasks[0].append(tasks.URLDownload(self.downloadDir, username, password, parsedConfig))
 
         if retrieveType == Retrieve.CRAWL: # Tasks should be dict
-            if not isinstance(downloadTasks, dict):
+            if not isinstance(downloadTaskConfig, dict):
                 raise Exception(f"Crawl retrieve type expects a dict config for {self.name}")
             
-            self._queuedTasks[0].append(tasks.CrawlDownload(self.downloadDir, username, password, downloadTasks, overwrite))
+            parsedConfig = self.parseTaskConfig(downloadTaskConfig, self.downloadDir)
+            self._queuedTasks[0].append(tasks.CrawlDownload(self.downloadDir, username, password, parsedConfig, overwrite))
 
         if retrieveType == Retrieve.SCRIPT: # Tasks should be dict
-            if not isinstance(downloadTasks, dict):
+            if not isinstance(downloadTaskConfig, dict):
                 raise Exception(f"Script retrieve type expects a dict config for {self.name}")
             
-            self._queuedTasks[0].append(tasks.ScriptDownload(self.scriptsDir, self.downloadDir, self.libDir, downloadTasks))
+            parsedConfig = self.parseTaskConfig(downloadTaskConfig, self.downloadDir)
+            self._queuedTasks[0].append(tasks.ScriptDownload(self.scriptsDir, self.downloadDir, self.libDir, parsedConfig))
 
         raise Exception(f"Unknown retrieve type '{retrieveType}' specified for {self.name}") from AttributeError
 
     def _prepareProcessing(self, flags: list[Flag]) -> None:
         processingConfig: dict = self.configData.pop(Step.PROCESSING.value, {})
 
-        parallelProcessing: list[dict] = processingConfig.pop(self._parallelProcessing, [])
+        parallelProcessing: list[dict] = processingConfig.pop("parallel", [])
         for idx, process in enumerate(parallelProcessing):
             for task in self._queuedTasks[idx]:
                 self._queuedTasks[Step.PROCESSING].append(tasks.ProcessingNode(self.scriptsDir, self.processingDir, self.libDir, task.getOutputs(), process))
 
-        linearProcessing: list[dict] = processingConfig.pop(self._linearProcessing, [])
+        linearProcessing: list[dict] = processingConfig.pop("linear", [])
         if linearProcessing:
             self.processingManager.addFinalProcessing(linearProcessing)
 
@@ -231,3 +266,208 @@ class Database:
 
     def _printFlags(self, flags: list[Flag]) -> str:
         return " | ".join(f"{flag.value}={flag in flags}" for flag in Flag)
+    
+    def parseTaskConfig(self, config: dict, relativeDir: Path):
+        res = {}
+
+        for key, value in config.items():
+            if isinstance(value, list):
+                res[key] = [self._parseArg(arg, relativeDir) for arg in value]
+
+            elif isinstance(value, dict):
+                res[key] = self.parseTaskConfig(value, relativeDir)
+
+            else:
+                res[key] = self._parseArg(value, relativeDir)
+    
+    def _parseArg(self, arg: Any, parentDir: Path) -> Path | str:
+        if not isinstance(arg, str):
+            return arg
+
+        if arg.startswith("."):
+            return self._parsePath(arg, parentDir)
+        
+        if arg.startswith("{") and arg.endswith("}"):
+            parsedArg = self._parseSelectorArg(arg[1:-1])
+            if parsedArg == arg:
+                logging.warning(f"Unknown key code: {parsedArg}")
+
+            return parsedArg
+
+        return arg
+
+    def _parsePath(self, arg: str, parentPath: Path) -> Path | Any:
+        prefix, relPath = arg.split("/", 1)
+        if prefix == ".":
+            return parentPath / relPath
+            
+        if prefix == "..":
+            cwd = parentPath.parent
+            while relPath.startswith("../"):
+                cwd = cwd.parent
+                relPath = relPath[3:]
+
+            return cwd / relPath
+            
+        if prefix in self.libLookup:
+            return self.libLookup[prefix] / relPath
+        
+        return arg
+
+    def _parseSelectorArg(self, arg: str) -> Path | str:
+        if "-" not in arg:
+            logging.warning(f"Both file type and file property not present in arg, deliminate with '-'")
+            return arg
+        
+        fType, fProperty = arg.split("-")
+
+        if fType[-1].isdigit():
+            selection = int(fType[-1])
+            fType = fType[:-1]
+        else:
+            selection = 0
+
+        fTypeEnum = FileSelect._value2member_map_.get(fType, None)
+        if fTypeEnum is None:
+            logging.error(f"Invalid file type: '{file}'")
+            return arg
+
+        files = self.fileLookup.get(fTypeEnum, None)
+        if files is None:
+            logging.error(f"No files provided for file type: '{fType}")
+            return arg
+
+        if selection > len(files):
+            logging.error(f"File selection '{selection}' out of range for file type '{fType}' which has a length of '{len(files)}")
+            return arg
+        
+        file: DataFile = files[selection]
+        fProperty, *suffixes = fProperty.split(".")
+
+        if fProperty == _FileProperty.FILE.value:
+            if suffixes:
+                logging.warning("Suffix provided for a file object which cannot be resolved, suffix not applied")
+            return file
+        
+        if fProperty == _FileProperty.DIR.value:
+            if suffixes:
+                logging.warning("Suffix provided for a parent path which cannot be resolved, suffix not applied")
+            return file.path.parent
+
+        if fProperty == _FileProperty.PATH.value:
+            pth = file.path
+            for suffix in suffixes:
+                pth = pth.with_suffix(suffix if not suffix else f".{suffix}") # Prepend a dot for valid suffixes
+            return pth
+        
+        logging.error(f"Unable to parse file property: '{fProperty}")
+        return arg
+
+    def _loadMetadata(self) -> dict:
+        if not self._metadataPath.exists():
+            return {}
+        
+        with open(self._metadataPath) as fp:
+            try:
+                return json.load(fp)
+            except json.JSONDecodeError:
+                return {}
+
+    def _syncMetadata(self) -> None:
+        with open(self._metadataPath, "w") as fp:
+            json.dump(self._metadata, fp, indent=4)
+
+    def runTasks(self, step: Step, tasks: list[tasks.Task], overwrite: bool, verbose: bool) -> bool:
+        allSucceeded = False
+        startTime = time.perf_counter()
+        for idx, task in enumerate(tasks):
+            taskStartTime = time.perf_counter()
+            taskStartDate = datetime.now().isoformat()
+
+            success = task.runTask(overwrite, verbose)
+
+            duration = time.perf_counter() - taskStartTime
+            taskEndDate = datetime.now().isoformat()
+
+            packet = {
+                Metadata.OUTPUT: task.getOutputPath().name,
+                Metadata.SUCCESS: success,
+                Metadata.TASK_START: taskStartDate,
+                Metadata.TASK_END: taskEndDate,
+                Metadata.TASK_DURATION: duration,
+            }
+
+            # Task can set metadata on itself during run
+            extraMetadata = task.getMetadata()
+            if extraMetadata:
+                packet[Metadata.CUSTOM] = extraMetadata
+
+            if success:
+                packet |= {
+                    Metadata.LAST_SUCCESS_START: taskStartDate,
+                    Metadata.LAST_SUCCESS_END: taskEndDate,
+                    Metadata.LAST_SUCCESS_DURATION: duration
+                }
+
+            self.updateMetadata(step, idx, packet)
+            allSucceeded = allSucceeded and success
+
+        self.updateTotalTime(time.perf_counter() - startTime, allSucceeded)
+        return allSucceeded
+
+    def updateMetadata(self, step: Step, stepIndex: int, metadata: dict[Metadata, any]) -> None:
+        parsedMetadata = {}
+        for key, value in metadata.items():
+            if not isinstance(key, Metadata):
+                continue
+
+            if key == Metadata.CUSTOM:
+                for customKey, customValue in value.items():
+                    parsedMetadata[customKey] = customValue
+
+                continue
+
+            parsedMetadata[key.value] = value
+
+        taskMetadata: list[dict] = self._metadata.get(step.value, [])
+        if stepIndex < len(taskMetadata):
+            taskMetadata[stepIndex] |= parsedMetadata
+        else:
+            taskMetadata.append(parsedMetadata)
+
+        self._metadata[step.value] = taskMetadata
+        self._syncMetadata()
+
+        logging.info(f"Updated {step.value} metadata and saved to file")
+
+    def updateTotalTime(self, totalTime: float, allSucceeded) -> None:
+        self._metadata[Metadata.TOTAL_DURATION.value] = totalTime
+        if allSucceeded:
+            self._metadata[Metadata.LAST_SUCCESS_TOTAL_DURATION.value] = totalTime
+
+        self._syncMetadata()
+
+    def getLastUpdate(self, step: Step) -> datetime | None:
+        timestamp = self._metadata[step.value][0][Metadata.LAST_SUCCESS_START.value]
+        if timestamp is not None:
+            return datetime.fromisoformat(timestamp)
+
+    def getLastOutput(self, step: Step) -> str | None:
+        return self._metadata[step.value][-1][Metadata.OUTPUT.value]
+
+    def _getUpdater(self, config: dict) -> upd.Update:
+        updaterTypeValue = config.get("type", Updates.WEEKLY.value)
+        updaterType = Updates._value2member_map_.get(updaterTypeValue, None)
+        if updaterType is None:
+            raise Exception(f"Unknown update type: {updaterTypeValue}") from AttributeError
+    
+        if updaterType == Updates.DAILY:
+            return upd.DailyUpdate(config)
+
+        if updaterType == Updates.WEEKLY:
+            return upd.WeeklyUpdate(config)
+        
+        if updaterType == Updates.MONTHLY:
+            return upd.MonthlyUpdate(config)
+        
+        raise Exception(f"Unknown updater type: {updaterType}") from AttributeError
