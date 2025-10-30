@@ -6,9 +6,9 @@ import lib.downloading as dl
 from lib.crawler import Crawler
 
 class Task:
-    def __init__(self, outputs: list[DataFile]):
+    def __init__(self):
         self._runMetadata = {}
-        self._outputs = outputs
+        self._outputs: list[DataFile] = []
 
     def getOutputs(self) -> list[DataFile]:
         return self._outputs
@@ -103,15 +103,42 @@ class CrawlDownload(Task):
 
 class ScriptDownload(Task):
 
-    _libraryLink = ".llib"
+    _modulePath = "path"
+    _functionName = "function"
+    _args = "args"
+    _kwargs = "kwargs"
+    _outputs = "outputs"
 
-    def __init__(self, scriptDir: Path, workingDir: Path, libraryDir: Path, config: dict):
-        self.script = OutputScript(scriptDir, dict(config), workingDir, [libraryDir])
+    def __init__(self, workingDir: Path, config: dict, libraryDirs: dict):
+        modulePath = config.pop(self._modulePath, "")
+        if not modulePath:
+            raise Exception("No `path` specified in script config") from AttributeError
 
-        super().__init__(self.script.outputs)
+        functionName = config.pop(self._functionName, "")
+        if not functionName:
+            raise Exception("No `function` specified in script config") from AttributeError
+
+        outputs = config.pop(self._outputs, [])
+        if not outputs:
+            raise Exception("No `outputs` specified in script config") from AttributeError        
+
+        dfOutputs = []
+        for output in output:
+            if isinstance(output, DataFile):
+                dfOutputs.append(output)
+            else:
+                dfOutputs.append(DataFile(workingDir / output))
+
+        self.args = config.pop(self._args, [])
+        self.kwargs = config.pop(self._kwargs, {})
+
+        self.script = OutputScript(modulePath, functionName, dfOutputs, libraryDirs)
+
+        super().__init__(dfOutputs)
 
     def runTask(self, overwrite: bool, verbose: bool) -> bool:
-        return self.script.run(overwrite, verbose)[0] # No retval for downloading tasks, just return success
+        success, _ = self.script.run(overwrite, verbose, self.args, self.kwargs)
+        return success
     
 class ProcessingNode(Task):
     def __init__(self, scriptDir: Path, workingDir: Path, libraryDir: Path, inputs: list[DataFile], config: dict):
