@@ -1,4 +1,3 @@
-
 import json
 import logging
 from lib.settings import globalSettings as gs
@@ -97,18 +96,12 @@ class Database:
 
         # Local storage and libraries
         self.exampleDir = self.subsectionDir / "examples" # Data sample storage location
+        locationLib = self.locationDir / "llib" # Location based library for scripts shared across a location
+        scriptsLib = self.databaseDir / "scripts" # Database specific scripts
+        self.libDirs = [locationLib, scriptsLib]
 
         # Local settings
         self.settings = gs
-        locationLib = self.locationDir / "llib" # Location based library for scripts shared across a location
-        scriptsLib = self.databaseDir / "scripts" # Database specific scripts
-
-        self.libLookup = {
-            f".{locationLib.name}": locationLib,
-            f".{scriptsLib.name}": scriptsLib 
-        }
-
-
         for dir in (self.locationDir, self.databaseDir, self.subsectionDir):
             subdirConfig = Path(dir / "settings.toml")
             if subdirConfig.exists():
@@ -126,6 +119,8 @@ class Database:
         self._queuedTasks = [[]] # Layer 0 = downloading; Layer 1+ = processing
         self._metadataPath = self.subsectionDir / self._metadataFileName
         self._metadata = self._loadMetadata()
+
+        self._dirLookup = {f".{directory.name}": directory for directory in (self.libDirs + [self.downloadDir, self.processingDir])}
 
         # Updating
         updateConfig: dict = self.config.pop("updating", {})
@@ -171,31 +166,30 @@ class Database:
 
             for taskConfig in downloadTaskConfig:
                 parsedConfig = self.parseTaskConfig(taskConfig, self.downloadDir)
-                self._queuedTasks[0].append(tasks.URLDownload(self.downloadDir, username, password, parsedConfig))
+                self._queuedTasks[0].append(tasks.UrlRetrieve(self.downloadDir, username, password, parsedConfig))
 
         if retrieveType == Retrieve.CRAWL: # Tasks should be dict
             if not isinstance(downloadTaskConfig, dict):
                 raise Exception(f"Crawl retrieve type expects a dict config for {self.name}")
             
             parsedConfig = self.parseTaskConfig(downloadTaskConfig, self.downloadDir)
-            self._queuedTasks[0].append(tasks.CrawlDownload(self.downloadDir, username, password, parsedConfig, overwrite))
+            self._queuedTasks[0].append(tasks.CrawlRetrieve(self.downloadDir, username, password, parsedConfig, overwrite))
 
         if retrieveType == Retrieve.SCRIPT: # Tasks should be dict
             if not isinstance(downloadTaskConfig, dict):
                 raise Exception(f"Script retrieve type expects a dict config for {self.name}")
             
             parsedConfig = self.parseTaskConfig(downloadTaskConfig, self.downloadDir)
-            self._queuedTasks[0].append(tasks.ScriptDownload(self.scriptsDir, self.downloadDir, self.libDir, parsedConfig))
+            self._queuedTasks[0].append(tasks.ScriptRunner(self.downloadDir, parsedConfig, self.libDirs))
 
         raise Exception(f"Unknown retrieve type '{retrieveType}' specified for {self.name}") from AttributeError
 
     def _prepareProcessing(self, flags: list[Flag]) -> None:
         processingConfig: dict = self.configData.pop(Step.PROCESSING.value, {})
 
-        parallelProcessing: list[dict] = processingConfig.pop("parallel", [])
-        for idx, process in enumerate(parallelProcessing):
-            for task in self._queuedTasks[idx]:
-                self._queuedTasks[Step.PROCESSING].append(tasks.ProcessingNode(self.scriptsDir, self.processingDir, self.libDir, task.getOutputs(), process))
+        for idx, processConfig in enumerate(processingConfig):
+                parsedConfig = self.parseTaskConfig(processConfig, self.processingDir)
+                self._queuedTasks[Step.PROCESSING].append(tasks.ScriptRunner(self.processingDir, parsedConfig, self.libDirs))
 
         linearProcessing: list[dict] = processingConfig.pop("linear", [])
         if linearProcessing:
@@ -227,44 +221,44 @@ class Database:
             
         return True
 
-    def _execute(self, fileStep: Step, flags: list[Flag]) -> bool:
-        overwrite = Flag.OVERWRITE in flags
-        verbose = Flag.VERBOSE in flags
+    # def _execute(self, fileStep: Step, flags: list[Flag]) -> bool:
+    #     overwrite = Flag.OVERWRITE in flags
+    #     verbose = Flag.VERBOSE in flags
 
-        logging.info(f"Executing {self} step '{fileStep.name}' with flags: {self._printFlags(flags)}")
+    #     logging.info(f"Executing {self} step '{fileStep.name}' with flags: {self._printFlags(flags)}")
 
-        if fileStep == Step.DOWNLOADING:
-            return self.downloadManager.download(overwrite, verbose)
+    #     if fileStep == Step.DOWNLOADING:
+    #         return self.downloadManager.download(overwrite, verbose)
 
-        if fileStep == Step.PROCESSING:
-            return self.processingManager.process(overwrite, verbose)
+    #     if fileStep == Step.PROCESSING:
+    #         return self.processingManager.process(overwrite, verbose)
 
-        logging.error(f"Unknown step to execute: {fileStep}")
-        return False
+    #     logging.error(f"Unknown step to execute: {fileStep}")
+    #     return False
     
-    def create(self, fileStep: Step, flags: list[Flag]) -> None:
-        try:
-            success = self._prepare(fileStep, flags)
-            if not success:
-                return
+    # def create(self, fileStep: Step, flags: list[Flag]) -> None:
+    #     try:
+    #         success = self._prepare(fileStep, flags)
+    #         if not success:
+    #             return
             
-        except KeyboardInterrupt:
-            logging.info(f"Process ended early when attempting to prepare step '{fileStep.name}' for {self}")
+    #     except KeyboardInterrupt:
+    #         logging.info(f"Process ended early when attempting to prepare step '{fileStep.name}' for {self.name}")
 
-        try:
-            self._execute(fileStep, flags)
-        except KeyboardInterrupt:
-            logging.info(f"Process ended early when attempting to execute step '{fileStep.name}' for {self}")
+    #     try:
+    #         self._execute(fileStep, flags)
+    #     except KeyboardInterrupt:
+    #         logging.info(f"Process ended early when attempting to execute step '{fileStep.name}' for {self.name}")
 
-    def checkUpdateReady(self) -> bool:
-        lastUpdate = self.downloadManager.getLastUpdate()
-        return self.updateManager.isUpdateReady(lastUpdate)
+    # def checkUpdateReady(self) -> bool:
+    #     lastUpdate = self.downloadManager.getLastUpdate()
+    #     return self.updateManager.isUpdateReady(lastUpdate)
     
-    def update(self, flags: list[Flag]) -> bool:
-        for fileStep in (Step.DOWNLOADING, Step.PROCESSING):
-            self.create(fileStep, list(set(flags).add(Flag.OVERWRITE)))
+    # def update(self, flags: list[Flag]) -> bool:
+    #     for fileStep in (Step.DOWNLOADING, Step.PROCESSING):
+    #         self.create(fileStep, list(set(flags).add(Flag.OVERWRITE)))
 
-        self.package()
+    #     self.package()
 
     def _printFlags(self, flags: list[Flag]) -> str:
         return " | ".join(f"{flag.value}={flag in flags}" for flag in Flag)
@@ -311,8 +305,8 @@ class Database:
 
             return cwd / relPath
             
-        if prefix in self.libLookup:
-            return self.libLookup[prefix] / relPath
+        if prefix in self._dirLookup:
+            return self._dirLookup[prefix] / relPath
         
         return arg
 

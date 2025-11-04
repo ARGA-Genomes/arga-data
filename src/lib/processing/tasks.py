@@ -22,7 +22,7 @@ class Task:
     def getMetadata(self) -> dict:
         return self._runMetadata
 
-class URLDownload(Task):
+class UrlRetrieve(Task):
 
     _url = "url"
     _name = "name"
@@ -57,7 +57,7 @@ class URLDownload(Task):
         self.file.delete()
         return dl.download(self.url, self.file.path, verbose=verbose, auth=dl.buildAuth(self.username, self.password))
 
-class CrawlDownload(Task):
+class CrawlRetrieve(Task):
 
     _url = "url"
     _regex = "regex"
@@ -101,10 +101,11 @@ class CrawlDownload(Task):
 
         return downloadsRun
 
-class ScriptDownload(Task):
+class ScriptRunner(Task):
 
     _modulePath = "path"
     _functionName = "function"
+    _inputs = "inputs"
     _args = "args"
     _kwargs = "kwargs"
     _outputs = "outputs"
@@ -123,28 +124,27 @@ class ScriptDownload(Task):
             raise Exception("No `outputs` specified in script config") from AttributeError        
 
         dfOutputs = []
-        for output in output:
+        for output in outputs:
             if isinstance(output, DataFile):
                 dfOutputs.append(output)
             else:
                 dfOutputs.append(DataFile(workingDir / output))
 
+        inputs = config.pop(self._inputs, [])
+        dfInputs = []
+        for input in inputs:
+            if isinstance(input, DataFile):
+                dfInputs.append(input)
+            else:
+                dfInputs.append(DataFile(input))
+
         self.args = config.pop(self._args, [])
         self.kwargs = config.pop(self._kwargs, {})
 
-        self.script = OutputScript(modulePath, functionName, dfOutputs, libraryDirs)
+        self.script = OutputScript(modulePath, functionName, dfOutputs, dfInputs, libraryDirs)
 
         super().__init__(dfOutputs)
 
     def runTask(self, overwrite: bool, verbose: bool) -> bool:
         success, _ = self.script.run(overwrite, verbose, self.args, self.kwargs)
         return success
-    
-class ProcessingNode(Task):
-    def __init__(self, scriptDir: Path, workingDir: Path, libraryDir: Path, inputs: list[DataFile], config: dict):
-        self.script = FileScript(scriptDir, dict(config), workingDir, ..., [libraryDir])
-
-        super().__init__(self.script.outputs)
-
-    def runTask(self, overwrite: bool, verbose: bool) -> bool:
-        return self.script.run(overwrite, verbose)[0] # No retval for processing tasks, just return success
