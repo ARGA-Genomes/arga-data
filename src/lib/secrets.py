@@ -1,4 +1,4 @@
 from lib.tomlFiles import TomlLoader
-from lib.config import globalConfig as gcfg
+from lib.settings import globalSettings as gs
 
-secrets = TomlLoader(gcfg.files.secrets)
+secrets = TomlLoader(gs.files.secrets)

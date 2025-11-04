@@ -1,6 +1,6 @@
 import pandas as pd
 import json
-import lib.config as cfg
+from lib.settings import globalSettings as gs
 import numpy as np
 
 events = ["Event 1: Collection", "Event 2: Sample Accession", "Event 3: Subampling", "Event 4: Preparation", "Event 5: Extraction", "Event 6: Sequencing", "Event 7: Assembly", "Event 8: Annotation", "Event 9: Data Accession / Release"]
@@ -52,7 +52,7 @@ def main():
         location, db = key.split("-")
         print(f"Creating map for {key}")
         mappings = getSheetMappings(value)
-        mapFile = cfg.folderPaths.mapping / f"{location}.json"
+        mapFile = gs.folderPaths.mapping / f"{location}.json"
 
         if not mapFile.exists():
             with open(mapFile, "w") as fp:
