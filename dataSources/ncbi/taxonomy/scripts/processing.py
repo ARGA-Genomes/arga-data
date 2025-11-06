@@ -171,6 +171,17 @@ def parse(dumpFolder: Path, outputFile: Path) -> None:
 
     df["nomenclatural_code"] = df["division_cde"].apply(lambda x: divisionMap[x])
 
+    def cleanAuthority(authority: str, scientificName: str) -> str:
+        if not isinstance(authority, str):
+            return str(authority)
+        
+        if not authority.startswith(scientificName):
+            return authority
+        
+        return authority[len(scientificName):].strip(" ()")
+
+    df["authority"] = df.apply(lambda x: cleanAuthority(x["authority"], x["scientific name"]), axis=1)
+
     df["taxonomic_status"] = ""
     df["nomenclatural_act"] = "names usage"
     df["ARGA_curated"] = False
