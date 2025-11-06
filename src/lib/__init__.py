@@ -26,6 +26,8 @@ def createLogger() -> logging.Logger:
     formatter = logging.Formatter("[%(asctime)s] %(levelname)s: %(message)s", "%H:%M:%S")
 
     logFolder: Path = gcfg.folders.logs
+    logFolder.mkdir(parents=True, exist_ok=True)
+
     logFileName = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
     logFilePath = logFolder / f"{logFileName}.log"
 
