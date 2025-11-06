@@ -171,16 +171,24 @@ def parse(dumpFolder: Path, outputFile: Path) -> None:
 
     df["nomenclatural_code"] = df["division_cde"].apply(lambda x: divisionMap[x])
 
-    def cleanAuthority(authority: str, scientificName: str) -> str:
-        if not isinstance(authority, str):
-            return str(authority)
-        
-        if not authority.startswith(scientificName):
+    def cleanAuthority(authority: any, scientificName: any, synonym: any) -> str:
+        authority: str = str(authority).strip()
+
+        for item in (scientificName, synonym):
+            itemStr = str(item)
+
+            if authority.startswith(itemStr):
+                authority = authority[len(itemStr):].strip()
+
+        if not authority:
             return authority
         
-        return authority[len(scientificName):].strip(" ()")
+        if authority[0] == "(" and authority[-1] == ")":
+            authority = authority[1:-1]
 
-    df["authority"] = df.apply(lambda x: cleanAuthority(x["authority"], x["scientific name"]), axis=1)
+        return authority
+
+    df["authority"] = df.apply(lambda x: cleanAuthority(x["authority"], x["scientific name"], x["synonym"]), axis=1)
 
     df["taxonomic_status"] = ""
     df["nomenclatural_act"] = "names usage"
