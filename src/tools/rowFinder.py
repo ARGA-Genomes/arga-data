@@ -37,4 +37,4 @@ if __name__ == '__main__':
             continue
 
         print()
-        print(pd.concat(foundRows))
+        print(pd.concat(foundRows).T)
