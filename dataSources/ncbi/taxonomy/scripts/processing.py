@@ -141,14 +141,35 @@ def parse(dumpFolder: Path, outputFile: Path) -> None:
         return pd.DataFrame.from_records(records, columns=headings[dumpFile])
 
     df = loadDF(DumpFile.NODES)
-    df = resolveInheritance(df)
-
-    # df = df[["tax_id", "parent_tax_id", "rank"]]
+    df = df[df["rank"] == "species"]
 
     names = loadDF(DumpFile.NAMES)
-    names = flattenNames(names)
+    names = names[names["tax_id"].isin(df["tax_id"])]
+
+    groupedTaxIDs = names.groupby("tax_id")
+    progress = ProgressBar(len(groupedTaxIDs.groups), processName="Flattening names")
+    data = {}
+    for taxID, section in groupedTaxIDs:
+        data[taxID] = {nameClass: subsection["name_txt"].tolist() for nameClass, subsection in section.groupby("name_class")}
+        progress.update()
+
+    names = pd.DataFrame(data.values(), index=data.keys())
+    names.to_csv(outputFile.parent / "names.csv")
+    return
+
+    # print(names)
+    # groupedNames = names.groupby("tax_id")
+    # typeMaterial = groupedNames.get_group("100").groupby("name_class", group_keys=True).get_group("type material")
+    # print(typeMaterial["name_txt"].to_list())
+    # print(typeMaterial)
+    # print(names.columns)
+    # names.to_csv(outputFile.parent / "names.csv", index=False)
+    # names = flattenNames(names)
+    # df = df.merge(names, on="tax_id")
+    # df.to_csv(outputFile.parent / "testing.csv", index=False)
 
     df = df.merge(names, "left", on="tax_id")
+    
 
     divisions = loadDF(DumpFile.DIVISION)
     divisions = divisions.drop(["comments"], axis=1)
