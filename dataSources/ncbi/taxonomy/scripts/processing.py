@@ -146,15 +146,103 @@ def parse(dumpFolder: Path, outputFile: Path) -> None:
     names = loadDF(DumpFile.NAMES)
     names = names[names["tax_id"].isin(df["tax_id"])]
 
-    groupedTaxIDs = names.groupby("tax_id")
-    progress = ProgressBar(len(groupedTaxIDs.groups), processName="Flattening names")
+    uniqueIDs = names["tax_id"].unique()
+    progress = ProgressBar(len(uniqueIDs), processName="Flattening names")
+
+    records = []
+    for taxID in uniqueIDs:
+        subDF = names[names["tax_id"] == taxID]
+
+        taxData = {
+            "scientific_name": "",
+            "authority": "",
+            "equivalent name": "",
+            "genbank common name": "",
+            "common name": "",
+            "acronym": "",
+            "synonym": [],
+            "type material": [],
+            "includes": [],
+            "in-part": [],
+        }
+
+        previousAuthority = ""
+        for _, row in subDF.iterrows():
+            key = row["name_class"]
+            value = row["name_txt"]
+
+            if key == "authority":
+                previousAuthority = value
+                continue
+
+            if key == "scientific name":
+                taxData["scientific_name"] = value
+                if previousAuthority:
+                    taxData["authority"] = previousAuthority[len(value)+1:]
+
+            elif key == "synonym":
+                taxData["synonym"].append(previousAuthority or value)
+
+            elif key in ("type material", "includes", "in-part"):
+                taxData[key].append(value)
+
+            elif key in ("equivalent name", "genbank common name", "common name", "acronym"):
+                taxData[key] = value
+
+            previousAuthority = ""
+
+        records.append(taxData)
+        progress.update()
+
+    names = pd.DataFrame.from_records(records)
+    df = df.merge(names, "left", "tax_id")
+    df.to_csv(outputFile, index=False)
+    return
+
     data = {}
     for taxID, section in groupedTaxIDs:
-        data[taxID] = {nameClass: subsection["name_txt"].tolist() for nameClass, subsection in section.groupby("name_class")}
+        print(section.groupby("name_class"))
+        return
+        taxData = {nameClass: subsection["name_txt"].tolist() for nameClass, subsection in section.groupby("name_class")}
+        
+        # Flatten list items that should just be a string
+        for field in ("scientific name", "equivalent name", "genbank common name", "common name"):
+            if field in taxData:
+                taxData[field] = taxData[field][0]
+
+        authorities: list[str] = taxData.pop("authority", [])
+        synonyms: list[str] = taxData.pop("synonym", [])
+
+        cleanAuthority = ""
+        basionym = ""
+        basionymAuthority = ""
+
+        for authority in authorities:
+            if authority.startswith(taxData["scientific name"]):
+                cleanAuthority = authority[len(taxData["scientific name"])+1:]
+                continue
+
+            for synonym in synonyms:
+                if authority.startswith(synonym):
+                    if basionym:
+                        print(f"DUPLICATE ASSUMED BASIONYM FOR TAX ID {taxID}")
+                        
+                    basionym = synonym
+                    basionymAuthority = authority[len(synonym)+1:]
+
+
+        taxData["authority"] = cleanAuthority
+        taxData["basionym"] = basionym
+        taxData["basionym_authority"] = basionymAuthority
+
+        data["tax_id"] = taxData
         progress.update()
 
     names = pd.DataFrame(data.values(), index=data.keys())
-    names.to_csv(outputFile.parent / "names.csv")
+    names.index.rename("tax_id")
+
+    df = df.merge(names, "left", "tax_id")
+    df.to_csv(outputFile)
     return
 
     # print(names)
