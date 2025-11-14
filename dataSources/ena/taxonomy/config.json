@@ -20,7 +20,7 @@
                 "output": "taxonomy.xml"
             },
             {
-                "path": ".../xml.py",
+                "path": ".lib/xml.py",
                 "function": "basicXMLProcessor",
                 "args": [
                     "{IN-PATH}",
