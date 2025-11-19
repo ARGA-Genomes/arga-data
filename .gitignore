@@ -54,6 +54,7 @@ dataSources/**/*.toml
 *.DS_Store
 *.code-workspace
 secrets.toml
+config.toml
 
 # Cached Files #
 *__pycache__
