@@ -169,7 +169,8 @@ class DatabaseConstructor:
         else:
             rawConfig = json.dumps(self.configData)
             rawConfig = rawConfig.replace("<SUB>", subsection)
-            tags = self.subsections.get("tags", {})
+            subsectionData = self.subsections.get(subsection, {})
+            tags = subsectionData.get("tags", {})
             for tag, replaceValue in tags.items():
                 rawConfig = rawConfig.replace(f"<SUB:{tag.upper()}>", replaceValue)
 
