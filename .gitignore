@@ -21,6 +21,9 @@
 *.gz
 *.rar
 
+# Modifyable files in root directory
+/*.toml
+
 # virtual machine crash logs, see http://www.java.com/en/download/help/error_hotspot.xml
 hs_err_pid*
 
@@ -53,8 +56,6 @@ dataSources/**/*.toml
 .env
 *.DS_Store
 *.code-workspace
-secrets.toml
-config.toml
 
 # Cached Files #
 *__pycache__
