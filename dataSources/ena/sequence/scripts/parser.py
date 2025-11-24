@@ -2,236 +2,140 @@ from pathlib import Path
 import pandas as pd
 from lib.progressBar import ProgressBar
 import logging
-import traceback
-from typing import Generator
 
 def parseFile(filePath: Path) -> pd.DataFrame | None:
     logging.info(f"Parsing flat file: {filePath}")
 
     with open(filePath) as fp:
-        sections = fp.read().split("//")
+        sections = fp.read().split("\n//\n")
 
     # Iterate through sections of file
     progress = ProgressBar(len(sections))
     records = []
     for section in sections:
-        data = {}
-        repeatCount = 1
-
-        for line in section.split("\n"):
-
-            if line[:2] == code:
-                repeatCount += 1
-            else:
-                code = line[:2]
-                repeatCount = 1
-
-            if code == "XX" or code == "  ":
-                continue
-
-            lineData = line[5:]
-            if code == "ID":
-                sequence, _, topology, mol_type, dataclass, tax_division, base_count = lineData.split("; ")
-                data["sequence"] = sequence
-                data["topology"] = topology
-                data["mol_type"] = mol_type
-                data["dataclass"] = dataclass
-                data["tax_division"] = tax_division
-                data["base_count"] = int(base_count[:-4]) # Clean off " BP."
-
-            elif code == "AC":
-                data["accession"] = lineData
-
-            elif code == "DT":
-                ...
-
-            elif code == "DE":
-                ...
-
-            elif code == "KW":
-                ...
-
-            elif code == "OS":
-                ...
-
-            elif code == "OC":
-                ...
-
-            elif code == "RN":
-                ...
-
-            elif code == "RP":
-                ...
-
-            elif code == "RX":
-                ...
-
-            elif code == "RA":
-                ...
-
-            elif code == "RT":
-                ...
-
-            elif code == "RL":
-                ...
-
-            elif code == "DR":
-                ...
-
-            elif code == "CC":
-                ...
-
-            elif code == "FH":
-                ...
-
-            elif code == "FT":
-                ...
-
-            elif code == "SQ":
-                ...
-
-            else:
-                print(f"UNHANDLED CODE: {code}")
-
+        records.append(parseSection(section))
         progress.update()
 
     return pd.DataFrame.from_records(records)
 
-# def commentParser(self, data: str):
-#     self.data["comment"] = "\\n".join(self.getSections(f"{7*' '}{data}", 12, flattenLines=True))
+def parseSection(sectionData: str) -> dict:
+    data = {}
+    code = ""
+    codeRepeat = 0
 
-#     parseCommentTags = [
-#         "Genome-Assembly-Data",
-#         "Genome-Annotation-Data",
-#         "Assembly-Data"
-#     ]
+    for line in sectionData.split("\n"):
+        if line[:2] == code:
+            codeRepeat += 1
+        else:
+            code = line[:2]
+            codeRepeat = 0
 
-#     for tag in parseCommentTags:
-#         startTag = f"##{tag}-START##"
-#         endTag = f"##{tag}-END##"
+        if code == "XX" or code == "  " or not code:
+            continue
 
-#         startPos = data.find(startTag)
-#         if startPos < 0: # Didn't find tag
-#             continue
+        lineData = line[5:]
+        if code == "ID":
+            sequence, _, topology, mol_type, dataclass, tax_division, base_count = lineData.split("; ")
+            data["sequence"] = sequence
+            data["topology"] = topology
+            data["mol_type"] = mol_type
+            data["dataclass"] = dataclass
+            data["tax_division"] = tax_division
+            data["base_count"] = int(base_count[:-4]) # Clean off " BP."
 
-#         mapping = data[startPos+len(startTag):data.find(endTag)].strip()
-#         mapping = self.getSections(mapping, 12, flattenLines=True)
-#         for item in mapping:
-#             key, value = item.split("::")
-#             self.data[key.strip().lower().replace(" ", "_").replace("(", "").replace(")", "")] = value.strip()
+        elif code == "AC":
+            data["accession"] = lineData.rstrip(";")
 
-# def dblinkParser(self, data: str):
-#     dbs = self.getSections(f"{7*' '}{data}", 12, flattenLines=True)
-    
-#     cleanedDBs: list[str] = []
-#     for db in dbs:
-#         if ":" not in db:
-#             cleanedDBs[-1] += f" {db}"
-#         else:
-#             cleanedDBs.append(db)
+        elif code == "PR":
+            key, value = lineData[:-1].split(":", 1)
+            data[key.lower()] = value
 
-#     baseURLS = {
-#         "BioProject": "https://www.ncbi.nlm.nih.gov/bioproject/",
-#         "BioSample": "https://www.ncbi.nlm.nih.gov/biosample/",
-#         "Sequence Read Archive": "https://www.ncbi.nlm.nih.gov/sra/",
-#         "ProbeDB": "https://www.ncbi.nlm.nih.gov/biosample/",
-#         "Assembly": "https://www.ncbi.nlm.nih.gov/assembly/",
-#         "Project": "https://www.ncbi.nlm.nih.gov/bioproject/"
-#     }
+        elif code == "DT":
+            if codeRepeat == 0:
+                data["original_date"] = lineData
+            elif codeRepeat == 1:
+                data["date"] = lineData
 
-#     for db in cleanedDBs:
-#         dbName, dbCodes = db.split(":")
-#         lowerName = dbName.lower()
+        elif code == "DE":
+            if codeRepeat == 0:
+                data["description"] = lineData
+            else:
+                data["description"] += f" {lineData}"
 
-#         self.data[lowerName] = []
-#         for dbCode in dbCodes.split(","):
-#             self.data[lowerName].append(baseURLS.get(dbName) + dbCode.strip())
+        elif code == "KW":
+            continue
 
-# def keywordsParser(self, data: str):
-#     self.data["keywords"] = "" if data.strip() == "." else self.flattenLines(data)
+        elif code == "OS":
+            data["scientific_name"] = lineData
 
-# def sourceParser(self, data: str):
-#     source, remainder = self.getSections(data, 2)
-#     organism, higherClassification = remainder.split("\n", 1)
+        elif code == "OC":
+            if codeRepeat == 0:
+                data["taxonomy"] = lineData
+            else:
+                data["taxonomy"] = f" {lineData}"
 
-#     self.data["source"] = source.strip()
-#     self.data["organism"] = organism.strip().split(" ", 1)[1].strip()
-#     self.data["higher_classification"] = self.flattenLines(higherClassification)
+        elif code == "OG":
+            data["sample"] = lineData
 
-# def referenceParser(self, data: str):
-#     references = "references"
-#     if references not in self.data:
-#         self.data[references] = []
+        elif code == "RN":
+            if "references" not in data:
+                data["references"] = []
+            
+            data["references"].append({})
 
-#     referenceItems = self.getSections(data, 2, flattenLines=True)
-#     referenceProperties = {}
+        elif code == "RP":
+            data["references"][-1]["base_range"] = lineData
 
-#     for idx, item in enumerate(referenceItems):
-#         if idx == 0: # Reference number + base pair range
-#             bpRange = item.split(" ", 1)[-1]
-#             referenceProperties["bp_range"] = bpRange
-#             continue
-        
-#         key, value = item.split(" ", 1)
-#         referenceProperties[key.lower()] = value.strip()
+        elif code == "RC":
+            data["references"][-1]["comment"] = lineData
 
-#     self.data[references].append(referenceProperties)
+        elif code == "RX":
+            link, value = lineData[:-1].split("; ", 1)
+            data["references"][-1][link.lower()] = value
 
-# def featuresParser(self, data: str):
-#     extraFeatures = "other"
+        elif code == "RA":
+            if codeRepeat == 0:
+                data["references"][-1]["authors"] = lineData.strip(";")
+            else:
+                data["references"][-1]["authors"] += f" {lineData.strip(';')}"
 
-#     def linesToDict(lines: list[str]) -> dict:
-#         # Clean up leading / and merge lines without leading /
-#         cleanLines = []
-#         for line in lines:
-#             if line.startswith("/"):
-#                 cleanLines.append(line[1:])
-#             elif not cleanLines:
-#                 cleanLines.append(line)
-#             else:
-#                 cleanLines[-1] += f" {line}"
+        elif code == "RT":
+            lineData = lineData.strip("\";")
+            if codeRepeat == 0:
+                data["references"][-1]["title"] = lineData
+            else:
+                data["references"][-1]["title"] += f" {lineData}"
 
-#         # Parse cleaned lines to split key/value pairs
-#         retVal = {}
-#         for line in cleanLines:
-#             if "=" not in line:
-#                 if extraFeatures not in retVal:
-#                     retVal[extraFeatures] = []
+        elif code == "RL":
+            data["references"][-1]["literature"] = lineData[:-1]
 
-#                 retVal[extraFeatures].append(line)
-#                 continue
+        elif code == "RG":
+            data["references"][-1]["group"] = lineData
 
-#             key, value = line.split("=", 1)
-#             retVal[key] = value.strip('"')
+        elif code == "DR":
+            continue
 
-#         return retVal
+        elif code == "CC":
+            continue
 
-#     data = data.split("\n", 1)[-1]
-#     featureBlocks = self.getSections(data, 5)
+        elif code == "FH":
+            continue
 
-#     genesLabel = "features_genes"
-#     self.data[genesLabel] = {}
-#     for block in featureBlocks:
-#         blockHeader, blockData = block.lstrip().split(" ", 1)
+        elif code == "FT":
+            if codeRepeat == 0:
+                continue
 
-#         if "\n" not in blockData: # No properties after base pair range
-#             bpRange = blockData.strip()
-#             properties = {}
-#         else: # Parse properties
-#             bpRange, properties = blockData.lstrip().split("\n", 1)
-#             sections = self.getSections(properties, 21, flattenLines=True)
-#             properties = linesToDict(sections)
+            lineData = lineData[16:] # Trim off leading whitespace
+            if lineData[0] == "/":
+                key, value = lineData[1:].split("=", 1)
+                data[key] = value.strip("\"")
+            else:
+                data[list(data.keys())[-1]] += " " + lineData.strip('\"')
 
-#         if blockHeader == "source": # Source properties get split out and put directly into data
-#             properties["features_other"] = properties.pop(extraFeatures, [])
-#             properties["features_organism"] = properties.pop("organism", "")
-#             self.data |= properties
-#             continue
+        elif code == "SQ":
+            data["sequence_info"] = lineData
 
-#         if bpRange not in self.data[genesLabel]:
-#             self.data[genesLabel][bpRange] = {}
+        else:
+            print(f"UNHANDLED CODE: {code}")
 
-#         properties.pop("translation", None) # Remove translation
-#         self.data[genesLabel][bpRange][blockHeader] = properties
-
-#     self.data[genesLabel] = str(self.data[genesLabel])
+    return data
