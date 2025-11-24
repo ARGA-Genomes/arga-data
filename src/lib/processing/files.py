@@ -202,9 +202,6 @@ class Folder(FileObject):
         cmn.clearFolder(self._backupPath, True)
         self._backupPath = None
 
-    def getMatchingPaths(self, pattern: str) -> Iterator[Path]:
-        return self.path.glob(pattern)
-
 class StackedFile(Folder, DataFile):
 
     format = DataFormat.STACKED
