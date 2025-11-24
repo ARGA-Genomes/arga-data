@@ -9,6 +9,7 @@ import logging
 import lib.downloading as dl
 import time
 from lib.progressBar import ProgressBar
+from lib.json import JsonSynchronizer
 
 depthLimit = 100
 
@@ -26,7 +27,7 @@ class PageData:
         return self.url == other.url
 
     @classmethod
-    def fromPackage(cls, url: str, links: dict) -> None:
+    def fromPackage(cls, url: str, links: dict) -> 'PageData':
         return cls(url, links.get(cls._dirStr, []), links.get(cls._fileStr, []))
 
     def package(self) -> dict[str, dict[str, list[str]]]:
@@ -37,19 +38,25 @@ class PageData:
             }
         }
     
-    def getFullSubDirs(self) -> list[str]:
-        return [urllib.parse.urljoin(self.url, dirLink) for dirLink in self.directoryLinks]
+    def getFullSubDirs(self, baseURL: str = "") -> list[str]:
+        return [urllib.parse.urljoin(baseURL or self.url, dirLink) for dirLink in self.directoryLinks]
     
-    def getFullFiles(self, altDLURL: str = "") -> list[str]:
-        baseURL = self.url if not altDLURL else altDLURL
-        return [urllib.parse.urljoin(baseURL, fileLink) for fileLink in self.fileLinks]
+    def getFullFiles(self, baseURL: str = "") -> list[str]:
+        return [urllib.parse.urljoin(baseURL or self.url, fileLink) for fileLink in self.fileLinks]
 
 class Crawler:
+
+    _progressFile = "crawlerProgress.json"
+    _metaSettings = "settings"
+    _metaSettingURL = "url"
+    _metaSettingRegex = "regex"
+    _metaSettingDepth = "maxDepth"
+    _metaProgress = "progress"
+
     def __init__(self, outputDir: Path, auth: dl.HTTPBasicAuth = None):
         self.outputDir = outputDir
         self.auth = auth
 
-        self.progressFile = self.outputDir / "crawlerProgress.json"
         self.session = None
         self.data = []
 
@@ -62,29 +69,47 @@ class Crawler:
         if maxDepth < 0:
             maxDepth = depthLimit
 
-        if not ignoreProgress:
-            self.data = self._load()
+        metadata = JsonSynchronizer(self.outputDir / self._progressFile)
+        if ignoreProgress:
+            metadata.clear()
 
-        if not self.data:
-            self.data.append([self._getPageLinks(entryURL, pattern)])
-            self._save()
-            logging.info(f"Successfully retrieved entry url {entryURL}, crawling subfolders")
-        else:
-            if len(self.data) >= maxDepth:
+        savedSettings = metadata.get(self._metaSettings, {})
+        currentSettings = {
+            self._metaSettingURL: entryURL,
+            self._metaSettingRegex: fileRegex,
+            self._metaSettingDepth: maxDepth
+        }
+
+        for setting, value in currentSettings.items():
+            if setting in savedSettings and value != savedSettings[setting]:
+                metadata.clear()
+                break
+
+        metadata[self._metaSettings] = currentSettings
+        previousPageData: list[list[PageData]] = metadata.get(self._metaProgress, [])
+
+        if previousPageData:
+            if len(previousPageData) >= maxDepth:
                 return # Exit early if no crawling necessary
             
-            logging.info(f"Progress found, resuming crawling at depth: {len(self.data)}")
+            previousPageData = [[PageData.fromPackage(url, links) for url, links in layer.items()] for layer in previousPageData]
+            logging.info(f"Progress found, resuming crawling at depth: {len(previousPageData)}")
+        else:
+            previousPageData = [[self._getPageLinks(entryURL, pattern)]]
+            logging.info(f"Successfully retrieved entry url {entryURL}, crawling subfolders")
 
-        while len(self.data) <= maxDepth:
-            folderURLs = [subDirURL for pageData in self.data[-1] for subDirURL in pageData.getFullSubDirs()]
+
+        while len(previousPageData) <= maxDepth:
+            folderURLs = [subDirURL for pageData in progress for subDirURL in pageData.getFullSubDirs()]
             if not folderURLs:
                 break
 
-            self.data.append(self._parallelPageLinks(folderURLs, pattern))
-            self._save()
+            pageData = self._parallelPageLinks(folderURLs, pattern) [{key: value for pageData in layer for key, value in pageData.package().items()} for layer in self.data]
+            metadata[self._metaProgress] += 
 
     def getFileURLs(self, altDLURL: str = "") -> list[str]:
-        return [fileURL for layer in self.data for pageData in layer for fileURL in pageData.getFullFiles(altDLURL)]
+        metadata = JsonSynchronizer(self.outputDir / self._progressFile)
+        return [fileURL for layer in metadata.get(self._metaProgress, []) for pageData in layer for fileURL in pageData.getFullFiles(altDLURL)]
 
     def _parallelPageLinks(self, urlList: list[str], pattern: re.Pattern = None, retries: int = 5,) -> list[PageData]:
         data = []
