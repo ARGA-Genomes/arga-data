@@ -72,8 +72,12 @@
                 "args": [
                     "{OUT-PATH}",
                     "{IN-DIR}",
-                    "*.parquet"
+                    "*.parquet",
+                    true
                 ],
+                "kwargs": {
+                    "float_format": "%.0f"
+                },
                 "output": "<SUB>.csv"
             }
         ]
