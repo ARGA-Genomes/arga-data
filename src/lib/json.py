@@ -2,20 +2,33 @@ from pathlib import Path
 import json
 
 class JsonSynchronizer:
-    def __init__(self, filePath: Path, loadOnInit: bool, asList: bool = False):
-        self.path = filePath
-        self.data = {} if not asList else []
+    def __init__(self, filePath: Path):
+        self._path = filePath
+        self._data = {}
 
-        if loadOnInit:
-            self.load()
+        self._load()
 
-    def load(self) -> None:
-        if not self.path.exists():
+    def __setitem__(self, key: str, value: any) -> None:
+        self._data[key] = value
+        self._sync()
+
+    def __getitem__(self, key: str) -> any:
+        return self._data[key]
+
+    def _load(self) -> None:
+        if not self._path.exists():
             return
         
-        with open(self.path) as fp:
-            self.data = json.load(fp)
+        with open(self._path) as fp:
+            self._data = json.load(fp)
 
-    def sync(self) -> None:
-        with open(self.path, "w") as fp:
-            json.dump(self.data, fp, indent=4)
+    def _sync(self) -> None:
+        with open(self._path, "w") as fp:
+            json.dump(self._data, fp, indent=4)
+
+    def get(self, key: str, default: any = None) -> any:
+        return self._data.get(key, default)
+
+    def clear(self) -> None:
+        self._data = {}
+        self._sync()

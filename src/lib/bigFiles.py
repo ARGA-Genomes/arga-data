@@ -9,32 +9,32 @@ from lib.json import JsonSynchronizer
 class DFWriter:
 
     _chunkPrefix = "chunk"
-    _metadataFiles = "files"
+    _metaFilePaths = "filePaths"
 
-    def __init__(self, outputFilePath: Path, chunkFormat: DataFormat = DataFormat.PARQUET, subDirName: str = "bigFileWriter"):
+    def __init__(self, outputFilePath: Path, chunkFormat: DataFormat = DataFormat.PARQUET, subDirName: str = "bigFileWriter", loadOnInit: bool = True):
         self.outputFile = DataFile(outputFilePath)
         self._chunkFormat = chunkFormat
 
         self.workingDir = Folder(outputFilePath.parent / subDirName, create=True)
+        self.metadata = JsonSynchronizer(self.workingDir.path / "metadata.json")
 
-        self._metadata = JsonSynchronizer(self.workingDir.path / "metadata.json", True)
         self._sectionFiles: list[DataFile] = []
         self._uniqueColumns: dict[str, None] = {}
 
-        for fileName in self._metadata.data[self._metadataFiles]:
-            dataFile = DataFile()
+        if loadOnInit:
+            self._loadFiles()
 
+            if self._sectionFiles:
+                logging.info(f"Added {len(self._sectionFiles)} existing files from working directory '{self.workingDir.path}'")
 
-        for path in self.workingDir.getMatchingPaths(f"{self._chunkPrefix}_*"):
-            dataFile = DataFile(path)
+    def _loadFiles(self) -> None:
+        for filePath in self.metadata.get(self._metaFilePaths, []):
+            dataFile = DataFile(filePath)
             self._sectionFiles.append(dataFile)
             self._uniqueColumns |= {column: None for column in dataFile.getColumns()}
 
-        if self._sectionFiles:
-            logging.info(f"Added {len(self._sectionFiles)} existing files from working directory '{self.workingDir.path}'")
-
     def _wroteFile(self, name: str) -> None:
-        pass
+        self.metadata[self._metaFilePaths] += [name]
 
     def writtenFileCount(self) -> int:
         return len(self._sectionFiles)
@@ -71,18 +71,24 @@ class DFWriter:
             logging.info(f"Created a single file at {self.outputFile.path}")
         
         if removeParts:
-            for file in self._sectionFiles:
-                file.delete()
-
             self._sectionFiles.clear()
             self.workingDir.delete()
 
 class RecordWriter(DFWriter):
+    
+    _metaRows = "rowsPerSubsection"
+
     def __init__(self, outputFilePath: Path, rowsPerSubsection: int, chunkFormat: DataFormat = DataFormat.PARQUET, subDirName: str = "bigFileWriter"):
-        super().__init__(outputFilePath, chunkFormat, subDirName)
+        super().__init__(outputFilePath, chunkFormat, subDirName, False)
 
         self._rowsPerSubsection = rowsPerSubsection
         self._records = []
+
+        if self.metadata[self._metaRows] != rowsPerSubsection: # Different chunk size used from previous, throw out results
+            self.metadata.clear()
+            self.metadata[self._metaRows] = rowsPerSubsection
+        else:
+            self._loadFiles()
 
     def _writeRecords(self) -> None:
         super().write(pd.DataFrame.from_records(self._records))
@@ -121,6 +127,7 @@ def combineDataFiles(outputFilePath: Path, dataFiles: list[DataFile], columns: l
     outputDataFile = DataFile(outputFilePath)
     logging.info(f"Combining into one file at {outputFilePath}")
     outputDataFile.writeIterator(combinedIterator(dataFiles, chunkSize), columns, index=False, **kwargs)
+    logging.info(f"Successfully combined into a single file")
 
     if deleteOld:
         logging.info(f"Cleaning up old sections of combined file")
