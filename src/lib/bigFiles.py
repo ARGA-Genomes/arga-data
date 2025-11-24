@@ -92,16 +92,21 @@ class RecordWriter(DFWriter):
 def combinedIterator(dataFiles: list[DataFile], chunkSize: int, **kwargs: dict) -> Iterator[pd.DataFrame]:
     return (chunk for file in dataFiles for chunk in file.readIterator(chunkSize, **kwargs))
 
-def combineDirectoryFiles(outputFilePath: Path, inputFolderPath: Path, matchPattern: str = "*.*") -> None:
+def combineDirectoryFiles(outputFilePath: Path, inputFolderPath: Path, matchPattern: str = "*.*", deleteOld: bool = False, **kwargs: dict) -> None:
     inputDataFiles = [dataFile for dataFile in  [DataFile(path) for path in inputFolderPath.glob(matchPattern)] if dataFile.format != DataFormat.UNKNOWN and dataFile.format != DataFormat.STACKED]
     logging.info(f"Found {len(inputDataFiles)} files to combine")
     columns = {column: None for dataFile in inputDataFiles for column in dataFile.getColumns()}
-    combineDataFiles(outputFilePath, inputDataFiles, columns)
+    combineDataFiles(outputFilePath, inputDataFiles, columns, deleteOld, **kwargs)
 
-def combineDataFiles(outputFilePath: Path, dataFiles: list[DataFile], columns: list[str]) -> None:
+def combineDataFiles(outputFilePath: Path, dataFiles: list[DataFile], columns: list[str], deleteOld: bool = False, **kwargs: dict) -> None:
     outputDataFile = DataFile(outputFilePath)
     logging.info(f"Combining into one file at {outputFilePath}")
-    outputDataFile.writeIterator(combinedIterator(dataFiles, 1024), list(columns), index=False)
+    outputDataFile.writeIterator(combinedIterator(dataFiles, 1024), list(columns), index=False, **kwargs)
+
+    if deleteOld:
+        logging.info(f"Cleaning up old sections of combined file")
+        for dataFile in dataFiles:
+            dataFile.delete()
 
 class StackedDFWriter:
     def __init__(self, outputFilePath: Path, subsections: list[str], chunkFormat: DataFormat = DataFormat.PARQUET):
