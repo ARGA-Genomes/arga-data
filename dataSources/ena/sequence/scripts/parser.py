@@ -23,6 +23,37 @@ def parseSection(sectionData: str) -> dict:
     code = ""
     codeRepeat = 0
 
+    dataClass = {
+        "EST": "expressed sequence tag",
+        "GSS": "genome survey sequence",
+        "STS": "sequence tagged site",
+        "CON": "constructed sequence",
+        "TSA": "transcriptome shotgun assembly",
+        "HTC": "high throughput assembled transcriptomic sequence",
+        "HTG": "high throughput assembled genomic sequence",
+        "STD": "standard targeted annotated assembled sequence",
+        "PAT": "sequence associated with a patent process",
+        "WGS": "whole genome shotgun contig level assembly"
+    }
+
+    taxonClass = {
+        "FUN": "Fungi",
+        "ENV": "Environmental",
+        "HUM": "Human",
+        "INV": "Invertebrate",
+        "MAM": "Mammalia",
+        "MUS": "MusMusculus",
+        "PHG": "Phage",
+        "PLN": "Plants",
+        "PRO": "Pro",
+        "ROD": "Rodent",
+        "SYN": "Synthetic",
+        "UNC": "Unclassified",
+        "VRL": "Virus",
+        "VRT": "Vertebrate",
+        "XXX": "Unknown"
+    }
+
     for line in sectionData.split("\n"):
         if line[:2] == code:
             codeRepeat += 1
@@ -70,9 +101,9 @@ def parseSection(sectionData: str) -> dict:
 
         elif code == "OC":
             if codeRepeat == 0:
-                data["taxonomy"] = lineData
+                data["lineage"] = lineData
             else:
-                data["taxonomy"] = f" {lineData}"
+                data["lineage"] += f" {lineData}"
 
         elif code == "OG":
             data["sample"] = lineData
@@ -113,7 +144,14 @@ def parseSection(sectionData: str) -> dict:
             data["references"][-1]["group"] = lineData
 
         elif code == "DR":
-            continue
+            if "data_reference" not in data:
+                data["data_reference"] = {}
+
+            key, value = lineData[:1].split("; ", 1)
+            if key not in data["data_reference"]:
+                data["data_reference"][key] = value
+            else:
+                data["data_reference"][key] += f", {value}"
 
         elif code == "CC":
             continue
