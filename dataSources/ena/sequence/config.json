@@ -62,7 +62,7 @@
                     "{IN-PATH}",
                     "{OUT-PATH}"
                 ],
-                "output": "{IN-PATH.parquet}"
+                "output": "{IN-PATH..parquet}"
             }
         ],
         "linear": [
