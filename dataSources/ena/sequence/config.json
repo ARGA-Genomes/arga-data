@@ -1,56 +1,86 @@
 {
     "datasetID": "",
     "subsections": {
-        "expressed": {
+        "fungi": {
             "tags": {
-                "name" : "EST"
+                "name" : "FUN"
             }
         },
-        "genomeSurvey": {
+        "environmental": {
             "tags": {
-                "name": "GSS"
+                "name": "ENV"
             }
         },
-        "sequenceTagged": {
+        "human": {
             "tags": {
-                "name": "STS"
+                "name": "HUM"
             }
         },
-        "constructed": {
+        "invertebrate": {
             "tags": {
-                "name": "CON"
+                "name": "INV"
             }
         },
-        "transcriptome": {
+        "mammals": {
             "tags": {
-                "name": "TSA"
+                "name": "MAM"
             }
         },
-        "assembledTranscriptome": {
+        "musMusculus": {
             "tags": {
-                "name": "HTC"
+                "name": "MUS"
             }
         },
-        "assembledSequence": {
+        "phage": {
             "tags": {
-                "name": "HTG"
+                "name": "PHG"
             }
         },
-        "patent": {
+        "plants": {
             "tags": {
-                "name": "PAT"
+                "name": "PLN"
             }
         },
-        "wholeGenome": {
+        "pro": {
             "tags": {
-                "name": "WGS"
+                "name": "PRO"
+            }
+        },
+        "rodent": {
+            "tags": {
+                "name": "ROD"
+            }
+        },
+        "synthetic": {
+            "tags": {
+                "name": "SYN"
+            }
+        },
+        "unclassified": {
+            "tags": {
+                "name": "UNC"
+            }
+        },
+        "virus": {
+            "tags": {
+                "name": "VRL"
+            }
+        },
+        "vertebrate": {
+            "tags": {
+                "name": "VRT"
+            }
+        },
+        "unknown": {
+            "tags": {
+                "name": "XXX"
             }
         }
     },
     "retrieveType": "crawl",
     "downloading": {
         "url": "https://ftp.ebi.ac.uk/pub/databases/ena/sequence/con-std_latest/",
-        "regex": "<SUB:NAME>_FUN_1\\.dat\\.gz",
+        "regex": "[A-Z]{3}_<SUB:NAME>_\\d+\\.dat\\.gz",
         "maxDepth": 1
     },
     "processing": {
