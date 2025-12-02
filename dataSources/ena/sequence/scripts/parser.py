@@ -147,7 +147,12 @@ def parseSection(sectionData: str) -> dict:
             if "data_reference" not in data:
                 data["data_reference"] = {}
 
-            key, value = lineData[:1].split("; ", 1)
+            try:
+                key, value = lineData[:-1].split("; ", 1)
+            except:
+                print(lineData)
+                return
+            
             if key not in data["data_reference"]:
                 data["data_reference"][key] = value
             else:
@@ -157,21 +162,52 @@ def parseSection(sectionData: str) -> dict:
             continue
 
         elif code == "FH":
-            continue
+            featureSection = ""
+            bpRange = ""
+            lastKey = ""
+
+            data["features_genes"] = {}
 
         elif code == "FT":
-            if codeRepeat == 0:
+            header = lineData[:16].strip()
+            lineData = lineData[16:]
+
+            if header:
+                featureSection = header
+                bpRange = lineData
+                lastKey = ""
                 continue
 
-            lineData = lineData[16:] # Trim off leading whitespace
             if lineData[0] == "/":
-                key, value = lineData[1:].split("=", 1)
-                data[key] = value.strip("\"")
+                reference = data
+                if featureSection != "source":
+                    if bpRange not in data["features_genes"]:
+                        data["features_genes"][bpRange] = {}
+
+                    reference = data["features_genes"][bpRange]
+
+                if "=" not in line:
+                    if "other" not in reference:
+                        reference["other"] = lineData[1:]
+                    else:
+                        reference["other"] += f", {lineData[1:]}"
+                else:
+                    key, value = lineData[1:].split("=", 1)
+                    lastKey = key
+                    if key != "translation":
+                        reference[key] = value.strip("\"")
+                    
             else:
-                data[list(data.keys())[-1]] += " " + lineData.strip('\"')
+                if not lastKey: # Multiline base pair range
+                    bpRange += lineData
+                elif lastKey != "translation":
+                    reference[lastKey] += " " + lineData.strip('\"')
 
         elif code == "SQ":
             data["sequence_info"] = lineData
+
+        elif code == "CO":
+            continue
 
         else:
             print(f"UNHANDLED CODE: {code}")
