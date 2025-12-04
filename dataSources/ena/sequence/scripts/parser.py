@@ -1,176 +1,171 @@
 from pathlib import Path
-import pandas as pd
 from lib.progressBar import ProgressBar
 import logging
+from lib.bigFiles import RecordWriter
 
-def parseFile(filePath: Path) -> pd.DataFrame | None:
+# self._dataClass = {
+#     "EST": "expressed sequence tag",
+#     "GSS": "genome survey sequence",
+#     "STS": "sequence tagged site",
+#     "CON": "constructed sequence",
+#     "TSA": "transcriptome shotgun assembly",
+#     "HTC": "high throughput assembled transcriptomic sequence",
+#     "HTG": "high throughput assembled genomic sequence",
+#     "STD": "standard targeted annotated assembled sequence",
+#     "PAT": "sequence associated with a patent process",
+#     "WGS": "whole genome shotgun contig level assembly"
+# }
+
+# taxonClass = {
+#     "FUN": "Fungi",
+#     "ENV": "Environmental",
+#     "HUM": "Human",
+#     "INV": "Invertebrate",
+#     "MAM": "Mammalia",
+#     "MUS": "MusMusculus",
+#     "PHG": "Phage",
+#     "PLN": "Plants",
+#     "PRO": "Pro",
+#     "ROD": "Rodent",
+#     "SYN": "Synthetic",
+#     "UNC": "Unclassified",
+#     "VRL": "Virus",
+#     "VRT": "Vertebrate",
+#     "XXX": "Unknown"
+# }
+
+def parseFile(filePath: Path, outputPath: Path):
     logging.info(f"Parsing flat file: {filePath}")
 
+    rowsPerSubsection = 30000
+    writer = RecordWriter(outputPath, rowsPerSubsection, subDirName=f"{filePath.stem}_chunks")
+    skipSections = writer.writtenRecordCount()
+
+    with open(filePath, "rb") as fp:
+        sectionCount = 0
+        offset = 0
+        for line in fp:
+            if line == b"//\n":
+                sectionCount += 1
+                if sectionCount < skipSections:
+                    offset = fp.tell()
+
+    progress = ProgressBar(sectionCount, callsPerUpdate=10)
     with open(filePath) as fp:
-        sections = fp.read().split("\n//\n")
+        fp.seek(offset)
 
-    # Iterate through sections of file
-    progress = ProgressBar(len(sections))
-    records = []
-    for section in sections:
-        records.append(parseSection(section))
-        progress.update()
+        sectionData = {}
+        lastCode = ""
+        subsectionData = ""
 
-    return pd.DataFrame.from_records(records)
-
-def parseSection(sectionData: str) -> dict:
-    data = {}
-    code = ""
-    codeRepeat = 0
-
-    dataClass = {
-        "EST": "expressed sequence tag",
-        "GSS": "genome survey sequence",
-        "STS": "sequence tagged site",
-        "CON": "constructed sequence",
-        "TSA": "transcriptome shotgun assembly",
-        "HTC": "high throughput assembled transcriptomic sequence",
-        "HTG": "high throughput assembled genomic sequence",
-        "STD": "standard targeted annotated assembled sequence",
-        "PAT": "sequence associated with a patent process",
-        "WGS": "whole genome shotgun contig level assembly"
-    }
-
-    taxonClass = {
-        "FUN": "Fungi",
-        "ENV": "Environmental",
-        "HUM": "Human",
-        "INV": "Invertebrate",
-        "MAM": "Mammalia",
-        "MUS": "MusMusculus",
-        "PHG": "Phage",
-        "PLN": "Plants",
-        "PRO": "Pro",
-        "ROD": "Rodent",
-        "SYN": "Synthetic",
-        "UNC": "Unclassified",
-        "VRL": "Virus",
-        "VRT": "Vertebrate",
-        "XXX": "Unknown"
-    }
-
-    for line in sectionData.split("\n"):
-        if line[:2] == code:
-            codeRepeat += 1
-        else:
+        line = fp.readline()
+        while line:
             code = line[:2]
-            codeRepeat = 0
+            lineData = line[5:]
+            if code == "//": # Section break
+                writer.write(sectionData)
+                progress.update()
+                sectionData = {}
+                subsectionData = ""
+            elif code == lastCode:
+                subsectionData += lineData
+            else: # XX will automatically trigger
+                if subsectionData:
+                    updateSectionData(sectionData, lastCode, subsectionData)
 
-        if code == "XX" or code == "  " or not code:
-            continue
+                subsectionData = lineData
 
-        lineData = line[5:]
-        if code == "ID":
-            sequence, _, topology, mol_type, dataclass, tax_division, base_count = lineData.split("; ")
-            data["sequence"] = sequence
-            data["topology"] = topology
-            data["mol_type"] = mol_type
-            data["dataclass"] = dataclass
-            data["tax_division"] = tax_division
-            data["base_count"] = int(base_count[:-4]) # Clean off " BP."
+            lastCode = code
+            line = fp.readline()
 
-        elif code == "AC":
-            data["accession"] = lineData.rstrip(";")
+    writer.combine(removeParts=True)
 
-        elif code == "PR":
-            key, value = lineData[:-1].split(":", 1)
-            data[key.lower()] = value
+def updateSectionData(currentData: dict, code: str, data: str) -> None:
+    if code in ("XX", "  ", "KW", "CO", "AS", "AH", "CC", "FH"):
+        return
+    
+    data = data.rstrip("\n")
+    if code == "ID":
+        sequence, _, topology, mol_type, dataClass, tax_division, base_count = data.split("; ")
+        currentData.update({
+            "sequence": sequence,
+            "topology": topology,
+            "mol_type": mol_type,
+            "dataclass": dataClass,
+            "tax_division": tax_division,
+            "base_count": int(base_count[:-4]) # Clean off " BP."
+        })
 
-        elif code == "DT":
-            if codeRepeat == 0:
-                data["original_date"] = lineData
-            elif codeRepeat == 1:
-                data["date"] = lineData
+    elif code == "AC":
+        currentData["accession"] = data.rstrip(";")
+    
+    elif code == "PR":
+        key, value = data[:-1].split(":", 1)
+        currentData[key.lower()] = value
 
-        elif code == "DE":
-            if codeRepeat == 0:
-                data["description"] = lineData
-            else:
-                data["description"] += f" {lineData}"
+    elif code == "DT":
+        originalDate, date = data.split("\n")
+        currentData.update({
+            "original_date": originalDate,
+            "date": date
+        })
 
-        elif code == "KW":
-            continue
+    elif code == "DE":
+        currentData["description"] = data.replace("\n", " ")
 
-        elif code == "OS":
-            data["scientific_name"] = lineData
+    elif code == "OS":
+        currentData["scientific_name"] =data
 
-        elif code == "OC":
-            if codeRepeat == 0:
-                data["lineage"] = lineData
-            else:
-                data["lineage"] += f" {lineData}"
+    elif code == "OC":
+        currentData["lineage"] = data.replace("\n", " ")
 
-        elif code == "OG":
-            data["sample"] = lineData
+    elif code == "OG":
+        currentData["sample"] = data
 
-        elif code == "RN":
-            if "references" not in data:
-                data["references"] = []
+    elif code == "RN":
+        if "references" not in currentData:
+            currentData["references"] = []
+        
+        currentData["references"].append({})
+
+    elif code == "RP":
+        currentData["references"][-1]["base_range"] = data
+
+    elif code == "RC":
+        currentData["references"][-1]["comment"] = data.replace("\n", " ")
+
+    elif code == "RX":
+        link, value = data[:-1].split("; ", 1)
+        currentData["references"][-1][link.lower()] = value
+
+    elif code == "RA":
+        currentData["references"][-1]["authors"] = data.replace("\n", " ").rstrip(";")
+
+    elif code == "RT":
+        currentData["references"][-1]["title"] = data.replace("\n", " ").strip("\";")
+
+    elif code == "RL":
+        currentData["references"][-1]["literature"] = data[:-1]
+
+    elif code == "RG":
+        currentData["references"][-1]["group"] = data
+
+    elif code == "DR":
+        currentData["data_references"] = {}
+        for reference in data.split("\n"):
+            key, value = reference.split("; ", 1)
             
-            data["references"].append({})
-
-        elif code == "RP":
-            data["references"][-1]["base_range"] = lineData
-
-        elif code == "RC":
-            data["references"][-1]["comment"] = lineData
-
-        elif code == "RX":
-            link, value = lineData[:-1].split("; ", 1)
-            data["references"][-1][link.lower()] = value
-
-        elif code == "RA":
-            if codeRepeat == 0:
-                data["references"][-1]["authors"] = lineData.strip(";")
+            if key not in currentData["data_references"]:
+                currentData["data_references"] = value
             else:
-                data["references"][-1]["authors"] += f" {lineData.strip(';')}"
+                currentData["data_references"] += f", {value}"
 
-        elif code == "RT":
-            lineData = lineData.strip("\";")
-            if codeRepeat == 0:
-                data["references"][-1]["title"] = lineData
-            else:
-                data["references"][-1]["title"] += f" {lineData}"
+    elif code == "FT":
+        features = {}
 
-        elif code == "RL":
-            data["references"][-1]["literature"] = lineData[:-1]
-
-        elif code == "RG":
-            data["references"][-1]["group"] = lineData
-
-        elif code == "DR":
-            if "data_reference" not in data:
-                data["data_reference"] = {}
-
-            try:
-                key, value = lineData[:-1].split("; ", 1)
-            except:
-                print(lineData)
-                return
-            
-            if key not in data["data_reference"]:
-                data["data_reference"][key] = value
-            else:
-                data["data_reference"][key] += f", {value}"
-
-        elif code == "CC":
-            continue
-
-        elif code == "FH":
-            featureSection = ""
-            bpRange = ""
-            lastKey = ""
-
-            data["features_genes"] = {}
-
-        elif code == "FT":
-            header = lineData[:16].strip()
-            lineData = lineData[16:]
+        for line in data.split("\n"):
+            header = line[:16].strip()
+            lineData = line[16:]
 
             if header:
                 featureSection = header
@@ -179,14 +174,14 @@ def parseSection(sectionData: str) -> dict:
                 continue
 
             if lineData[0] == "/":
-                reference = data
+                reference = features
                 if featureSection != "source":
-                    if bpRange not in data["features_genes"]:
-                        data["features_genes"][bpRange] = {}
+                    if bpRange not in features:
+                        features[bpRange] = {}
 
-                    reference = data["features_genes"][bpRange]
+                    reference = features[bpRange]
 
-                if "=" not in line:
+                if "=" not in lineData:
                     if "other" not in reference:
                         reference["other"] = lineData[1:]
                     else:
@@ -203,13 +198,10 @@ def parseSection(sectionData: str) -> dict:
                 elif lastKey != "translation":
                     reference[lastKey] += " " + lineData.strip('\"')
 
-        elif code == "SQ":
-            data["sequence_info"] = lineData
+        currentData["features_genes"] = str(features)
 
-        elif code == "CO":
-            continue
+    elif code == "SQ":
+        currentData["sequence_info"] = data
 
-        else:
-            print(f"UNHANDLED CODE: {code}")
-
-    return data
+    else:
+        print(f"UNHANDLED code: {code}")
