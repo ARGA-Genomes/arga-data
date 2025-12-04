@@ -159,8 +159,9 @@ class ParquetFile(DataFile):
         schema = pa.schema([(column, pa.string()) for column in columns])
         with pq.ParquetWriter(self.path, schema=schema) as writer:
             for chunk in iterator:
-                chunk = chunk.reindex(columns)
-                writer.write_table(chunk)
+                chunk = chunk.reindex(columns=columns)
+                chunk = chunk.astype(str)
+                writer.write_table(pa.Table.from_pandas(chunk))
 
     def getColumns(self) -> list[str]:
         pf = pq.read_schema(self.path)
