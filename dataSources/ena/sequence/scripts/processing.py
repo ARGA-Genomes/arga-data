@@ -7,10 +7,5 @@ def parse(inputPath: Path, outputPath: Path):
     if extractedFile is None:
         return
     
-    df = parser.parseFile(extractedFile)
-    if df is None:
-        extractedFile.unlink()
-        return
-    
-    df.to_parquet(outputPath)
+    parser.parseFile(extractedFile, outputPath)
     extractedFile.unlink()
