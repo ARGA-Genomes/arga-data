@@ -4,7 +4,7 @@ from lib.systemManagers.baseManager import SystemManager, Task
 import lib.processing.parsing as parse
 import logging
 import lib.zipping as zp
-from lib.config import globalConfig as gcfg
+from lib.settings import globalSettings as gs
 from datetime import datetime
 
 class _Collection(Task):
@@ -16,7 +16,7 @@ class _Collection(Task):
         self.files = files
         self.name = name
 
-        outputDir = gcfg.overwrites.package if gcfg.overwrites.package else self.baseDir
+        outputDir = gs.storage.package if gs.storage.package else self.baseDir
         self.outputPath = outputDir /  f"{self.name}_{datetime.now().date()}"
 
     def runTask(self, overwrite: bool, verbose: bool) -> bool:
