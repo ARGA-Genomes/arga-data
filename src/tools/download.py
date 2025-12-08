@@ -1,5 +1,5 @@
 from lib.data.argParser import ArgParser
-from lib.processing.files import Step
+from lib.data.database import Step
 
 if __name__ == '__main__':
     parser = ArgParser(

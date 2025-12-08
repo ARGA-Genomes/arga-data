@@ -118,4 +118,5 @@ class Location:
     
     def constructDB(self, databaseName, subsection: str, name: str) -> Database:
         database = self.databases[databaseName]
-        return database.constuct(name, subsection)
+        database.constuct(name, subsection)
+        return database

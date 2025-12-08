@@ -1,7 +1,7 @@
 from pathlib import Path
 import logging
 from lib.processing.files import DataFile
-from lib.processing.scripts import OutputScript, FileScript
+from lib.processing.scripts import OutputScript
 import lib.downloading as dl
 from lib.crawler import Crawler
 
@@ -49,7 +49,7 @@ class UrlRetrieve(Task):
     def getOutputs(self) -> list[DataFile]:
         return [self.file]
 
-    def runTask(self, overwrite: bool, verbose: bool) -> bool:
+    def run(self, overwrite: bool, verbose: bool) -> bool:
         if not overwrite and self.file.exists():
             logging.info(f"Output file {self.file.path} already exists")
             return False
@@ -89,7 +89,7 @@ class CrawlRetrieve(Task):
 
         super().__init__([downloadFile for _, downloadFile in self.downloads])
 
-    def runTask(self, overwrite: bool, verbose: bool) -> bool:
+    def run(self, overwrite: bool, verbose: bool) -> bool:
         downloadsRun = False
         for downloadURL, downloadFile in self.downloads:
             if not overwrite and downloadFile.exists():
@@ -123,28 +123,16 @@ class ScriptRunner(Task):
         if not outputs:
             raise Exception("No `outputs` specified in script config") from AttributeError        
 
-        dfOutputs = []
-        for output in outputs:
-            if isinstance(output, DataFile):
-                dfOutputs.append(output)
-            else:
-                dfOutputs.append(DataFile(workingDir / output))
-
-        inputs = config.pop(self._inputs, [])
-        dfInputs = []
-        for input in inputs:
-            if isinstance(input, DataFile):
-                dfInputs.append(input)
-            else:
-                dfInputs.append(DataFile(input))
+        outputs = [DataFile(workingDir / output) for output in outputs]
+        inputs = [DataFile(input) for input in config.pop(self._inputs, [])]
 
         self.args = config.pop(self._args, [])
         self.kwargs = config.pop(self._kwargs, {})
 
-        self.script = OutputScript(modulePath, functionName, dfOutputs, dfInputs, libraryDirs)
+        self.script = OutputScript(modulePath, functionName, outputs, inputs, libraryDirs)
 
-        super().__init__(dfOutputs)
+        super().__init__(outputs)
 
-    def runTask(self, overwrite: bool, verbose: bool) -> bool:
+    def run(self, overwrite: bool, verbose: bool) -> bool:
         success, _ = self.script.run(overwrite, verbose, self.args, self.kwargs)
         return success
