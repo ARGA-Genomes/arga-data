@@ -41,15 +41,16 @@ def parseFile(filePath: Path, outputPath: Path):
     writer = RecordWriter(outputPath, rowsPerSubsection, subDirName=f"{filePath.stem}_chunks")
     skipSections = writer.writtenRecordCount()
 
+    sectionCount = 0
+    offset = 0
     with open(filePath, "rb") as fp:
-        sectionCount = 0
-        offset = 0
         for line in fp:
             if line == b"//\n":
                 sectionCount += 1
                 if sectionCount < skipSections:
                     offset = fp.tell()
 
+    logging.info(f"Found {sectionCount} sections in file")
     progress = ProgressBar(sectionCount, callsPerUpdate=10)
     with open(filePath) as fp:
         fp.seek(offset)
