@@ -53,9 +53,10 @@ class _Root(_Node):
         return True
 
 class ProcessingManager(SystemManager):
-    def __init__(self, dataDir: Path, scriptDir: Path, metadataDir: Path, scriptImports: list[Path]):
-        super().__init__(dataDir, scriptDir, metadataDir, Step.PROCESSING, "steps")
+    def __init__(self, dataDir: Path, metadataDir: Path, scriptDir: Path, scriptImports: list[Path]):
+        super().__init__(dataDir, metadataDir, Step.PROCESSING, "steps")
 
+        self.scriptDir = scriptDir
         self.scriptImports = scriptImports
 
         self._rootNodes: list[_Node] = []

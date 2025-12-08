@@ -39,9 +39,10 @@ class _ScriptDownload(_Download):
         return self.script.run(overwrite, verbose)[0] # No retval for downloading tasks, just return success
 
 class DownloadManager(SystemManager):
-    def __init__(self, dataDir: Path, scriptDir: Path, metadataDir: Path, scriptImports: list[Path], username: str, password: str):
-        super().__init__(dataDir, scriptDir, metadataDir, Step.DOWNLOADING, "files")
+    def __init__(self, dataDir: Path, metadataDir: Path, scriptDir: Path, scriptImports: list[Path], username: str, password: str):
+        super().__init__(dataDir, metadataDir, Step.DOWNLOADING, "files")
 
+        self.scriptDir = scriptDir
         self.scriptImports = scriptImports
         self.auth = dl.buildAuth(username, password) if username else None
 

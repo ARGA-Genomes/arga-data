@@ -11,6 +11,7 @@ import shutil
 class Step(Enum):
     DOWNLOADING = "downloading"
     PROCESSING  = "processing"
+    COMPILING = "compiling"
 
 class DataFormat(Enum):
     CSV     = ".csv"

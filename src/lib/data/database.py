@@ -5,6 +5,7 @@ from pathlib import Path
 
 from lib.systemManagers.downloading import DownloadManager
 from lib.systemManagers.processing import ProcessingManager
+from lib.systemManagers.compiling import CompilationManager
 from lib.systemManagers.updating import UpdateManager
 
 from lib.processing.files import Step
@@ -59,12 +60,14 @@ class BasicDB:
         scriptImportLibs = [self.libDir]
 
         # System Managers
-        self.downloadManager = DownloadManager(self.dataDir, self.scriptsDir, self.databaseDir, scriptImportLibs, username, password)
-        self.processingManager = ProcessingManager(self.dataDir, self.scriptsDir, self.databaseDir, scriptImportLibs)
+        self.downloadManager = DownloadManager(self.dataDir, self.databaseDir, self.scriptsDir, scriptImportLibs, username, password)
+        self.processingManager = ProcessingManager(self.dataDir, self.databaseDir, self.scriptsDir, scriptImportLibs)
+        self.compilationManager = CompilationManager(self.dataDir, self.databaseDir, self.name)
 
         # Config stages
         self.downloadConfig: dict = setupConfig.pop(self.downloadManager.stepName, None)
         self.processingConfig: dict = setupConfig.pop(self.processingManager.stepName, {})
+        self.compilationConfig: dict = setupConfig.pop(self.compilationManager.stepName, {})
 
         if self.downloadConfig is None:
             raise Exception(f"No download config specified as required for {self.name}") from AttributeError
@@ -113,10 +116,15 @@ class BasicDB:
         if linearProcessing:
             self.processingManager.addFinalProcessing(linearProcessing)
 
+    def _prepareCompiling(self, flags: list[Flag]) -> None:
+        compilationFiles = self.compilationConfig.pop("files", [])
+        self.compilationManager.prepareFiles(compilationFiles)
+
     def _prepare(self, fileStep: Step, flags: list[Flag]) -> bool:
         callbacks = {
             Step.DOWNLOADING: self._prepareDownload,
             Step.PROCESSING: self._prepareProcessing,
+            Step.COMPILING: self._prepareCompiling
         }
 
         if fileStep not in callbacks:
@@ -151,6 +159,9 @@ class BasicDB:
         if fileStep == Step.PROCESSING:
             return self.processingManager.process(overwrite, verbose)
 
+        if fileStep == Step.COMPILING:
+            return self.compilationManager.compile(overwrite, verbose)
+
         logging.error(f"Unknown step to execute: {fileStep}")
         return False
     
@@ -173,10 +184,8 @@ class BasicDB:
         return self.updateManager.isUpdateReady(lastUpdate)
     
     def update(self, flags: list[Flag]) -> bool:
-        for fileStep in (Step.DOWNLOADING, Step.PROCESSING):
+        for fileStep in Step:
             self.create(fileStep, list(set(flags).add(Flag.OVERWRITE)))
-
-        self.package()
 
     def _printFlags(self, flags: list[Flag]) -> str:
         return " | ".join(f"{flag.value}={flag in flags}" for flag in Flag)

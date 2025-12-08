@@ -8,5 +8,14 @@
             "{OUT-PATH}"
         ],
         "output": "TSICompiled"
+    },
+    "compiling": {
+        "files": [
+            "./data/downloading/TSICompiled/collecting.csv",
+            "./data/downloading/TSICompiled/lab_samples.csv",
+            "./data/downloading/TSICompiled/organisms.csv",
+            "./data/downloading/TSICompiled/tissues.csv",
+            "./meta.toml"
+        ]
     }
 }

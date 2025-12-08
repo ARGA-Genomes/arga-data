@@ -40,9 +40,8 @@ class SystemManager:
 
     _metadataFileName = "metadata.json"
 
-    def __init__(self, dataDir: Path, scriptDir: Path, metadataDir: Path, fileStep: Step, metaTaskName: str):
+    def __init__(self, dataDir: Path, metadataDir: Path, fileStep: Step, metaTaskName: str):
         self.workingDir = dataDir / fileStep.value
-        self.scriptDir = scriptDir
         self.metadataDir = metadataDir
         self.metadataPath = metadataDir / self._metadataFileName
 
