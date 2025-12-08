@@ -50,11 +50,10 @@ class DFWriter:
         if len(self._sectionFiles) == 1:
             logging.info(f"Only single subfile, moving {self._sectionFiles[0].path} to {self.outputFile.path}")
             files.moveDataFile(self._sectionFiles[0], self.outputFile)
-            return
-
-        logging.info("Combining into one file")
-        self.outputFile.writeIterator(combinedIterator(self._sectionFiles, 128*1024), list(self._uniqueColumns), **kwargs)
-        logging.info(f"Created a single file at {self.outputFile.path}")
+        else:
+            logging.info("Combining into one file")
+            self.outputFile.writeIterator(combinedIterator(self._sectionFiles, 128*1024), list(self._uniqueColumns), **kwargs)
+            logging.info(f"Created a single file at {self.outputFile.path}")
         
         if removeParts:
             for file in self._sectionFiles:
