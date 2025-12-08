@@ -2,6 +2,7 @@ import logging
 from pathlib import Path
 from enum import Enum
 from lib.processing.files import DataFile
+from typing import Any
 
 class FileSelect(Enum):
     INPUT    = "IN"
@@ -31,7 +32,7 @@ class DataFileLookup:
             self._enumMap[enum] += lookup._enumMap[enum]
 
 class DirLookup:
-    def __init__(self, directories: list[Path]):
+    def __init__(self, directories: list[Path] = []):
         self._lookup = {f".{directory.name}": directory for directory in directories}
 
     def contains(self, prefix: str) -> bool:
@@ -52,7 +53,7 @@ def parseDict(data: dict, relativeDir: Path, dirLookup: DirLookup = DirLookup(),
         else:
             res[key] = parseArg(value, relativeDir, dirLookup, dataFileLookup)
 
-def parseArg(arg: any, parentDir: Path, dirLookup: DirLookup = DirLookup(), dataFileLookup: DataFileLookup = DataFileLookup()) -> Path | str:
+def parseArg(arg: Any, parentDir: Path, dirLookup: DirLookup = DirLookup(), dataFileLookup: DataFileLookup = DataFileLookup()) -> Path | str:
     if not isinstance(arg, str):
         return arg
 
@@ -60,7 +61,7 @@ def parseArg(arg: any, parentDir: Path, dirLookup: DirLookup = DirLookup(), data
         return parsePath(arg, parentDir, dirLookup)
     
     if arg.startswith("{") and arg.endswith("}"):
-        parsedArg = parseSelectorArg(arg[1:-1], dataFileLookup)
+        parsedArg = _parseSelectorArg(arg[1:-1], dataFileLookup)
         if parsedArg == arg:
             logging.warning(f"Unknown key code: {parsedArg}")
 
@@ -68,7 +69,7 @@ def parseArg(arg: any, parentDir: Path, dirLookup: DirLookup = DirLookup(), data
 
     return arg
 
-def parsePath(arg: str, parentPath: Path, dirLookup: DirLookup = DirLookup()) -> Path | any:
+def parsePath(arg: str, parentPath: Path, dirLookup: DirLookup = DirLookup()) -> Path | Any:
     prefix, relPath = arg.split("/", 1)
     if prefix == ".":
         return parentPath / relPath
@@ -86,7 +87,7 @@ def parsePath(arg: str, parentPath: Path, dirLookup: DirLookup = DirLookup()) ->
     
     return arg
 
-def parseSelectorArg(arg: str, dataFileLookup: DataFileLookup = DataFileLookup()) -> Path | str:
+def _parseSelectorArg(arg: str, dataFileLookup: DataFileLookup = DataFileLookup()) -> Path | str:
     if "-" not in arg:
         logging.warning(f"Both file type and file property not present in arg, deliminate with '-'")
         return arg

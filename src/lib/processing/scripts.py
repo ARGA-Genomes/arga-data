@@ -18,8 +18,8 @@ class FunctionScript:
         # Script information
         modulePath: str = scriptInfo.pop("path", None)
         self.function: str = scriptInfo.pop("function", None)
-        args: list[str] = scriptInfo.pop("args", [])
-        kwargs: dict[str, str] = scriptInfo.pop("kwargs", {})
+        self.args: list[str] = scriptInfo.pop("args", [])
+        self.kwargs: dict[str, str] = scriptInfo.pop("kwargs", {})
 
         if modulePath is None:
             raise Exception("No script path specified") from AttributeError
@@ -28,9 +28,8 @@ class FunctionScript:
             raise Exception("No script function specified") from AttributeError
         
         self.modulePath = parse.parsePath(modulePath, self.scriptDir)
-
-        self.args = [parse.parsePath(arg, self.scriptDir) for arg in args]
-        self.kwargs = {key: parse.parsePath(arg, self.scriptDir) for key, arg in kwargs.items()}
+        self.dirLookup = parse.DirLookup(imports)
+        self.dataFileLookup = parse.DataFileLookup()
 
         for parameter in scriptInfo:
             logging.debug(f"Unknown script parameter: {parameter}")
@@ -43,7 +42,7 @@ class FunctionScript:
     
     def run(self, verbose: bool, inputArgs: list = [], inputKwargs: dict = {}) -> tuple[bool, any]:
         try:
-            pathExtension = [str(path.parent) for path in self.imports.values()]
+            pathExtension = [str(path.parent) for path in self.imports]
             sys.path.extend(pathExtension)
             processFunction = self._importFunction(self.modulePath, self.function)
         except:
@@ -51,8 +50,8 @@ class FunctionScript:
             logging.error(traceback.format_exc())
             return False, None
 
-        args = self.args + inputArgs
-        kwargs = self.kwargs | inputKwargs
+        args = [parse.parseArg(arg, self.scriptDir, self.dirLookup, self.dataFileLookup) for arg in self.args] + inputArgs
+        kwargs = {key: parse.parseArg(value, self.scriptDir, self.dirLookup, self.dataFileLookup) for key, value in self.kwargs.items()} | inputKwargs
 
         if verbose:
             msg = f"Running {self.modulePath} function '{self.function}'"
@@ -97,11 +96,7 @@ class OutputScript(FunctionScript):
 
         super().__init__(scriptDir, scriptInfo, imports)
 
-        self.dirLookup = parse.DirLookup(imports)
-        self.dataFileLookup = parse.DataFileLookup(outputs=[self.output])
-
-        self.args = [parse.parseArg(arg, self.scriptDir, self.dirLookup, self.dataFileLookup) for arg in self.args]
-        self.kwargs = {key: parse.parseArg(arg, self.scriptDir, self.dirLookup, self.dataFileLookup) for key, arg in self.kwargs.items()}
+        self.dataFileLookup.merge(parse.DataFileLookup(outputs=[self.output]))
 
     def _resolveOutput(self, outputName: str, outputProperties: dict) -> DataFile:
         return self._createFile(self.outputDir / outputName, outputProperties)
