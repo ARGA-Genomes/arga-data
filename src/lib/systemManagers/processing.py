@@ -1,8 +1,9 @@
 from pathlib import Path
 from lib.processing.files import DataFile, Step
-from lib.processing.scripts import FileScript, FileSelect
+from lib.processing.scripts import FileScript
 from lib.systemManagers.baseManager import SystemManager, Task
 import logging
+import lib.processing.parsing as parse
 
 class _Node(Task):
     def __init__(self, index: str, script: FileScript, parents: list['_Node']):
@@ -52,7 +53,7 @@ class _Root(_Node):
         return True
 
 class ProcessingManager(SystemManager):
-    def __init__(self, dataDir: Path, scriptDir: Path, metadataDir: Path, scriptImports: dict[str, Path]):
+    def __init__(self, dataDir: Path, scriptDir: Path, metadataDir: Path, scriptImports: list[Path]):
         super().__init__(dataDir, scriptDir, metadataDir, Step.PROCESSING, "steps")
 
         self.scriptImports = scriptImports
@@ -64,11 +65,11 @@ class ProcessingManager(SystemManager):
         fileInput = self._rootNodes[-1] if depth == 0 else self._scriptNodes[depth-1][-1]
         flatScriptNodes = [node for nodeList in self._scriptNodes for node in nodeList]
 
-        inputs = {
-            FileSelect.INPUT: [fileInput.getOutputFile()],
-            FileSelect.DOWNLOAD: [node.getOutputFile() for node in self._rootNodes],
-            FileSelect.PROCESS: [node.getOutputFile() for node in flatScriptNodes]
-        }
+        inputs = parse.DataFileLookup(
+            inputs=[fileInput.getOutputFile()],
+            downloads=[node.getOutputFile() for node in self._rootNodes],
+            processed=[node.getOutputFile() for node in flatScriptNodes]
+        )
         
         try:
             script = FileScript(self.scriptDir, dict(step), self.workingDir, inputs, self.scriptImports)

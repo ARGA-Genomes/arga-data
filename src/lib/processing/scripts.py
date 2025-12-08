@@ -2,36 +2,24 @@ from pathlib import Path
 from lib.processing.files import DataFile, Folder
 import logging
 import importlib.util
-from enum import Enum
 import traceback
 from lib.config import globalConfig as gcfg
-from typing import Any
 import sys
-
-class FileSelect(Enum):
-    INPUT    = "IN"
-    OUTPUT   = "OUT"
-    DOWNLOAD = "D"
-    PROCESS  = "P"
-
-class _FileProperty(Enum):
-    DIR  = "DIR"
-    FILE = "FILE"
-    PATH = "PATH"
+import lib.processing.parsing as parse
 
 class FunctionScript:
     _libDir = gcfg.folders.src / "lib"
 
-    def __init__(self, scriptDir: Path, scriptInfo: dict, imports: dict[str, Path]):
+    def __init__(self, scriptDir: Path, scriptInfo: dict, imports: list[str]):
         self.scriptDir = scriptDir
         self.scriptInfo = scriptInfo
-        self.imports = imports | {".lib": self._libDir}
+        self.imports = imports + [self._libDir]
 
         # Script information
         modulePath: str = scriptInfo.pop("path", None)
         self.function: str = scriptInfo.pop("function", None)
-        args: list[str] = scriptInfo.pop("args", [])
-        kwargs: dict[str, str] = scriptInfo.pop("kwargs", {})
+        self.args: list[str] = scriptInfo.pop("args", [])
+        self.kwargs: dict[str, str] = scriptInfo.pop("kwargs", {})
 
         if modulePath is None:
             raise Exception("No script path specified") from AttributeError
@@ -39,10 +27,9 @@ class FunctionScript:
         if self.function is None:
             raise Exception("No script function specified") from AttributeError
         
-        self.modulePath = self._parsePath(modulePath, True)
-
-        self.args = [self._parsePath(arg) for arg in args]
-        self.kwargs = {key: self._parsePath(arg) for key, arg in kwargs.items()}
+        self.modulePath = parse.parsePath(modulePath, self.scriptDir)
+        self.dirLookup = parse.DirLookup(imports)
+        self.dataFileLookup = parse.DataFileLookup()
 
         for parameter in scriptInfo:
             logging.debug(f"Unknown script parameter: {parameter}")
@@ -52,35 +39,10 @@ class FunctionScript:
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)
         return getattr(module, functionName)
-
-    def _parsePath(self, arg: Any, forceOutput: bool = False) -> Path | Any:
-        if not isinstance(arg, str):
-            return arg
-        
-        if arg.startswith("."):
-            prefix, path = arg.split("/", 1)
-            if prefix == ".":
-                return self.scriptDir / path
-            
-            if prefix == "..":
-                cwd = self.scriptDir.parent
-                while path.startswith("../"):
-                    cwd = cwd.parent
-                    path = path[3:]
-
-                return cwd / path
-            
-            if prefix in self.imports:
-                return self.imports[prefix] / path
-
-        if forceOutput:
-            return Path(arg)
-        
-        return arg
     
     def run(self, verbose: bool, inputArgs: list = [], inputKwargs: dict = {}) -> tuple[bool, any]:
         try:
-            pathExtension = [str(path.parent) for path in self.imports.values()]
+            pathExtension = [str(path.parent) for path in self.imports]
             sys.path.extend(pathExtension)
             processFunction = self._importFunction(self.modulePath, self.function)
         except:
@@ -88,8 +50,8 @@ class FunctionScript:
             logging.error(traceback.format_exc())
             return False, None
 
-        args = self.args + inputArgs
-        kwargs = self.kwargs | inputKwargs
+        args = [parse.parseArg(arg, self.scriptDir, self.dirLookup, self.dataFileLookup) for arg in self.args] + inputArgs
+        kwargs = {key: parse.parseArg(value, self.scriptDir, self.dirLookup, self.dataFileLookup) for key, value in self.kwargs.items()} | inputKwargs
 
         if verbose:
             msg = f"Running {self.modulePath} function '{self.function}'"
@@ -120,9 +82,7 @@ class FunctionScript:
         return True, retVal
 
 class OutputScript(FunctionScript):
-    fileLookup = {}
-    
-    def __init__(self, scriptDir: Path, scriptInfo: dict, outputDir: Path, imports: dict[str, Path] = {}):
+    def __init__(self, scriptDir: Path, scriptInfo: dict, outputDir: Path, imports: list[Path] = []):
         self.outputDir = outputDir
 
         # Output information
@@ -132,15 +92,13 @@ class OutputScript(FunctionScript):
         if outputName is None:
             raise Exception("No output specified, please use FunctionScript if intentionally has no output") from AttributeError
 
-        self.output = self._parseOutput(outputName, outputProperties)
-        self.fileLookup |= {FileSelect.OUTPUT: [self.output]}
+        self.output = self._resolveOutput(outputName, outputProperties)
 
         super().__init__(scriptDir, scriptInfo, imports)
 
-        self.args = [self._parseArg(arg) for arg in self.args]
-        self.kwargs = {key: self._parseArg(arg) for key, arg in self.kwargs.items()}
+        self.dataFileLookup.merge(parse.DataFileLookup(outputs=[self.output]))
 
-    def _parseOutput(self, outputName: str, outputProperties: dict) -> DataFile:
+    def _resolveOutput(self, outputName: str, outputProperties: dict) -> DataFile:
         return self._createFile(self.outputDir / outputName, outputProperties)
 
     def _createFile(self, outputPath: Path, outputProperties: dict) -> DataFile:
@@ -148,69 +106,6 @@ class OutputScript(FunctionScript):
             return Folder(outputPath)
         
         return DataFile(outputPath, outputProperties)
-    
-    def _parseArg(self, arg: Any) -> Path | str:
-        if not isinstance(arg, str):
-            return arg
-        
-        if not (arg.startswith("{") and arg.endswith("}")):
-            return arg
-        
-        parsedArg = self._parseSelectorArg(arg[1:-1])
-        if  isinstance(parsedArg, str):
-            logging.warning(f"Unknown key code: {parsedArg}")
-            return arg
-        
-        return parsedArg
-
-    def _parseSelectorArg(self, argKey: str) -> Path | str:
-        if "-" not in argKey:
-            logging.warning(f"Both file type and file property not present in arg, deliminate with '-'")
-            return argKey
-        
-        fType, fProperty = argKey.split("-")
-
-        if fType[-1].isdigit():
-            selection = int(fType[-1])
-            fType = fType[:-1]
-        else:
-            selection = 0
-
-        fTypeEnum = FileSelect._value2member_map_.get(fType, None)
-        if fTypeEnum is None:
-            logging.error(f"Invalid file type: '{file}'")
-            return argKey
-
-        files = self.fileLookup.get(fTypeEnum, None)
-        if files is None:
-            logging.error(f"No files provided for file type: '{fType}")
-            return argKey
-
-        if selection > len(files):
-            logging.error(f"File selection '{selection}' out of range for file type '{fType}' which has a length of '{len(files)}")
-            return argKey
-        
-        file: DataFile = files[selection]
-        fProperty, *suffixes = fProperty.split(".")
-
-        if fProperty == _FileProperty.FILE.value:
-            if suffixes:
-                logging.warning("Suffix provided for a file object which cannot be resolved, suffix not applied")
-            return file
-        
-        if fProperty == _FileProperty.DIR.value:
-            if suffixes:
-                logging.warning("Suffix provided for a parent path which cannot be resolved, suffix not applied")
-            return file.path.parent
-
-        if fProperty == _FileProperty.PATH.value:
-            pth = file.path
-            for suffix in suffixes:
-                pth = pth.with_suffix(suffix if not suffix else f".{suffix}") # Prepend a dot for valid suffixes
-            return pth
-        
-        logging.error(f"Unable to parse file property: '{fProperty}")
-        return argKey
 
     def run(self, overwrite: bool, verbose: bool, inputArgs: list = [], inputKwargs: dict = {}) -> tuple[bool, any]:
         if self.output.exists():
@@ -235,15 +130,15 @@ class OutputScript(FunctionScript):
         return True, retVal
 
 class FileScript(OutputScript):
-    def __init__(self, scriptDir: Path, scriptInfo: dict, outputDir: Path, inputs: dict[str, DataFile], imports: dict[str, Path] = {}):
-        self.fileLookup |= inputs
-
+    def __init__(self, scriptDir: Path, scriptInfo: dict, outputDir: Path, inputs: parse.DataFileLookup, imports: list[Path] = []):
         super().__init__(scriptDir, scriptInfo, outputDir, imports)
 
-    def _parseOutput(self, outputName: str, outputProperties: dict) -> DataFile:
-        parsedValue = self._parseArg(outputName)
+        self.dataFileLookup.merge(inputs)
+
+    def _resolveOutput(self, outputName: str, outputProperties: dict) -> DataFile:
+        parsedValue = parse.parseArg(outputName, self.outputDir, self.dirLookup, self.dataFileLookup)
 
         if isinstance(parsedValue, Path): # Redirect path of output to outputDir
             parsedValue = parsedValue.name
 
-        return super()._parseOutput(parsedValue, outputProperties)
+        return super()._resolveOutput(parsedValue, outputProperties)

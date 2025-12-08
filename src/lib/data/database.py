@@ -57,7 +57,7 @@ class BasicDB:
         password = sourceSecrets.password if sourceSecrets is not None else ""
 
         # Location Library
-        scriptImportLibs = {".llib": self.libDir}
+        scriptImportLibs = [self.libDir]
 
         # System Managers
         self.downloadManager = DownloadManager(self.dataDir, self.scriptsDir, self.databaseDir, scriptImportLibs, username, password)

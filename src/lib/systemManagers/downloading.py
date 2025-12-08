@@ -30,7 +30,7 @@ class _URLDownload(_Download):
         return dl.download(self.url, self.file.path, verbose=verbose, auth=self.auth)
 
 class _ScriptDownload(_Download):
-    def __init__(self, scriptDir: Path, downloadDir: Path, scriptInfo: dict, imports: dict[str, Path]):
+    def __init__(self, scriptDir: Path, downloadDir: Path, scriptInfo: dict, imports: list[Path]):
         self.script = OutputScript(scriptDir, dict(scriptInfo), downloadDir, imports)
 
         super().__init__(self.script.output.path, self.script.output.properties)
@@ -39,7 +39,7 @@ class _ScriptDownload(_Download):
         return self.script.run(overwrite, verbose)[0] # No retval for downloading tasks, just return success
 
 class DownloadManager(SystemManager):
-    def __init__(self, dataDir: Path, scriptDir: Path, metadataDir: Path, scriptImports: dict[str, Path], username: str, password: str):
+    def __init__(self, dataDir: Path, scriptDir: Path, metadataDir: Path, scriptImports: list[Path], username: str, password: str):
         super().__init__(dataDir, scriptDir, metadataDir, Step.DOWNLOADING, "files")
 
         self.scriptImports = scriptImports
