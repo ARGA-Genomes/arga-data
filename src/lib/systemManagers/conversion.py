@@ -106,7 +106,7 @@ class Conversion(Task):
         return df
 
 class ConversionManager(SystemManager):
-    def __init__(self, dataDir: Path, scriptDir: Path, metadataDir: Path, scriptImports: dict[str, Path], datasetID: str, prefix: str, name: str):
+    def __init__(self, dataDir: Path, scriptDir: Path, metadataDir: Path, scriptImports: list[Path], datasetID: str, prefix: str, name: str):
         super().__init__(dataDir, scriptDir, metadataDir, Step.CONVERSION, "tasks")
 
         self.scriptImports = scriptImports
