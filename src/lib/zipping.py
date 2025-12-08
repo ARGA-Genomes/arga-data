@@ -51,13 +51,12 @@ def extract(filePath: Path, outputDir: Path = None, addSuffix: str = "", overwri
 
     return outputPath
 
-def compress(filePath: Path, outputDir: Path = None, zipName: str = None) -> Path | None:
-
+def compress(filePath: Path, outputDir: Path = None, zipName: str = None, includeFolder: bool = True) -> Path | None:
     def compressFolder(folderPath: Path, parentFolder: Path, fp: zipfile.ZipFile):
         for item in folderPath.iterdir():
             itemPath = Path(parentFolder, item.name)
             if item.is_file():
-                fp.write(item, itemPath)
+                fp.write(item, itemPath if includeFolder else itemPath.name)
             else:
                 compressFolder(item, itemPath, fp)
 
@@ -70,7 +69,7 @@ def compress(filePath: Path, outputDir: Path = None, zipName: str = None) -> Pat
 
     with zipfile.ZipFile(outputFile, "w", zipfile.ZIP_DEFLATED) as zipfp:
         if filePath.is_file():
-            zipfp.write(filePath, outputFile.stem)
+            zipfp.write(filePath, outputFile.stem if includeFolder else outputFile.name)
         else:
             compressFolder(filePath, outputFile.stem, zipfp)
     
