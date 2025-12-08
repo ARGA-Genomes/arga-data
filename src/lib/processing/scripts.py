@@ -3,12 +3,11 @@ from lib.processing.files import DataFile, Folder
 import logging
 import importlib.util
 import traceback
-from lib.config import globalConfig as gcfg
 import sys
 import lib.processing.parsing as parse
 
 class FunctionScript:
-    _libDir = gcfg.folders.src / "lib"
+    _libDir = Path(__file__).parents[2]
 
     def __init__(self, scriptDir: Path, scriptInfo: dict, imports: list[str]):
         self.scriptDir = scriptDir
