@@ -86,7 +86,7 @@
     "processing": {
         "parallel": [
             {
-                "path": "./processing.py",
+                "path": "./parser.py",
                 "function": "parse",
                 "args": [
                     "{IN-PATH}",
