@@ -16,7 +16,7 @@ class FileProperty(Enum):
     PATH = "PATH"
 
 class DataFileLookup:
-    def __init__(self, inputs: list[DataFile] = [], outputs: list[DataFile] = [], downloads: list[DataFile] = [], processed: list[DataFile] = []):
+    def __init__(self, inputs: list[DataFile] = None, outputs: list[DataFile] = None, downloads: list[DataFile] = None, processed: list[DataFile] = None):
         self._enumMap = {
             FileSelect.INPUT: inputs,
             FileSelect.OUTPUT: outputs,
@@ -24,12 +24,22 @@ class DataFileLookup:
             FileSelect.PROCESS: processed
         }
 
+        for key, value in self._enumMap.items():
+            if value is None:
+                self._enumMap[key] = []
+
+    def __len__(self) -> int:
+        return sum(len(value) for value in self._enumMap.values())
+    
+    def __str__(self) -> str:
+        return ", ".join(f"{key.name}: {len(value)}" for key, value in self._enumMap.items())
+
     def getFiles(self, enum: FileSelect) -> list[DataFile]:
         return self._enumMap.get(enum, [])
     
-    def merge(self, lookup: 'DataFileLookup') -> None:
+    def merge(self, other: 'DataFileLookup') -> None:
         for enum in FileSelect:
-            self._enumMap[enum] += lookup._enumMap[enum]
+            self._enumMap[enum] += other._enumMap[enum]
 
 class DirLookup:
     def __init__(self, directories: list[Path] = []):
@@ -107,7 +117,7 @@ def _parseSelectorArg(arg: str, dataFileLookup: DataFileLookup = DataFileLookup(
 
     files = dataFileLookup.getFiles(fTypeEnum)
     if not files:
-        logging.error(f"No files provided for file type: '{fType}")
+        logging.error(f"No files provided for file type: '{fType}'")
         return arg
 
     if selection > len(files):
