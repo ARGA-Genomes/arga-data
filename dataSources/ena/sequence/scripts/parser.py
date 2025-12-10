@@ -2,8 +2,11 @@ from pathlib import Path
 from lib.progressBar import ProgressBar
 import logging
 from lib.bigFiles import RecordWriter
+from pathlib import Path
+import lib.zipping as zp
+import mmap
 
-# self._dataClass = {
+# dataClass = {
 #     "EST": "expressed sequence tag",
 #     "GSS": "genome survey sequence",
 #     "STS": "sequence tagged site",
@@ -34,7 +37,15 @@ from lib.bigFiles import RecordWriter
 #     "XXX": "Unknown"
 # }
 
-def parseFile(filePath: Path, outputPath: Path):
+def parse(inputPath: Path, outputPath: Path):
+    extractedFile = zp.extract(inputPath, outputPath.parent)
+    if extractedFile is None:
+        return
+    
+    _parseFile(extractedFile, outputPath)
+    extractedFile.unlink()
+
+def _parseFile(filePath: Path, outputPath: Path):
     logging.info(f"Parsing flat file: {filePath}")
 
     rowsPerSubsection = 30000
@@ -43,51 +54,56 @@ def parseFile(filePath: Path, outputPath: Path):
 
     sectionCount = 0
     offset = 0
+    lineCount = 0
+    lineOffset = 0
     with open(filePath, "rb") as fp:
-        for line in fp:
-            if line == b"//\n":
-                sectionCount += 1
-                if sectionCount < skipSections:
-                    offset = fp.tell()
+        with mmap.mmap(fp.fileno(), length=0, access=mmap.ACCESS_READ) as mfp:
+            for line in iter(mfp.readline, b""):
+                lineCount += 1
+                if line == b"//\n":
+                    sectionCount += 1
+                    if sectionCount < skipSections:
+                        offset = mfp.tell()
+                        lineOffset = lineCount
 
     logging.info(f"Found {sectionCount} sections in file")
-    progress = ProgressBar(sectionCount, callsPerUpdate=10)
-    with open(filePath) as fp:
-        fp.seek(offset)
+    progress = ProgressBar(lineCount - lineOffset, callsPerUpdate=1000)
+    with open(filePath, "rb") as fp:
+        with mmap.mmap(fp.fileno(), length=0, access=mmap.ACCESS_READ) as mfp:
+            mfp.seek(offset)
 
-        sectionData = {}
-        lastCode = ""
-        subsectionData = ""
+            sectionData = {}
+            lastCode = ""
+            subsectionData = ""
 
-        line = fp.readline()
-        while line:
-            code = line[:2]
-            lineData = line[5:]
-            if code == "//": # Section break
-                writer.write(sectionData)
+            for line in iter(mfp.readline, b""):
+                code = line[:2]
+                lineData = line[5:].decode("utf-8")
+                if code == b"//": # Section break
+                    writer.write(sectionData)
+                    sectionData = {}
+                    subsectionData = ""
+                elif code == lastCode:
+                    subsectionData += lineData
+                else: # XX will automatically trigger
+                    if subsectionData:
+                        updateSectionData(sectionData, lastCode, subsectionData)
+
+                    subsectionData = lineData
+
+                lastCode = code
                 progress.update()
-                sectionData = {}
-                subsectionData = ""
-            elif code == lastCode:
-                subsectionData += lineData
-            else: # XX will automatically trigger
-                if subsectionData:
-                    updateSectionData(sectionData, lastCode, subsectionData)
-
-                subsectionData = lineData
-
-            lastCode = code
-            line = fp.readline()
 
     writer.combine(removeParts=True)
 
-def updateSectionData(currentData: dict, code: str, data: str) -> None:
-    if code in ("XX", "  ", "KW", "CO", "AS", "AH", "CC", "FH"):
+def updateSectionData(currentData: dict, code: bytes, data: str) -> None:
+    if code in (b"XX", b"  ", b"KW", b"CO", b"AS", b"AH", b"CC", b"FH"):
         return
     
     data = data.rstrip("\n")
-    if code == "ID":
+    if code == b"ID":
         sequence, _, topology, mol_type, dataClass, tax_division, base_count = data.split("; ")
+
         currentData.update({
             "sequence": sequence,
             "topology": topology,
@@ -97,61 +113,61 @@ def updateSectionData(currentData: dict, code: str, data: str) -> None:
             "base_count": int(base_count[:-4]) # Clean off " BP."
         })
 
-    elif code == "AC":
+    elif code == b"AC":
         currentData["accession"] = data.rstrip(";")
     
-    elif code == "PR":
+    elif code == b"PR":
         key, value = data[:-1].split(":", 1)
         currentData[key.lower()] = value
 
-    elif code == "DT":
+    elif code == b"DT":
         originalDate, date = data.split("\n")
         currentData.update({
             "original_date": originalDate,
             "date": date
         })
 
-    elif code == "DE":
+    elif code == b"DE":
         currentData["description"] = data.replace("\n", " ")
 
-    elif code == "OS":
+    elif code == b"OS":
         currentData["scientific_name"] =data
 
-    elif code == "OC":
+    elif code == b"OC":
         currentData["lineage"] = data.replace("\n", " ")
 
-    elif code == "OG":
+    elif code == b"OG":
         currentData["sample"] = data
 
-    elif code == "RN":
+    elif code == b"RN":
         if "references" not in currentData:
             currentData["references"] = []
         
         currentData["references"].append({})
 
-    elif code == "RP":
+    elif code == b"RP":
         currentData["references"][-1]["base_range"] = data
 
-    elif code == "RC":
+    elif code == b"RC":
         currentData["references"][-1]["comment"] = data.replace("\n", " ")
 
-    elif code == "RX":
+    elif code == b"RX":
         link, value = data[:-1].split("; ", 1)
         currentData["references"][-1][link.lower()] = value
 
-    elif code == "RA":
+    elif code == b"RA":
         currentData["references"][-1]["authors"] = data.replace("\n", " ").rstrip(";")
 
-    elif code == "RT":
+    elif code == b"RT":
         currentData["references"][-1]["title"] = data.replace("\n", " ").strip("\";")
 
-    elif code == "RL":
+    elif code == b"RL":
         currentData["references"][-1]["literature"] = data[:-1]
 
-    elif code == "RG":
+    elif code == b"RG":
         currentData["references"][-1]["group"] = data
 
-    elif code == "DR":
+    elif code == b"DR":
         currentData["data_references"] = {}
         for reference in data.split("\n"):
             key, value = reference.split("; ", 1)
@@ -161,7 +177,7 @@ def updateSectionData(currentData: dict, code: str, data: str) -> None:
             else:
                 currentData["data_references"] += f", {value}"
 
-    elif code == "FT":
+    elif code == b"FT":
         features = {}
 
         for line in data.split("\n"):
@@ -201,7 +217,7 @@ def updateSectionData(currentData: dict, code: str, data: str) -> None:
 
         currentData["features_genes"] = str(features)
 
-    elif code == "SQ":
+    elif code == b"SQ":
         currentData["sequence_info"] = data
 
     else:
