@@ -81,7 +81,9 @@ class FunctionScript:
         return True, retVal
 
 class OutputScript(FunctionScript):
-    def __init__(self, scriptDir: Path, scriptInfo: dict, outputDir: Path, imports: list[Path] = []):
+    def __init__(self, scriptDir: Path, scriptInfo: dict, outputDir: Path, imports: list[Path] = [], inputs: parse.DataFileLookup = parse.DataFileLookup()):
+        super().__init__(scriptDir, scriptInfo, imports)
+
         self.outputDir = outputDir
 
         # Output information
@@ -91,14 +93,10 @@ class OutputScript(FunctionScript):
         if outputName is None:
             raise Exception("No output specified, please use FunctionScript if intentionally has no output") from AttributeError
 
-        self.output = self._resolveOutput(outputName, outputProperties)
-
-        super().__init__(scriptDir, scriptInfo, imports)
-
+        self.dataFileLookup.merge(inputs)
+        parsedOutput = parse.parseArg(outputName, self.outputDir, self.dirLookup, self.dataFileLookup)
+        self.output = self._createFile(self.outputDir / parsedOutput, outputProperties)
         self.dataFileLookup.merge(parse.DataFileLookup(outputs=[self.output]))
-
-    def _resolveOutput(self, outputName: str, outputProperties: dict) -> DataFile:
-        return self._createFile(self.outputDir / outputName, outputProperties)
 
     def _createFile(self, outputPath: Path, outputProperties: dict) -> DataFile:
         if not outputPath.suffix:
@@ -127,17 +125,3 @@ class OutputScript(FunctionScript):
         logging.info(f"Created file {self.output}")
         self.output.deleteBackup()
         return True, retVal
-
-class FileScript(OutputScript):
-    def __init__(self, scriptDir: Path, scriptInfo: dict, outputDir: Path, inputs: parse.DataFileLookup, imports: list[Path] = []):
-        super().__init__(scriptDir, scriptInfo, outputDir, imports)
-
-        self.dataFileLookup.merge(inputs)
-
-    def _resolveOutput(self, outputName: str, outputProperties: dict) -> DataFile:
-        parsedValue = parse.parseArg(outputName, self.outputDir, self.dirLookup, self.dataFileLookup)
-
-        if isinstance(parsedValue, Path): # Redirect path of output to outputDir
-            parsedValue = parsedValue.name
-
-        return super()._resolveOutput(parsedValue, outputProperties)
