@@ -1,12 +1,12 @@
 from pathlib import Path
 from lib.processing.files import DataFile, Step
-from lib.processing.scripts import FileScript
+from lib.processing.scripts import OutputScript
 from lib.systemManagers.baseManager import SystemManager, Task
 import logging
 import lib.processing.parsing as parse
 
 class _Node(Task):
-    def __init__(self, index: str, script: FileScript, parents: list['_Node']):
+    def __init__(self, index: str, script: OutputScript, parents: list['_Node']):
         super().__init__()
 
         self.index = index
@@ -72,7 +72,7 @@ class ProcessingManager(SystemManager):
         )
         
         try:
-            script = FileScript(self.scriptDir, dict(step), self.workingDir, inputs, self.scriptImports)
+            script = OutputScript(self.scriptDir, dict(step), self.workingDir, self.scriptImports, inputs)
         except AttributeError as e:
             logging.error(f"Invalid processing script configuration: {e}")
             return None
