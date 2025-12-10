@@ -94,15 +94,15 @@ class OutputScript(FunctionScript):
             raise Exception("No output specified, please use FunctionScript if intentionally has no output") from AttributeError
 
         self.dataFileLookup.merge(inputs)
-        parsedOutput = parse.parseArg(outputName, self.outputDir, self.dirLookup, self.dataFileLookup)
-        self.output = self._createFile(self.outputDir / parsedOutput, outputProperties)
-        self.dataFileLookup.merge(parse.DataFileLookup(outputs=[self.output]))
 
-    def _createFile(self, outputPath: Path, outputProperties: dict) -> DataFile:
-        if not outputPath.suffix:
-            return Folder(outputPath)
-        
-        return DataFile(outputPath, outputProperties)
+        outputName = parse.parseArg(outputName, self.outputDir, self.dirLookup, self.dataFileLookup)
+        if isinstance(outputName, Path):
+            outputName = outputName.name # Clean off old parent to output in proper output dir
+
+        outputPath = self.outputDir / outputName
+        self.output = Folder(outputPath) if not outputPath.suffix else DataFile(outputPath, outputProperties)
+
+        self.dataFileLookup.merge(parse.DataFileLookup(outputs=[self.output]))
 
     def run(self, overwrite: bool, verbose: bool, inputArgs: list = [], inputKwargs: dict = {}) -> tuple[bool, any]:
         if self.output.exists():
