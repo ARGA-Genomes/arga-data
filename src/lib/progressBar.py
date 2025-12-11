@@ -1,12 +1,13 @@
 class ProgressBar:
-    def __init__(self, totalTasks: int, length: int = 50, callsPerUpdate: int = 1, processName: str = "Progress", decimalPlaces: int = 2):
+    def __init__(self, totalTasks: int, length: int = 50, tasksPerUpdate: int = 1, processName: str = "Progress", decimalPlaces: int = 2):
         self._totalTasks = totalTasks
         self._length = length
-        self._callsPerUpdate = callsPerUpdate
+        self._tasksPerUpdate = tasksPerUpdate
         self._processName = processName
         self._decimalPlaces = decimalPlaces
 
         self._atTask = 0
+        self._lastUpdate = 0
         self._loading = "-\\|/"
 
     def _getBar(self) -> str:
@@ -19,7 +20,7 @@ class ProgressBar:
         return f"[{min(completedLength, percentagePos) * '='}{max(percentagePos - completedLength, 0) * '-'}{percentage}{max(completedLength - secondHalfStart, 0) * '='}{((self._length - secondHalfStart) - max(completedLength - secondHalfStart, 0)) * '-'}]"
 
     def _render(self, extraInfo: str) -> int:
-        output = f"> {self._processName}{' - ' if extraInfo else ''}{extraInfo} ({self._loading[(self._atTask // self._callsPerUpdate) % len(self._loading) ]}): {self._getBar()}"
+        output = f"> {self._processName}{' - ' if extraInfo else ''}{extraInfo} ({self._loading[(self._atTask // self._tasksPerUpdate) % len(self._loading) ]}): {self._getBar()}"
         print(output, end="\n" if self._atTask >= self._totalTasks else "\r")
         return len(output)
 
@@ -28,7 +29,8 @@ class ProgressBar:
             return 0
         
         self._atTask += updateAmount
-        if self._atTask % self._callsPerUpdate == 0 or self._atTask >= self._totalTasks:
+        if (self._atTask - self._lastUpdate) >= self._tasksPerUpdate or self._atTask >= self._totalTasks:
+            self._lastUpdate = self._atTask
             return self._render(extraInfo)
 
         return 0
