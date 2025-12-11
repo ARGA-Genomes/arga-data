@@ -5,6 +5,8 @@ from lib.bigFiles import RecordWriter
 from pathlib import Path
 import lib.zipping as zp
 import mmap
+import concurrent.futures as cf
+from typing import Generator
 
 # dataClass = {
 #     "EST": "expressed sequence tag",
@@ -43,182 +45,198 @@ def parse(inputPath: Path, outputPath: Path):
         return
     
     _parseFile(extractedFile, outputPath)
-    extractedFile.unlink()
+    # extractedFile.unlink()
 
 def _parseFile(filePath: Path, outputPath: Path):
     logging.info(f"Parsing flat file: {filePath}")
 
-    rowsPerSubsection = 30000
+    rowsPerSubsection = 10000
     writer = RecordWriter(outputPath, rowsPerSubsection, subDirName=f"{filePath.stem}_chunks")
     skipSections = writer.writtenRecordCount()
 
-    sectionCount = 0
-    offset = 0
-    lineCount = 0
-    lineOffset = 0
     with open(filePath, "rb") as fp:
-        with mmap.mmap(fp.fileno(), length=0, access=mmap.ACCESS_READ) as mfp:
-            for line in iter(mfp.readline, b""):
-                lineCount += 1
-                if line == b"//\n":
-                    sectionCount += 1
-                    if sectionCount < skipSections:
-                        offset = mfp.tell()
-                        lineOffset = lineCount
+        lines = sum(1 for _ in fp)
 
-    logging.info(f"Found {sectionCount} sections in file")
-    progress = ProgressBar(lineCount - lineOffset, callsPerUpdate=1000)
-    with open(filePath, "rb") as fp:
-        with mmap.mmap(fp.fileno(), length=0, access=mmap.ACCESS_READ) as mfp:
-            mfp.seek(offset)
+    def chunkGenerator() -> Generator[str, None, None]:
+        findBytes = b"\n//\n"
+        with open(filePath, "rb") as fp:
+            with mmap.mmap(fp.fileno(), length=0, access=mmap.ACCESS_READ) as mfp:
+                byteDiff = mfp.find(findBytes)
+                while byteDiff >= 0:
+                    yield mfp.read(byteDiff + len(findBytes)).decode("utf-8")
+                    byteDiff = mfp.find(findBytes) - mfp.tell()
 
-            sectionData = {}
-            lastCode = ""
-            subsectionData = ""
+    # for chunk in chunkGenerator():
+    progress = ProgressBar(lines, tasksPerUpdate=100)
+    for idx, chunk in enumerate(chunkGenerator()):
+        if idx >= skipSections:
 
-            for line in iter(mfp.readline, b""):
-                code = line[:2]
-                lineData = line[5:].decode("utf-8")
-                if code == b"//": # Section break
-                    writer.write(sectionData)
-                    sectionData = {}
-                    subsectionData = ""
-                elif code == lastCode:
-                    subsectionData += lineData
-                else: # XX will automatically trigger
-                    if subsectionData:
-                        updateSectionData(sectionData, lastCode, subsectionData)
+            recordData = {}
+            for sectionData in chunk.replace("\nXX\nXX\n", "\nXX\n").split("\nXX\n"): # Fix double XX line
+                sectionHeader = sectionData[:2]
+                if sectionHeader in ("AC", "AH", "KW", "CC", "CO"):
+                    continue
 
-                    subsectionData = lineData
+                parsedData = _parseSection(sectionHeader, sectionData)
+                if sectionHeader == "RN":
+                    if "references" not in recordData:
+                        recordData["references"] = []
 
-                lastCode = code
-                progress.update()
+                    recordData["references"].append(parsedData)
+                else:
+                    recordData |= parsedData
+
+            writer.write(recordData)
+
+        progress.update(chunk.count("\n"))
 
     writer.combine(removeParts=True)
 
-def updateSectionData(currentData: dict, code: bytes, data: str) -> None:
-    if code in (b"XX", b"  ", b"KW", b"CO", b"AS", b"AH", b"CC", b"FH"):
-        return
+def _parseSection(header: str, data: str) -> dict:
+    def flattenNoHeader(content: str, spacer: str = " ") -> str:
+        return spacer.join(line[5:] for line in content.split("\n"))
     
-    data = data.rstrip("\n")
-    if code == b"ID":
-        sequence, _, topology, mol_type, dataClass, tax_division, base_count = data.split("; ")
+    def flattenNoHeaderList(content: str) -> list[str]:
+        return [line[5:] for line in content.split("\n")]
 
-        currentData.update({
-            "sequence": sequence,
+    def flattenSections(content: str, spacer: str = " ", map: dict[str, str] = {}) -> dict[str, str]:
+        res = {}
+        for line in content.split("\n"):
+            code = line[:2]
+            lineData = line[5:]
+
+            if code not in res:
+                res[code] = lineData
+            else:
+                res[code] += f"{map.get(code, spacer)}{lineData}"
+        
+        return res
+
+    if header == "ID":
+        accession, _, topology, mol_type, dataClass, tax_division, base_count = data.rstrip("\n").split("; ")
+        return {
+            "sequence": accession,
             "topology": topology,
             "mol_type": mol_type,
             "dataclass": dataClass,
             "tax_division": tax_division,
             "base_count": int(base_count[:-4]) # Clean off " BP."
-        })
+        }
 
-    elif code == b"AC":
-        currentData["accession"] = data.rstrip(";")
-    
-    elif code == b"PR":
-        key, value = data[:-1].split(":", 1)
-        currentData[key.lower()] = value
-
-    elif code == b"DT":
-        originalDate, date = data.split("\n")
-        currentData.update({
-            "original_date": originalDate,
-            "date": date
-        })
-
-    elif code == b"DE":
-        currentData["description"] = data.replace("\n", " ")
-
-    elif code == b"OS":
-        currentData["scientific_name"] =data
-
-    elif code == b"OC":
-        currentData["lineage"] = data.replace("\n", " ")
-
-    elif code == b"OG":
-        currentData["sample"] = data
-
-    elif code == b"RN":
-        if "references" not in currentData:
-            currentData["references"] = []
-        
-        currentData["references"].append({})
-
-    elif code == b"RP":
-        currentData["references"][-1]["base_range"] = data
-
-    elif code == b"RC":
-        currentData["references"][-1]["comment"] = data.replace("\n", " ")
-
-    elif code == b"RX":
-        link, value = data[:-1].split("; ", 1)
-        currentData["references"][-1][link.lower()] = value
-
-    elif code == b"RA":
-        currentData["references"][-1]["authors"] = data.replace("\n", " ").rstrip(";")
-
-    elif code == b"RT":
-        currentData["references"][-1]["title"] = data.replace("\n", " ").strip("\";")
-
-    elif code == b"RL":
-        currentData["references"][-1]["literature"] = data[:-1]
-
-    elif code == b"RG":
-        currentData["references"][-1]["group"] = data
-
-    elif code == b"DR":
-        currentData["data_references"] = {}
-        for reference in data.split("\n"):
-            key, value = reference.split("; ", 1)
-            
-            if key not in currentData["data_references"]:
-                currentData["data_references"] = value
-            else:
-                currentData["data_references"] += f", {value}"
-
-    elif code == b"FT":
-        features = {}
-
+    elif header == "PR":
+        projects = {}
         for line in data.split("\n"):
-            header = line[:16].strip()
-            lineData = line[16:]
+            key, value = line[5:].rstrip(";").split(":", 1)
+            projects[key.lower()] = value
 
-            if header:
-                featureSection = header
-                bpRange = lineData
-                lastKey = ""
+        return projects
+
+    elif header == "DT":
+        originalDate, date = data.split("\n")
+        return {
+            "original_date": originalDate[5:],
+            "date": date[5:]
+        }
+
+    elif header == "DE":
+        return {"description": flattenNoHeader(data)}
+
+    elif header == "OS":
+        splitData = data.split("OG   ")
+        scientificName, lineage = splitData[0].split("\n", 1)
+        taxonData = {
+            "scientific_name": scientificName[5:],
+            "lineage": flattenNoHeader(lineage)
+        }
+
+        if len(splitData) > 1: # OG section exists
+            taxonData["sample"] = splitData[1]
+
+        return taxonData
+
+    elif header == "RN":
+        referenceData = flattenSections(data, " ", {"RX": "\n"})
+        referenceData["pages"] = referenceData.pop("RP", "")
+        referenceData["comment"] = referenceData.pop("RC", "")
+
+        for externalResource in referenceData.pop("RX", "").split("\n"):
+            if not externalResource: # Split creates list with empty string
                 continue
 
-            if lineData[0] == "/":
-                reference = features
-                if featureSection != "source":
-                    if bpRange not in features:
-                        features[bpRange] = {}
+            link, value = externalResource[:-1].split("; ", 1)
+            referenceData[link.lower()] = value
 
-                    reference = features[bpRange]
+        referenceData["group"] = referenceData.pop("RG", "")
+        referenceData["authors"] = referenceData.pop("RA", "").rstrip(";")
+        referenceData["title"] = referenceData.pop("RT", "").strip("\";")
+        referenceData["literature"] = referenceData.pop("RL", "")
 
-                if "=" not in lineData:
-                    if "other" not in reference:
-                        reference["other"] = lineData[1:]
-                    else:
-                        reference["other"] += f", {lineData[1:]}"
-                else:
-                    key, value = lineData[1:].split("=", 1)
-                    lastKey = key
-                    if key != "translation":
-                        reference[key] = value.strip("\"")
-                    
+        return referenceData
+
+    elif header == "DR":
+        dataReferences = {}
+        for reference in flattenNoHeaderList(data):
+            refName, value = reference.split("; ", 1)
+            if refName not in dataReferences:
+                dataReferences[refName] = [value[:-1]]
             else:
-                if not lastKey: # Multiline base pair range
-                    bpRange += lineData
-                elif lastKey != "translation":
-                    reference[lastKey] += " " + lineData.strip('\"')
+                dataReferences[refName].append(value[:-1])
 
-        currentData["features_genes"] = str(features)
+        return {"data_references": dataReferences}
 
-    elif code == b"SQ":
-        currentData["sequence_info"] = data
+    elif header == "FH":
+        def parseLine(line: str) -> tuple[str, str]:
+            if "=" not in line:
+                return "other", line
+            
+            key, value = line.split("=", 1)
+            return key, value.strip("\"")
+
+        currentHeader = ""
+        currentBP = ""
+        newHeader = ""
+        newBP = ""
+
+        features = {}
+        for line in flattenNoHeader(data.split("\n", 1)[-1], "\n").split("\n" + 16*" " + "/"):
+            line = line.replace("\n" + " "*16, " ") # Flatten lines that bleed over
+
+            # Handling upcoming header
+            if "\n" in line: # New section
+                splitLines = line.split("\n")
+                line = splitLines[0] # Leftover line data
+                newHeader = splitLines[-1] # Last section is new header, anything in between only have a header with BP data and can be ignored
+                
+                newHeader, newBP = newHeader.rsplit(" ", 1)
+                newHeader = newHeader.strip() # Clean out extra whitespace after text
+
+                if newBP not in features:
+                    features[newBP] = {}
+
+                if newHeader not in features[newBP]:
+                    features[newBP][newHeader] = {}
+
+            # Handline current line data
+            if line and currentHeader != "translation":
+                key, value = parseLine(line)
+                if key not in features[currentBP][currentHeader]:
+                        features[currentBP][currentHeader][key] = ""
+
+                features[currentBP][currentHeader][key] += value
+                
+            if newHeader:
+                currentHeader = newHeader
+                currentBP = newBP
+                newHeader = ""
+
+        # Combine raw source information into dict
+        fullRange = list(features.keys())[0]
+        sourceInfo = features[fullRange].pop("source")
+        features = sourceInfo | features
+        return {"features_genes": str(features)}
+
+    elif header == "SQ":
+        return {"sequence_info": data}
 
     else:
-        print(f"UNHANDLED code: {code}")
+        print(f"UNHANDLED header: {header}")
