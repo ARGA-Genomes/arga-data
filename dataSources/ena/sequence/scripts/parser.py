@@ -45,7 +45,7 @@ def parse(inputPath: Path, outputPath: Path):
         return
     
     _parseFile(extractedFile, outputPath)
-    # extractedFile.unlink()
+    extractedFile.unlink()
 
 def _parseFile(filePath: Path, outputPath: Path):
     logging.info(f"Parsing flat file: {filePath}")
