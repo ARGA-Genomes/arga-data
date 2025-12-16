@@ -82,4 +82,4 @@ def basicXMLProcessor(inputPath: Path, outputPath: Path, entriesPerSection: int 
         writer.write(flattenElement(element))
         
     print()
-    writer.combine(True)
+    writer.combine(removeParts=True)

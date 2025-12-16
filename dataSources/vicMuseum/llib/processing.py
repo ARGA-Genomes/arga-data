@@ -48,7 +48,7 @@ def retrieve(dataset: str, outputFolder: Path, recordsPerPage: int) -> None:
         writer.writerMultipleRecords(flattenPageData(data))
         progress.update()
 
-    writer.combine(True)
+    writer.combine(removeParts=True)
 
 def expandTaxa(filePath: Path, outputPath: Path) -> None:
     df = pd.read_csv(filePath)

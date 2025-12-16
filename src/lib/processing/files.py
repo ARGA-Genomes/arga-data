@@ -118,7 +118,8 @@ class CSVFile(DataFile):
         return pd.read_csv(self.path, **(self.properties | kwargs))
     
     def readIterator(self, chunkSize: int, **kwargs) -> Iterator[pd.DataFrame]:
-        return self.read(chunksize=chunkSize, **kwargs)
+        for chunk in self.read(chunkSize=chunkSize, **kwargs):
+            yield chunk
     
     def write(self, df: pd.DataFrame, **kwargs: dict) -> None:
         df.to_csv(self.path, **kwargs)
@@ -149,8 +150,9 @@ class ParquetFile(DataFile):
         return pq.read_table(self.path, **kwargs).to_pandas()
     
     def readIterator(self, chunkSize: int, **kwargs) -> Iterator[pd.DataFrame]:
-        parquetFile = pq.ParquetFile(self.path)
-        return (batch.to_pandas() for batch in parquetFile.iter_batches(batch_size=chunkSize, **kwargs))
+        pf = pq.ParquetFile(self.path, memory_map=True)
+        for batch in pf.iter_batches(chunkSize, **kwargs):
+            yield batch.to_pandas()
 
     def write(self, df: pd.DataFrame, **kwargs: dict) -> None:
         df.to_parquet(self.path, "pyarrow")
@@ -159,8 +161,7 @@ class ParquetFile(DataFile):
         schema = pa.schema([(column, pa.string()) for column in columns])
         with pq.ParquetWriter(self.path, schema=schema) as writer:
             for chunk in iterator:
-                chunk = chunk.reindex(columns=columns)
-                chunk = chunk.astype(str)
+                chunk = chunk.reindex(columns=columns).astype(str)
                 writer.write_table(pa.Table.from_pandas(chunk))
 
     def getColumns(self) -> list[str]:
