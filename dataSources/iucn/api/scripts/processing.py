@@ -75,7 +75,7 @@ def retrieve(outputFilePath: Path):
 
         onPage += 1
 
-    writer.combine(True)
+    writer.combine(removeParts=True)
     print()
 
 def reduce(filePath: Path, outputFilePath: Path) -> None:

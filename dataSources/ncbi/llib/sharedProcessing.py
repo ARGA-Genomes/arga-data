@@ -62,7 +62,7 @@ def getStats(summaryFile: DataFile, outputPath: Path):
 
         return
 
-    writer.combine(False, index=False)
+    writer.combine(removeParts=False, index=False)
 
 def merge(summaryFile: DataFile, statsFilePath: Path, outputPath: Path) -> None:
     if not summaryFile.exists():

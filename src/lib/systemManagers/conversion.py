@@ -60,7 +60,7 @@ class Conversion(Task):
             del df
             gc.collect()
 
-        writer.combine(True)
+        writer.combine(removeParts=True)
 
         self.setAdditionalMetadata(
             {
