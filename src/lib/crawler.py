@@ -11,12 +11,8 @@ import time
 from lib.progressBar import ProgressBar
 from lib.json import JsonSynchronizer
 
-depthLimit = 100
 
 class PageData:
-
-    _dirStr = "directories"
-    _fileStr = "files"
 
     def __init__(self, url: str, directoryLinks: list[str], fileLinks: list[str]):
         self.url = url
@@ -53,6 +49,11 @@ class Crawler:
     _metaSettingDepth = "maxDepth"
     _metaProgress = "progress"
 
+    _dirStr = "directories"
+    _fileStr = "files"
+
+    _depthLimit = 100
+
     def __init__(self, outputDir: Path, auth: dl.HTTPBasicAuth = None):
         self.outputDir = outputDir
         self.auth = auth
@@ -67,7 +68,7 @@ class Crawler:
         self.session = requests.Session()
         pattern = re.compile(fileRegex) if fileRegex is not None else None
         if maxDepth < 0:
-            maxDepth = depthLimit
+            maxDepth = self._depthLimit
 
         metadata = JsonSynchronizer(self.outputDir / self._progressFile)
         if ignoreProgress:
@@ -86,33 +87,33 @@ class Crawler:
                 break
 
         metadata[self._metaSettings] = currentSettings
-        previousPageData: list[list[PageData]] = metadata.get(self._metaProgress, [])
+        crawlerData = metadata.get(self._metaProgress, [])
 
-        if previousPageData:
-            if len(previousPageData) >= maxDepth:
+        if crawlerData:
+            if len(crawlerData) >= maxDepth:
                 return # Exit early if no crawling necessary
             
-            previousPageData = [[PageData.fromPackage(url, links) for url, links in layer.items()] for layer in previousPageData]
-            logging.info(f"Progress found, resuming crawling at depth: {len(previousPageData)}")
+            logging.info(f"Progress found, resuming crawling at depth: {len(crawlerData)}")
         else:
-            previousPageData = [[self._getPageLinks(entryURL, pattern)]]
+            metadata[self._metaProgress] = [self._getPageLinks(entryURL, pattern)]
             logging.info(f"Successfully retrieved entry url {entryURL}, crawling subfolders")
 
 
-        while len(previousPageData) <= maxDepth:
-            folderURLs = [subDirURL for pageData in progress for subDirURL in pageData.getFullSubDirs()]
+        while len(metadata[self._metaProgress]) <= maxDepth:
+            folderURLs = [urllib.parse.urljoin(url, folder) for url, urlLinks in crawlerData[-1].items() for folder in urlLinks.get(self._dirStr, [])]
+
             if not folderURLs:
                 break
 
-            pageData = self._parallelPageLinks(folderURLs, pattern) [{key: value for pageData in layer for key, value in pageData.package().items()} for layer in self.data]
-            metadata[self._metaProgress] += 
+            pageData = self._parallelPageLinks(folderURLs, pattern)
+            metadata[self._metaProgress] += [pageData]
 
     def getFileURLs(self, altDLURL: str = "") -> list[str]:
         metadata = JsonSynchronizer(self.outputDir / self._progressFile)
         return [fileURL for layer in metadata.get(self._metaProgress, []) for pageData in layer for fileURL in pageData.getFullFiles(altDLURL)]
 
-    def _parallelPageLinks(self, urlList: list[str], pattern: re.Pattern = None, retries: int = 5,) -> list[PageData]:
-        data = []
+    def _parallelPageLinks(self, urlList: list[str], pattern: re.Pattern = None, retries: int = 5,) -> dict[str, dict[str, list]]:
+        data = {}
         progress = ProgressBar(len(urlList), processName=f"Crawler Depth {len(self.data)}")
         with cf.ThreadPoolExecutor(max_workers=10) as executor:
             futures = (executor.submit(self._getPageLinks, url, pattern, retries) for url in urlList)
@@ -123,11 +124,11 @@ class Crawler:
                 if result is None:
                     continue
 
-                data.append(result)
+                data |= result
 
         return data
 
-    def _getPageLinks(self, url: str, filePattern: re.Pattern = None, retries: int = 5) -> PageData:
+    def _getPageLinks(self, url: str, filePattern: re.Pattern = None, retries: int = 5) -> dict[str, dict[str, list]]:
         if self.session is None:
             raise Exception("No session started") from ValueError
 
@@ -162,19 +163,9 @@ class Crawler:
             if filePattern.match(link):
                 fileLinks.append(link)
 
-        return PageData(url, dirLinks, fileLinks)
-    
-    def _save(self) -> None:
-        data = [{key: value for pageData in layer for key, value in pageData.package().items()} for layer in self.data]
-
-        with open(self.progressFile, "w") as fp:
-            json.dump(data, fp, indent=4)
-    
-    def _load(self) -> list[list[PageData]]:
-        if not self.progressFile.exists():
-            return []
-        
-        with open(self.progressFile) as fp:
-            data = json.load(fp)
-
-        return [[PageData.fromPackage(url, links) for url, links in layer.items()] for layer in data]
+        return {
+            url: {
+                self._dirStr: dirLinks,
+                self._fileStr: fileLinks
+            }
+        }
