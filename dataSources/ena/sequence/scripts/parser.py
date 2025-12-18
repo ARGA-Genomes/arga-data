@@ -113,7 +113,7 @@ def _parseSection(header: str, data: str) -> dict:
         return res
 
     if header == "ID":
-        accession, _, topology, mol_type, dataClass, tax_division, base_count = data.rstrip("\n").split("; ")
+        accession, _, topology, mol_type, dataClass, tax_division, base_count = data.split("   ",  1)[-1].rstrip("\n").split("; ")
         return {
             "sequence": accession,
             "topology": topology,
