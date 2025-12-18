@@ -98,9 +98,8 @@ class Crawler:
             metadata[self._metaProgress] = [self._getPageLinks(entryURL, pattern)]
             logging.info(f"Successfully retrieved entry url {entryURL}, crawling subfolders")
 
-
         while len(metadata[self._metaProgress]) <= maxDepth:
-            folderURLs = [urllib.parse.urljoin(url, folder) for url, urlLinks in crawlerData[-1].items() for folder in urlLinks.get(self._dirStr, [])]
+            folderURLs = [urllib.parse.urljoin(url, folder) for url, urlLinks in metadata[self._metaProgress].items() for folder in urlLinks.get(self._dirStr, [])]
 
             if not folderURLs:
                 break
@@ -110,9 +109,10 @@ class Crawler:
 
     def getFileURLs(self, altDLURL: str = "") -> list[str]:
         metadata = JsonSynchronizer(self.outputDir / self._progressFile)
-        return [fileURL for layer in metadata.get(self._metaProgress, []) for pageData in layer for fileURL in pageData.getFullFiles(altDLURL)]
+        crawlerProgress: list[dict[str, dict[str, list[str]]]] = metadata.get(self._metaProgress, [])
+        return [urllib.parse.urljoin(url if not altDLURL else altDLURL, file) for layer in crawlerProgress for url, urlData in layer.items() for file in urlData.get(self._fileStr, [])]
 
-    def _parallelPageLinks(self, urlList: list[str], pattern: re.Pattern = None, retries: int = 5,) -> dict[str, dict[str, list]]:
+    def _parallelPageLinks(self, urlList: list[str], pattern: re.Pattern = None, retries: int = 5,) -> dict[str, dict[str, list[str]]]:
         data = {}
         progress = ProgressBar(len(urlList), processName=f"Crawler Depth {len(self.data)}")
         with cf.ThreadPoolExecutor(max_workers=10) as executor:
@@ -128,7 +128,7 @@ class Crawler:
 
         return data
 
-    def _getPageLinks(self, url: str, filePattern: re.Pattern = None, retries: int = 5) -> dict[str, dict[str, list]]:
+    def _getPageLinks(self, url: str, filePattern: re.Pattern = None, retries: int = 5) -> dict[str, dict[str, list[str]]]:
         if self.session is None:
             raise Exception("No session started") from ValueError
 

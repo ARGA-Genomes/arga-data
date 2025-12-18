@@ -9,11 +9,20 @@ class JsonSynchronizer:
         self._load()
 
     def __setitem__(self, key: str, value: any) -> None:
+        if key in self._data and self._data[key] == value:
+            return
+        
         self._data[key] = value
         self._sync()
 
     def __getitem__(self, key: str) -> any:
         return self._data[key]
+    
+    def __repr__(self) -> str:
+        return str(self)
+    
+    def __str__(self) -> str:
+        return str(self._data)
 
     def _load(self) -> None:
         if not self._path.exists():
@@ -30,5 +39,8 @@ class JsonSynchronizer:
         return self._data.get(key, default)
 
     def clear(self) -> None:
+        if not self._data:
+            return
+        
         self._data = {}
         self._sync()
