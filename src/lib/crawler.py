@@ -9,13 +9,10 @@ import logging
 import lib.downloading as dl
 import time
 from lib.progressBar import ProgressBar
+from lib.json import JsonSynchronizer
 
-depthLimit = 100
 
 class PageData:
-
-    _dirStr = "directories"
-    _fileStr = "files"
 
     def __init__(self, url: str, directoryLinks: list[str], fileLinks: list[str]):
         self.url = url
@@ -26,7 +23,7 @@ class PageData:
         return self.url == other.url
 
     @classmethod
-    def fromPackage(cls, url: str, links: dict) -> None:
+    def fromPackage(cls, url: str, links: dict) -> 'PageData':
         return cls(url, links.get(cls._dirStr, []), links.get(cls._fileStr, []))
 
     def package(self) -> dict[str, dict[str, list[str]]]:
@@ -37,19 +34,30 @@ class PageData:
             }
         }
     
-    def getFullSubDirs(self) -> list[str]:
-        return [urllib.parse.urljoin(self.url, dirLink) for dirLink in self.directoryLinks]
+    def getFullSubDirs(self, baseURL: str = "") -> list[str]:
+        return [urllib.parse.urljoin(baseURL or self.url, dirLink) for dirLink in self.directoryLinks]
     
-    def getFullFiles(self, altDLURL: str = "") -> list[str]:
-        baseURL = self.url if not altDLURL else altDLURL
-        return [urllib.parse.urljoin(baseURL, fileLink) for fileLink in self.fileLinks]
+    def getFullFiles(self, baseURL: str = "") -> list[str]:
+        return [urllib.parse.urljoin(baseURL or self.url, fileLink) for fileLink in self.fileLinks]
 
 class Crawler:
+
+    _progressFile = "crawlerProgress.json"
+    _metaSettings = "settings"
+    _metaSettingURL = "url"
+    _metaSettingRegex = "regex"
+    _metaSettingDepth = "maxDepth"
+    _metaProgress = "progress"
+
+    _dirStr = "directories"
+    _fileStr = "files"
+
+    _depthLimit = 100
+
     def __init__(self, outputDir: Path, auth: dl.HTTPBasicAuth = None):
         self.outputDir = outputDir
         self.auth = auth
 
-        self.progressFile = self.outputDir / "crawlerProgress.json"
         self.session = None
         self.data = []
 
@@ -60,34 +68,52 @@ class Crawler:
         self.session = requests.Session()
         pattern = re.compile(fileRegex) if fileRegex is not None else None
         if maxDepth < 0:
-            maxDepth = depthLimit
+            maxDepth = self._depthLimit
 
-        if not ignoreProgress:
-            self.data = self._load()
+        metadata = JsonSynchronizer(self.outputDir / self._progressFile)
+        if ignoreProgress:
+            metadata.clear()
 
-        if not self.data:
-            self.data.append([self._getPageLinks(entryURL, pattern)])
-            self._save()
-            logging.info(f"Successfully retrieved entry url {entryURL}, crawling subfolders")
-        else:
-            if len(self.data) >= maxDepth:
+        savedSettings = metadata.get(self._metaSettings, {})
+        currentSettings = {
+            self._metaSettingURL: entryURL,
+            self._metaSettingRegex: fileRegex,
+            self._metaSettingDepth: maxDepth
+        }
+
+        for setting, value in currentSettings.items():
+            if setting in savedSettings and value != savedSettings[setting]:
+                metadata.clear()
+                break
+
+        metadata[self._metaSettings] = currentSettings
+        crawlerData = metadata.get(self._metaProgress, [])
+
+        if crawlerData:
+            if len(crawlerData) >= maxDepth:
                 return # Exit early if no crawling necessary
             
-            logging.info(f"Progress found, resuming crawling at depth: {len(self.data)}")
+            logging.info(f"Progress found, resuming crawling at depth: {len(crawlerData)}")
+        else:
+            metadata[self._metaProgress] = [self._getPageLinks(entryURL, pattern)]
+            logging.info(f"Successfully retrieved entry url {entryURL}, crawling subfolders")
 
-        while len(self.data) <= maxDepth:
-            folderURLs = [subDirURL for pageData in self.data[-1] for subDirURL in pageData.getFullSubDirs()]
+        while len(metadata[self._metaProgress]) <= maxDepth:
+            folderURLs = [urllib.parse.urljoin(url, folder) for url, urlLinks in metadata[self._metaProgress].items() for folder in urlLinks.get(self._dirStr, [])]
+
             if not folderURLs:
                 break
 
-            self.data.append(self._parallelPageLinks(folderURLs, pattern))
-            self._save()
+            pageData = self._parallelPageLinks(folderURLs, pattern)
+            metadata[self._metaProgress] += [pageData]
 
     def getFileURLs(self, altDLURL: str = "") -> list[str]:
-        return [fileURL for layer in self.data for pageData in layer for fileURL in pageData.getFullFiles(altDLURL)]
+        metadata = JsonSynchronizer(self.outputDir / self._progressFile)
+        crawlerProgress: list[dict[str, dict[str, list[str]]]] = metadata.get(self._metaProgress, [])
+        return [urllib.parse.urljoin(url if not altDLURL else altDLURL, file) for layer in crawlerProgress for url, urlData in layer.items() for file in urlData.get(self._fileStr, [])]
 
-    def _parallelPageLinks(self, urlList: list[str], pattern: re.Pattern = None, retries: int = 5,) -> list[PageData]:
-        data = []
+    def _parallelPageLinks(self, urlList: list[str], pattern: re.Pattern = None, retries: int = 5,) -> dict[str, dict[str, list[str]]]:
+        data = {}
         progress = ProgressBar(len(urlList), processName=f"Crawler Depth {len(self.data)}")
         with cf.ThreadPoolExecutor(max_workers=10) as executor:
             futures = (executor.submit(self._getPageLinks, url, pattern, retries) for url in urlList)
@@ -98,11 +124,11 @@ class Crawler:
                 if result is None:
                     continue
 
-                data.append(result)
+                data |= result
 
         return data
 
-    def _getPageLinks(self, url: str, filePattern: re.Pattern = None, retries: int = 5) -> PageData:
+    def _getPageLinks(self, url: str, filePattern: re.Pattern = None, retries: int = 5) -> dict[str, dict[str, list[str]]]:
         if self.session is None:
             raise Exception("No session started") from ValueError
 
@@ -137,19 +163,9 @@ class Crawler:
             if filePattern.match(link):
                 fileLinks.append(link)
 
-        return PageData(url, dirLinks, fileLinks)
-    
-    def _save(self) -> None:
-        data = [{key: value for pageData in layer for key, value in pageData.package().items()} for layer in self.data]
-
-        with open(self.progressFile, "w") as fp:
-            json.dump(data, fp, indent=4)
-    
-    def _load(self) -> list[list[PageData]]:
-        if not self.progressFile.exists():
-            return []
-        
-        with open(self.progressFile) as fp:
-            data = json.load(fp)
-
-        return [[PageData.fromPackage(url, links) for url, links in layer.items()] for layer in data]
+        return {
+            url: {
+                self._dirStr: dirLinks,
+                self._fileStr: fileLinks
+            }
+        }
