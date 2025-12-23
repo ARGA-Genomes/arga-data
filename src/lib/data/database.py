@@ -6,9 +6,9 @@ from pathlib import Path
 from lib.systemManagers.downloading import DownloadManager
 from lib.systemManagers.processing import ProcessingManager
 from lib.systemManagers.conversion import ConversionManager
-from lib.systemManagers.updating import UpdateManager
 
 from lib.processing.files import Step
+import lib.processing.updating as upd
 
 from lib.crawler import Crawler
 import logging
@@ -22,6 +22,11 @@ class Flag(Enum):
     VERBOSE   = "quiet" # Verbosity enabled by default, flag is used when silenced
     REPREPARE = "reprepare"
     OVERWRITE = "overwrite"
+
+class Updates(Enum):
+    DAILY = "daily"
+    WEEKLY = "weekly"
+    MONTHLY = "monthly"
 
 class BasicDB:
 
@@ -73,8 +78,8 @@ class BasicDB:
             raise Exception(f"No download config specified as required for {self.name}") from AttributeError
         
         # Updating
-        self.updateConfig: dict = setupConfig.pop("updating", {})
-        self.updateManager = UpdateManager(self.updateConfig)
+        updateConfig: dict = setupConfig.pop("updating", {})
+        self._update = self._getUpdater(updateConfig)
 
         # Report extra config options
         self._reportLeftovers(setupConfig)
@@ -189,7 +194,7 @@ class BasicDB:
 
     def checkUpdateReady(self) -> bool:
         lastUpdate = self.downloadManager.getLastUpdate()
-        return self.updateManager.isUpdateReady(lastUpdate)
+        return self._update.updateReady(lastUpdate)
     
     def update(self, flags: list[Flag]) -> bool:
         for fileStep in (Step.DOWNLOADING, Step.PROCESSING, Step.CONVERSION):
@@ -199,6 +204,23 @@ class BasicDB:
 
     def _printFlags(self, flags: list[Flag]) -> str:
         return " | ".join(f"{flag.value}={flag in flags}" for flag in Flag)
+
+    def _getUpdater(self, config: dict) -> upd.Update:
+        updaterTypeValue = config.get("type", Updates.WEEKLY.value)
+        updaterType = Updates._value2member_map_.get(updaterTypeValue, None)
+        if updaterType is None:
+            raise Exception(f"Unknown update type: {updaterTypeValue}") from AttributeError
+    
+        if updaterType == Updates.DAILY:
+            return upd.DailyUpdate(config)
+
+        if updaterType == Updates.WEEKLY:
+            return upd.WeeklyUpdate(config)
+        
+        if updaterType == Updates.MONTHLY:
+            return upd.MonthlyUpdate(config)
+        
+        raise Exception(f"Unknown updater type: {updaterType}") from AttributeError
 
 class CrawlDB(BasicDB):
 

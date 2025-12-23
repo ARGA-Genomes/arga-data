@@ -1,20 +1,22 @@
 from datetime import datetime, timedelta, date
+from abc import ABC
 
-class _Update:
+class Update(ABC):
     def __init__(self, properties: dict):
         raise NotImplementedError
 
     def updateReady(self, lastUpdate: datetime) -> bool:
         raise NotImplementedError
-
-class _DailyUpdate(_Update):
+    
+class DailyUpdate(Update):
     def __init__(self, properties: dict):
         self.repeat = properties.get("repeat", 3)
 
     def updateReady(self, lastUpdate: datetime) -> bool:
         return (lastUpdate.date() + timedelta(days=self.repeat)) < datetime.now()
     
-class _WeeklyUpdate(_Update):
+
+class WeeklyUpdate(Update):
     days = [
         "monday",
         "tuesday",
@@ -36,7 +38,7 @@ class _WeeklyUpdate(_Update):
 
         return (delta.days > ((7 * (self.repeat - 1)) + 1)) and (today.weekday() == self.dayInt)
     
-class _MonthlyUpdate(_Update):
+class MonthlyUpdate(Update):
     def __init__(self, properties: dict):
         self.repeat = properties.get("repeat", 1)
         self.date = properties.get("date", 1)
@@ -46,25 +48,3 @@ class _MonthlyUpdate(_Update):
         delta = today - lastUpdate
 
         return (delta.days > (27 * self.repeat)) and (today.day == self.date)
-
-class UpdateManager:
-    updaters = {
-        "daily": _DailyUpdate,
-        "weekly": _WeeklyUpdate,
-        "monthly": _MonthlyUpdate
-    }
-
-    def __init__(self, updateConfig: dict):
-        self.updateConfig = updateConfig
-        updaterType = updateConfig.get("type", "weekly")
-
-        if updaterType not in self.updaters:
-            raise Exception(f"Unknown update type: {updaterType}")
-
-        self.update: _Update = self.updaters[updaterType](updateConfig)
-        
-    def isUpdateReady(self, lastUpdate: datetime | None) -> bool:
-        if lastUpdate is None:
-            return True
-        
-        return self.update.updateReady(lastUpdate)
