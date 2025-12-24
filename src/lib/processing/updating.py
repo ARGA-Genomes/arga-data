@@ -1,23 +1,37 @@
 from datetime import datetime, timedelta, date
 from abc import ABC
+from typing import Any
 
 class Update(ABC):
+
+    _repeatFreq = "repeatFreq"
+
     def __init__(self, properties: dict):
-        raise NotImplementedError
+        self._freq = self._getAndAssert(properties, self._repeatFreq, int)
+
+    def _getAndAssert(self, properties: dict, property: str, type: type) -> Any:
+        value = properties.get(property)
+
+        if value is None:
+            raise Exception(f"No property '{property}' found.")
+        
+        if not isinstance(value, type):
+            raise Exception(f"Property '{property}' should be of type '{type}'.")
+
+        return value
 
     def updateReady(self, lastUpdate: datetime) -> bool:
         raise NotImplementedError
     
 class DailyUpdate(Update):
-    def __init__(self, properties: dict):
-        self.repeat = properties.get("repeat", 3)
-
     def updateReady(self, lastUpdate: datetime) -> bool:
-        return (lastUpdate.date() + timedelta(days=self.repeat)) < datetime.now()
+        return (lastUpdate.date() + timedelta(days=self._freq)) < datetime.now()
     
-
 class WeeklyUpdate(Update):
-    days = [
+
+    _repeatDay = "repeatDay"
+
+    _days = [
         "monday",
         "tuesday",
         "wednesday",
@@ -28,23 +42,61 @@ class WeeklyUpdate(Update):
     ]
 
     def __init__(self, properties: dict):
-        self.repeat = properties.get("repeat", 2)
-        self.day = properties.get("day", "sunday")
-        self.dayInt = self.days.index(self.day)
+        super().__init__(properties)
+
+        day = self._getAndAssert(properties, self._repeatDay, str)
+        if day not in self._days:
+            raise Exception(f"Invalid weekday '{day}'.")
+        
+        self._day = self._days.index(day)
 
     def updateReady(self, lastUpdate: datetime) -> bool:
         today = datetime.today()
         delta = today - lastUpdate
 
-        return (delta.days > ((7 * (self.repeat - 1)) + 1)) and (today.weekday() == self.dayInt)
+        if lastUpdate.date() == today.date(): # Rerun on same date as last update
+            return False
+
+        if self._day == today.weekday(): # Weekdays match
+            return delta.days > ((7 * (self._freq - 1)) + 1)
+
+        return False
     
 class MonthlyUpdate(Update):
+
+    _repeatDate = "repeatDate"
+
+    _monthDays = [
+        31,
+        28,
+        31,
+        30,
+        31,
+        30,
+        31,
+        31,
+        30,
+        31,
+        30,
+        31
+    ]
+
     def __init__(self, properties: dict):
-        self.repeat = properties.get("repeat", 1)
-        self.date = properties.get("date", 1)
+        super().__init__(properties)
+
+        self._date = self._getAndAssert(self._repeatDate, int)
 
     def updateReady(self, lastUpdate: datetime) -> date:
         today = datetime.today()
-        delta = today - lastUpdate
+        daysThisMonth = self._monthDays[today.month]
 
-        return (delta.days > (27 * self.repeat)) and (today.day == self.date)
+        if ((lastUpdate.month + 1) % 12) != today.month: # Confirm we're in a new month
+            return False
+
+        if self._date == today.day: # If dates match
+            return True
+
+        if self._date > daysThisMonth: # If today is last day of month
+            return today.day == daysThisMonth
+
+        return False # New month, not the same date, and date does not exceed length of this month
