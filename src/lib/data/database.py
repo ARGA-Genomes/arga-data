@@ -6,8 +6,7 @@ from enum import Enum
 from pathlib import Path
 from lib.processing import tasks
 import lib.processing.updating as upd
-from typing import Any
-from lib.processing.files import DataFile
+import lib.processing.parsing as parse
 import time
 from datetime import datetime
 
@@ -21,22 +20,12 @@ class Flag(Enum):
 class Step(Enum):
     DOWNLOADING = "downloading"
     PROCESSING  = "processing"
+    CONVERSION  = "conversion"
 
 class Retrieve(Enum):
     URL     = "url"
     CRAWL   = "crawl"
     SCRIPT  = "script"
-
-class FileSelect(Enum):
-    INPUT    = "IN"
-    OUTPUT   = "OUT"
-    DOWNLOAD = "D"
-    PROCESS  = "P"
-
-class _FileProperty(Enum):
-    DIR  = "DIR"
-    FILE = "FILE"
-    PATH = "PATH"
 
 class Updates(Enum):
     DAILY = "daily"
@@ -116,11 +105,9 @@ class Database:
         self.processingDir = self.dataDir / Step.PROCESSING.value
 
         # Tasks
-        self._queuedTasks: dict[Step, list] = {Step.DOWNLOADING: [], Step.PROCESSING: [[]]}
+        self._queuedTasks: dict[Step, list] = {Step.DOWNLOADING: [], Step.PROCESSING: [[]], Step.CONVERSION: []}
         self._metadataPath = self.subsectionDir / self._metadataFileName
         self._metadata = self._loadMetadata()
-
-        self._dirLookup = {f".{directory.name}": directory for directory in (self.libDirs + [self.downloadDir, self.processingDir])}
 
         # Updating
         updateConfig: dict = self.config.pop("updating", {})
@@ -158,6 +145,7 @@ class Database:
         password = sourceSecrets.password if sourceSecrets is not None else ""
 
         overwrite = Flag.REPREPARE in flags
+        dirLookup = parse.DirLookup(self.libDirs + [self.downloadDir])
 
         retrieve = Retrieve._value2member_map_.get(retrieveType, None)
         if retrieve == Retrieve.URL: # Tasks should be a list of dicts
@@ -165,21 +153,21 @@ class Database:
                 raise Exception(f"URL retrieve type expects a list of task configs for {self.name}") from AttributeError
 
             for taskConfig in downloadTaskConfig:
-                parsedConfig = self.parseTaskConfig(taskConfig, self.downloadDir)
+                parsedConfig = parse.parseDict(taskConfig, self.downloadDir, dirLookup)
                 self._queuedTasks[Step.DOWNLOADING].append(tasks.UrlRetrieve(self.downloadDir, username, password, parsedConfig))
 
         elif retrieve == Retrieve.CRAWL: # Tasks should be dict
             if not isinstance(downloadTaskConfig, dict):
                 raise Exception(f"Crawl retrieve type expects a dict config for {self.name}")
             
-            parsedConfig = self.parseTaskConfig(downloadTaskConfig, self.downloadDir)
+            parsedConfig = parse.parseDict(downloadTaskConfig, self.downloadDir, dirLookup)
             self._queuedTasks[Step.DOWNLOADING].append(tasks.CrawlRetrieve(self.downloadDir, username, password, parsedConfig, overwrite))
 
         elif retrieve == Retrieve.SCRIPT: # Tasks should be dict
             if not isinstance(downloadTaskConfig, dict):
                 raise Exception(f"Script retrieve type expects a dict config for {self.name}")
             
-            parsedConfig = self.parseTaskConfig(downloadTaskConfig, self.downloadDir)
+            parsedConfig = parse.parseDict(downloadTaskConfig, self.downloadDir, dirLookup)
             self._queuedTasks[Step.DOWNLOADING].append(tasks.ScriptRunner(self.downloadDir, parsedConfig, self.libDirs))
 
         else:
@@ -193,10 +181,14 @@ class Database:
             # self._queuedTasks[Step.PROCESSING].append(tasks.ScriptRunner(self.processingDir, parsedConfig, self.libDirs))
             ...
 
+    def _prepareConversion(self, flags: list[Flag]) -> None:
+        ...
+
     def _prepare(self, fileStep: Step, flags: list[Flag]) -> bool:
         callbacks = {
             Step.DOWNLOADING: self._prepareDownload,
             Step.PROCESSING: self._prepareProcessing,
+            Step.CONVERSION: self._prepareConverion
         }
 
         if fileStep not in callbacks:
@@ -224,8 +216,9 @@ class Database:
         verbose = Flag.VERBOSE in flags
         logging.info(f"Executing {self} step '{step.name}' with flags: {self._printFlags(flags)}")
 
-        if step == Step.DOWNLOADING:
-            tasks = self._queuedTasks[Step.DOWNLOADING]
+        if step in (Step.DOWNLOADING, Step.CONVERSION):
+            tasks = self._queuedTasks[step]
+
         elif step == Step.PROCESSING:
             tasks = [task for layer in self._queuedTasks[Step.PROCESSING] for task in layer]
 
@@ -289,103 +282,6 @@ class Database:
 
     def _printFlags(self, flags: list[Flag]) -> str:
         return " | ".join(f"{flag.value}={flag in flags}" for flag in Flag)
-    
-    def parseTaskConfig(self, config: dict, relativeDir: Path):
-        res = {}
-
-        for key, value in config.items():
-            if isinstance(value, list):
-                res[key] = [self._parseArg(arg, relativeDir) for arg in value]
-
-            elif isinstance(value, dict):
-                res[key] = self.parseTaskConfig(value, relativeDir)
-
-            else:
-                res[key] = self._parseArg(value, relativeDir)
-    
-    def _parseArg(self, arg: Any, parentDir: Path) -> Path | str:
-        if not isinstance(arg, str):
-            return arg
-
-        if arg.startswith("."):
-            return self._parsePath(arg, parentDir)
-        
-        if arg.startswith("{") and arg.endswith("}"):
-            parsedArg = self._parseSelectorArg(arg[1:-1])
-            if parsedArg == arg:
-                logging.warning(f"Unknown key code: {parsedArg}")
-
-            return parsedArg
-
-        return arg
-
-    def _parsePath(self, arg: str, parentPath: Path) -> Path | Any:
-        prefix, relPath = arg.split("/", 1)
-        if prefix == ".":
-            return parentPath / relPath
-            
-        if prefix == "..":
-            cwd = parentPath.parent
-            while relPath.startswith("../"):
-                cwd = cwd.parent
-                relPath = relPath[3:]
-
-            return cwd / relPath
-            
-        if prefix in self._dirLookup:
-            return self._dirLookup[prefix] / relPath
-        
-        return arg
-
-    def _parseSelectorArg(self, arg: str) -> Path | str:
-        print(arg)
-        if "-" not in arg:
-            logging.warning(f"Both file type and file property not present in arg, deliminate with '-'")
-            return arg
-        
-        fType, fProperty = arg.split("-")
-
-        if fType[-1].isdigit():
-            selection = int(fType[-1])
-            fType = fType[:-1]
-        else:
-            selection = 0
-
-        fTypeEnum = FileSelect._value2member_map_.get(fType, None)
-        if fTypeEnum is None:
-            logging.error(f"Invalid file type: '{file}'")
-            return arg
-
-        files = self.fileLookup.get(fTypeEnum, None)
-        if files is None:
-            logging.error(f"No files provided for file type: '{fType}")
-            return arg
-
-        if selection > len(files):
-            logging.error(f"File selection '{selection}' out of range for file type '{fType}' which has a length of '{len(files)}")
-            return arg
-        
-        file: DataFile = files[selection]
-        fProperty, *suffixes = fProperty.split(".")
-
-        if fProperty == _FileProperty.FILE.value:
-            if suffixes:
-                logging.warning("Suffix provided for a file object which cannot be resolved, suffix not applied")
-            return file
-        
-        if fProperty == _FileProperty.DIR.value:
-            if suffixes:
-                logging.warning("Suffix provided for a parent path which cannot be resolved, suffix not applied")
-            return file.path.parent
-
-        if fProperty == _FileProperty.PATH.value:
-            pth = file.path
-            for suffix in suffixes:
-                pth = pth.with_suffix(suffix if not suffix else f".{suffix}") # Prepend a dot for valid suffixes
-            return pth
-        
-        logging.error(f"Unable to parse file property: '{fProperty}")
-        return arg
 
     def _loadMetadata(self) -> dict:
         if not self._metadataPath.exists():
