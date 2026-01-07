@@ -1,14 +1,17 @@
 from pathlib import Path
 import logging
-from lib.processing.files import DataFile
+from lib.processing.files import DataFile, StackedFile
 from lib.processing.scripts import OutputScript
 import lib.downloading as dl
 from lib.crawler import Crawler
+from lib.converting import Converter
+from datetime import date
+from lib.settings import globalSettings as gs
 
 class Task:
-    def __init__(self):
+    def __init__(self, outputs: list[DataFile] = []):
         self._runMetadata = {}
-        self._outputs: list[DataFile] = []
+        self._outputs = outputs
 
     def getOutputs(self) -> list[DataFile]:
         return self._outputs
@@ -45,9 +48,6 @@ class UrlRetrieve(Task):
         self.file = DataFile(self.workingDir / fileName, properties)
 
         super().__init__([self.file])
-
-    def getOutputs(self) -> list[DataFile]:
-        return [self.file]
 
     def run(self, overwrite: bool, verbose: bool) -> bool:
         if not overwrite and self.file.exists():
@@ -110,7 +110,7 @@ class ScriptRunner(Task):
     _kwargs = "kwargs"
     _outputs = "outputs"
 
-    def __init__(self, workingDir: Path, config: dict, libraryDirs: dict):
+    def __init__(self, workingDir: Path, config: dict, libraryDirs: list[Path]):
         modulePath = config.pop(self._modulePath, "")
         if not modulePath:
             raise Exception("No `path` specified in script config") from AttributeError
@@ -136,3 +136,39 @@ class ScriptRunner(Task):
     def run(self, overwrite: bool, verbose: bool) -> bool:
         success, _ = self.script.run(overwrite, verbose, self.args, self.kwargs)
         return success
+
+class Conversion(Task):
+
+    _mapID = "mapID"
+    _mapColumnName = "mapColumnName"
+    _entityEvent = "entityEvent"
+    _entityColumn = "entityColumn"
+    _timestamp = "timestamp"
+    _chunkSize = "chunkSize"
+
+    def __init__(self, workingDir: Path, config: dict, datasetID: str, prefix: str, name: str, libraryDirs: dict):
+        self.workingDir = workingDir
+        self.datasetID = datasetID
+
+        mapID = config.pop(self._mapID, "")
+        mapColumnName = config.pop(self._mapColumnName, "")
+        if not mapID and not mapColumnName:
+            raise Exception(f"No `mapID` or `mapColumnName` specified") from AttributeError
+
+        entityEvent = config.pop(self._entityEvent, "collection")
+        entityColumn = config.pop(self._entityColumn, "scientific_name")
+
+        timeStamp = config.pop(self._timestamp, True)
+        outputFile = StackedFile(self.workingDir / f"{name}{date.today().strftime('-%Y-%m-%d') if timeStamp else ''}")
+
+        chunkSize = config.pop(self._chunkSize, 1024)
+
+        self.converter = Converter(outputFile, prefix, (entityEvent, entityColumn), chunkSize)
+        
+        super().__init__([outputFile])
+
+    def run(self, overwrite: bool, verbose: bool) -> bool:
+        if self.datasetID is None:
+            logging.error("No datasetID provided which is required for conversion, exiting...")
+            return False
+
