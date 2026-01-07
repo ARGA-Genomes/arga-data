@@ -33,7 +33,7 @@ class Updates(Enum):
     MONTHLY = "monthly"
 
 class Metadata(Enum):
-    OUTPUT = "output"
+    OUTPUTS = "outputs"
     SUCCESS = "success"
     TASK_START = "task started"
     TASK_END = "task completed"
@@ -61,7 +61,10 @@ class Database:
         self.subsections: dict[str, dict[str, str]] = config.pop("subsections", {})
         self.config = config
 
-    def shortName(self) -> str:
+    def locationName(self) -> str:
+        return self.locationDir.name
+
+    def databaseName(self) -> str:
         return self.databaseDir.name
 
     def listSubsections(self) -> list[str]:
@@ -103,6 +106,7 @@ class Database:
 
         self.downloadDir = self.dataDir / Step.DOWNLOADING.value
         self.processingDir = self.dataDir / Step.PROCESSING.value
+        self.conversionDir = self.dataDir / Step.CONVERSION.value
 
         # Tasks
         self._queuedTasks: dict[Step, list] = {Step.DOWNLOADING: [], Step.PROCESSING: [[]], Step.CONVERSION: []}
@@ -182,13 +186,20 @@ class Database:
             ...
 
     def _prepareConversion(self, flags: list[Flag]) -> None:
-        ...
+        conversionConfig: dict = self.config.pop(Step.CONVERSION.value, {})
+        if not conversionConfig:
+            raise Exception(f"No conversion config specified as required for {self.name}") from AttributeError
+
+        overwrite = Flag.REPREPARE in flags
+        inputFile = self._queuedTasks[Step.PROCESSING][-1][-1] # Last processed file for conversion
+
+        self._queuedTasks[Step.CONVERSION].append(tasks.Conversion(self.conversionDir, conversionConfig, inputFile, self.locationName(), self.name, overwrite))
 
     def _prepare(self, fileStep: Step, flags: list[Flag]) -> bool:
         callbacks = {
             Step.DOWNLOADING: self._prepareDownload,
             Step.PROCESSING: self._prepareProcessing,
-            Step.CONVERSION: self._prepareConverion
+            Step.CONVERSION: self._prepareConversion
         }
 
         if fileStep not in callbacks:
@@ -217,14 +228,14 @@ class Database:
         logging.info(f"Executing {self} step '{step.name}' with flags: {self._printFlags(flags)}")
 
         if step in (Step.DOWNLOADING, Step.CONVERSION):
-            tasks = self._queuedTasks[step]
+            evaluationTasks: list[tasks.Task] = self._queuedTasks[step]
 
         elif step == Step.PROCESSING:
-            tasks = [task for layer in self._queuedTasks[Step.PROCESSING] for task in layer]
+            evaluationTasks: list[tasks.Task] = [task for layer in self._queuedTasks[Step.PROCESSING] for task in layer]
 
         allSucceeded = False
         startTime = time.perf_counter()
-        for idx, task in enumerate(tasks):
+        for idx, task in enumerate(evaluationTasks):
             taskStartTime = time.perf_counter()
             taskStartDate = datetime.now().isoformat()
 
@@ -234,7 +245,7 @@ class Database:
             taskEndDate = datetime.now().isoformat()
 
             packet = {
-                Metadata.OUTPUT: task.getOutputPath().name,
+                Metadata.OUTPUTS: [t.name for t in task.getOutputs()],
                 Metadata.SUCCESS: success,
                 Metadata.TASK_START: taskStartDate,
                 Metadata.TASK_END: taskEndDate,

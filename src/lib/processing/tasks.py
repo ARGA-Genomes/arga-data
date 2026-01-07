@@ -139,6 +139,7 @@ class ScriptRunner(Task):
 
 class Conversion(Task):
 
+    _datasetID = "datasetID"
     _mapID = "mapID"
     _mapColumnName = "mapColumnName"
     _entityEvent = "entityEvent"
@@ -146,9 +147,12 @@ class Conversion(Task):
     _timestamp = "timestamp"
     _chunkSize = "chunkSize"
 
-    def __init__(self, workingDir: Path, config: dict, datasetID: str, prefix: str, name: str, libraryDirs: dict):
+    def __init__(self, workingDir: Path, config: dict, inputFile: DataFile, prefix: str, name: str, retrieveMap: bool):
         self.workingDir = workingDir
-        self.datasetID = datasetID
+
+        datasetID = config.pop(self._datasetID, "")
+        if not datasetID:
+            raise Exception(f"No `datasetID` specified") from AttributeError
 
         mapID = config.pop(self._mapID, "")
         mapColumnName = config.pop(self._mapColumnName, "")
@@ -163,12 +167,10 @@ class Conversion(Task):
 
         chunkSize = config.pop(self._chunkSize, 1024)
 
-        self.converter = Converter(outputFile, prefix, (entityEvent, entityColumn), chunkSize)
-        
+        self.converter = Converter(inputFile, outputFile, prefix, (entityEvent, entityColumn), chunkSize)
+        self.converter.loadMap(mapID, mapColumnName, retrieveMap)
+
         super().__init__([outputFile])
 
     def run(self, overwrite: bool, verbose: bool) -> bool:
-        if self.datasetID is None:
-            logging.error("No datasetID provided which is required for conversion, exiting...")
-            return False
-
+        return self.converter.convert()
