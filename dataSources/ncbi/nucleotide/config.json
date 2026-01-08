@@ -98,31 +98,28 @@
         "regex": "gb<SUB:NAME>\\d+\\.seq\\.gz",
         "maxDepth": 0
     },
-    "processing": {
-        "parallel": [
-            {
-                "path": "./processing.py",
-                "function": "parse",
-                "args": [
-                    "{IN-PATH}",
-                    "{OUT-PATH}"
-                ],
-                "output": "{IN-PATH.parquet}"
-            }
-        ],
-        "linear": [
-            {
-                "path": ".lib/bigFiles.py",
-                "function": "combineDirectoryFiles",
-                "args": [
-                    "{OUT-PATH}",
-                    "{IN-DIR}",
-                    "*.parquet"
-                ],
-                "output": "<SUB>.csv"
-            }
-        ]
-    },
+    "processing": [
+        {
+            "mode": "individual",
+            "path": "./processing.py",
+            "function": "parse",
+            "args": [
+                "{IN-PATH}",
+                "{OUT-PATH}"
+            ],
+            "output": "{IN-PATH.parquet}"
+        },
+        {
+            "path": ".lib/bigFiles.py",
+            "function": "combineDirectoryFiles",
+            "args": [
+                "{OUT-PATH}",
+                "{IN-DIR}",
+                "*.parquet"
+            ],
+            "output": "<SUB>.csv"
+        }
+    ],
     "conversion": {
         "mapID": 1182330400,
         "chunkSize": 512
