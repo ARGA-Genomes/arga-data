@@ -7,6 +7,7 @@ from lib.crawler import Crawler
 from lib.converting import Converter
 from datetime import date
 from lib.settings import globalSettings as gs
+import lib.processing.parsing as parse
 
 class Task:
     def __init__(self, outputs: list[DataFile] = []):
@@ -31,7 +32,7 @@ class UrlRetrieve(Task):
     _name = "name"
     _properties = "properties"
 
-    def __init__(self, workingDir: Path, username: str, password: str, config: dict):
+    def __init__(self, workingDir: Path, config: dict, username: str, password: str):
         self.workingDir = workingDir
         self.username = username
         self.password = password
@@ -66,7 +67,7 @@ class CrawlRetrieve(Task):
     _properties = "properties"
     _filenameURLParts = "urlPrefix"
 
-    def __init__(self, workingDir: Path, username: str, password: str, config: dict, overwrite: bool):
+    def __init__(self, workingDir: Path, config: dict, username: str, password: str, overwrite: bool):
         self.workingDir = workingDir
         self.username = username
         self.password = password
@@ -103,6 +104,7 @@ class CrawlRetrieve(Task):
 
 class ScriptRunner(Task):
 
+    _parallel = "parallel"
     _modulePath = "path"
     _functionName = "function"
     _inputs = "inputs"
@@ -110,7 +112,9 @@ class ScriptRunner(Task):
     _kwargs = "kwargs"
     _outputs = "outputs"
 
-    def __init__(self, workingDir: Path, config: dict, libraryDirs: list[Path]):
+    def __init__(self, workingDir: Path, config: dict, dirLookup: parse.DirLookup, fileLookup: parse.DataFileLookup):
+        parallel = config.pop(self._parallel, False)
+
         modulePath = config.pop(self._modulePath, "")
         if not modulePath:
             raise Exception("No `path` specified in script config") from AttributeError
@@ -123,13 +127,13 @@ class ScriptRunner(Task):
         if not outputs:
             raise Exception("No `outputs` specified in script config") from AttributeError        
 
-        outputs = [DataFile(workingDir / output) for output in outputs]
-        inputs = [DataFile(input) for input in config.pop(self._inputs, [])]
+        outputs = [DataFile(workingDir / parse.parseArg(output, workingDir, dirLookup, fileLookup)) for output in outputs]
+        fileLookup.merge(parse.DataFileLookup(outputs=outputs))
 
-        self.args = config.pop(self._args, [])
-        self.kwargs = config.pop(self._kwargs, {})
+        self.args = parse.parseList(config.pop(self._args, []), workingDir, dirLookup, fileLookup)
+        self.kwargs = parse.parseDict(config.pop(self._kwargs, {}), workingDir, dirLookup, fileLookup)
 
-        self.script = OutputScript(modulePath, functionName, outputs, inputs, libraryDirs)
+        self.script = OutputScript(modulePath, functionName, outputs, fileLookup.getFiles(parse.FileSelect.INPUT), dirLookup.paths())
 
         super().__init__(outputs)
 

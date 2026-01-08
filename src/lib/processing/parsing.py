@@ -16,7 +16,7 @@ class FileProperty(Enum):
     PATH = "PATH"
 
 class DataFileLookup:
-    def __init__(self, inputs: list[DataFile] = None, outputs: list[DataFile] = None, downloads: list[DataFile] = None, processed: list[DataFile] = None):
+    def __init__(self, inputs: list[DataFile] = None, downloads: list[DataFile] = None, processed: list[DataFile] = None, outputs: list[DataFile] = None):
         self._enumMap = {
             FileSelect.INPUT: inputs,
             FileSelect.OUTPUT: outputs,
@@ -42,26 +42,34 @@ class DataFileLookup:
             self._enumMap[enum] += other._enumMap[enum]
 
 class DirLookup:
-    def __init__(self, directories: list[Path] = []):
-        self._lookup = {f".{directory.name}": directory for directory in directories}
+    def __init__(self, lookup: dict[str, Path]):
+        self._lookup = lookup
 
     def contains(self, prefix: str) -> bool:
         return prefix in self._lookup
 
     def remap(self, path: Path, prefix: str) -> Path:
         return self._lookup[prefix] / path
+    
+    def paths(self) -> list[Path]:
+        return list(self._lookup.values())
 
-def parseDict(data: dict, relativeDir: Path, dirLookup: DirLookup = DirLookup(), dataFileLookup: DataFileLookup = DataFileLookup()):
+def parseDict(data: dict, relativeDir: Path, dirLookup: DirLookup = DirLookup(), dataFileLookup: DataFileLookup = DataFileLookup()) -> dict:
     res = {}
     for key, value in data.items():
         if isinstance(value, list):
-            res[key] = [parseArg(arg, relativeDir, dirLookup, dataFileLookup) for arg in value]
+            res[key] = parseList(value, relativeDir, dirLookup, dataFileLookup)
 
         elif isinstance(value, dict):
             res[key] = parseDict(value, relativeDir, dirLookup, dataFileLookup)
 
         else:
             res[key] = parseArg(value, relativeDir, dirLookup, dataFileLookup)
+
+    return res
+
+def parseList(data: list, relativeDir: Path, dirLookup: DirLookup = DirLookup(), dataFileLookup: DataFileLookup = DataFileLookup()) -> list:
+    return [parseArg(arg, relativeDir, dirLookup, dataFileLookup) for arg in data]
 
 def parseArg(arg: Any, parentDir: Path, dirLookup: DirLookup = DirLookup(), dataFileLookup: DataFileLookup = DataFileLookup()) -> Path | str:
     if not isinstance(arg, str):

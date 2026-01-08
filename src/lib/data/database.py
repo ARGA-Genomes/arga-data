@@ -88,9 +88,10 @@ class Database:
 
         # Local storage and libraries
         self.exampleDir = self.subsectionDir / "examples" # Data sample storage location
-        locationLib = self.locationDir / "llib" # Location based library for scripts shared across a location
-        scriptsLib = self.databaseDir / "scripts" # Database specific scripts
-        self.libDirs = [locationLib, scriptsLib]
+        self.dirLookup = parse.DirLookup({
+            ".": self.databaseDir / "scripts",
+            ".llib": self.locationDir / "llib"
+        })
 
         # Local settings
         self.settings = gs
@@ -109,7 +110,7 @@ class Database:
         self.conversionDir = self.dataDir / Step.CONVERSION.value
 
         # Tasks
-        self._queuedTasks: dict[Step, list] = {Step.DOWNLOADING: [], Step.PROCESSING: [[]], Step.CONVERSION: []}
+        self._queuedTasks: dict[Step, list[tasks.Task]] = {Step.DOWNLOADING: [], Step.PROCESSING: [], Step.CONVERSION: []}
         self._metadataPath = self.subsectionDir / self._metadataFileName
         self._metadata = self._loadMetadata()
 
@@ -149,7 +150,6 @@ class Database:
         password = sourceSecrets.password if sourceSecrets is not None else ""
 
         overwrite = Flag.REPREPARE in flags
-        dirLookup = parse.DirLookup(self.libDirs + [self.downloadDir])
 
         retrieve = Retrieve._value2member_map_.get(retrieveType, None)
         if retrieve == Retrieve.URL: # Tasks should be a list of dicts
@@ -157,33 +157,39 @@ class Database:
                 raise Exception(f"URL retrieve type expects a list of task configs for {self.name}") from AttributeError
 
             for taskConfig in downloadTaskConfig:
-                parsedConfig = parse.parseDict(taskConfig, self.downloadDir, dirLookup)
-                self._queuedTasks[Step.DOWNLOADING].append(tasks.UrlRetrieve(self.downloadDir, username, password, parsedConfig))
+                self._queuedTasks[Step.DOWNLOADING].append(tasks.UrlRetrieve(self.downloadDir, taskConfig, username, password))
 
         elif retrieve == Retrieve.CRAWL: # Tasks should be dict
             if not isinstance(downloadTaskConfig, dict):
                 raise Exception(f"Crawl retrieve type expects a dict config for {self.name}")
             
-            parsedConfig = parse.parseDict(downloadTaskConfig, self.downloadDir, dirLookup)
-            self._queuedTasks[Step.DOWNLOADING].append(tasks.CrawlRetrieve(self.downloadDir, username, password, parsedConfig, overwrite))
+            self._queuedTasks[Step.DOWNLOADING].append(tasks.CrawlRetrieve(self.downloadDir, downloadTaskConfig, username, password, overwrite))
 
         elif retrieve == Retrieve.SCRIPT: # Tasks should be dict
             if not isinstance(downloadTaskConfig, dict):
                 raise Exception(f"Script retrieve type expects a dict config for {self.name}")
             
-            parsedConfig = parse.parseDict(downloadTaskConfig, self.downloadDir, dirLookup)
-            self._queuedTasks[Step.DOWNLOADING].append(tasks.ScriptRunner(self.downloadDir, parsedConfig, self.libDirs))
+            inputs = self._queuedTasks[Step.DOWNLOADING]
+            if inputs:
+                inputs = [t.getOutputs() for t in inputs]
+            downloads = [t.getOutputs() for t in self._queuedTasks[Step.DOWNLOADING]]
+
+            fileLookup = parse.DataFileLookup(inputs, downloads)
+            self._queuedTasks[Step.DOWNLOADING].append(tasks.ScriptRunner(self.downloadDir, downloadTaskConfig, self.dirLookup, fileLookup))
 
         else:
             raise Exception(f"Unknown retrieve type '{retrieveType}' specified for {self.name}") from AttributeError
 
     def _prepareProcessing(self, flags: list[Flag]) -> None:
-        processingConfig: dict = self.config.pop(Step.PROCESSING.value, [])
+        processingConfig: list[dict] = self.config.pop(Step.PROCESSING.value, [])
 
         for idx, processingStep in enumerate(processingConfig):
-            # parsedConfig = self.parseTaskConfig(processConfig, self.processingDir)
-            # self._queuedTasks[Step.PROCESSING].append(tasks.ScriptRunner(self.processingDir, parsedConfig, self.libDirs))
-            ...
+            inputs = self._queuedTasks[Step.DOWNLOADING if idx == 0 else Step.PROCESSING][-1].getOutputs()
+            downloads = [t.getOutputs() for t in self._queuedTasks[Step.DOWNLOADING]]
+            processed = [t.getOutputs() for t in self._queuedTasks[Step.PROCESSING]]
+
+            fileLookup = parse.DataFileLookup(inputs, downloads, processed)
+            self._queuedTasks[Step.PROCESSING].append(tasks.ScriptRunner(self.processingDir, processingStep, self.dirLookup, fileLookup))
 
     def _prepareConversion(self, flags: list[Flag]) -> None:
         conversionConfig: dict = self.config.pop(Step.CONVERSION.value, {})
@@ -231,9 +237,6 @@ class Database:
         if not evaluationTasks:
             logging.info(f"No tasks to evaluate for step {step.value}")
             return True
-        
-        if step == Step.PROCESSING: # Flatten processing tasks into one list
-            evaluationTasks: list[tasks.Task] = [task for layer in evaluationTasks for task in layer]
 
         allSucceeded = False
         startTime = time.perf_counter()
