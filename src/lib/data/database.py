@@ -227,11 +227,13 @@ class Database:
         verbose = Flag.VERBOSE in flags
         logging.info(f"Executing {self} step '{step.name}' with flags: {self._printFlags(flags)}")
 
-        if step in (Step.DOWNLOADING, Step.CONVERSION):
-            evaluationTasks: list[tasks.Task] = self._queuedTasks[step]
-
-        elif step == Step.PROCESSING:
-            evaluationTasks: list[tasks.Task] = [task for layer in self._queuedTasks[Step.PROCESSING] for task in layer]
+        evaluationTasks = self._queuedTasks.get(step, [])
+        if not evaluationTasks:
+            logging.info(f"No tasks to evaluate for step {step.value}")
+            return True
+        
+        if step == Step.PROCESSING: # Flatten processing tasks into one list
+            evaluationTasks: list[tasks.Task] = [task for layer in evaluationTasks for task in layer]
 
         allSucceeded = False
         startTime = time.perf_counter()
@@ -239,7 +241,11 @@ class Database:
             taskStartTime = time.perf_counter()
             taskStartDate = datetime.now().isoformat()
 
-            success = task.run(overwrite, verbose)
+            try:
+                success = task.run(overwrite, verbose)
+            except KeyboardInterrupt:
+                logging.info("Cancelling task execution early")
+                return
 
             duration = time.perf_counter() - taskStartTime
             taskEndDate = datetime.now().isoformat()
@@ -345,8 +351,8 @@ class Database:
         if timestamp is not None:
             return datetime.fromisoformat(timestamp)
 
-    def getLastOutput(self, step: Step) -> str | None:
-        return self._metadata[step.value][-1][Metadata.OUTPUT.value]
+    def getLastOutputs(self, step: Step) -> list[str]:
+        return self._metadata.get(step.value, [])[-1].get(Metadata.OUTPUTS.value, [])
 
     def _getUpdater(self, config: dict) -> upd.Update:
         updaterTypeValue = config.get("type", Updates.WEEKLY.value)

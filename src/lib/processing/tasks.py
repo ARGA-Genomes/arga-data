@@ -173,4 +173,6 @@ class Conversion(Task):
         super().__init__([outputFile])
 
     def run(self, overwrite: bool, verbose: bool) -> bool:
-        return self.converter.convert()
+        success, metadata = self.converter.convert(overwrite, verbose)
+        self.setAdditionalMetadata(metadata)
+        return success

@@ -10,6 +10,7 @@ class Converter:
     _mapFileName = "map.json"
 
     def __init__(self, inputFile: DataFile, outputFile: StackedFile, prefix: str, entityInfo: tuple[str, str], chunkSize: int):
+        self.inputFile = inputFile
         self.outputFile = outputFile
         self.prefix = prefix
         self.entityInfo = entityInfo
@@ -64,7 +65,7 @@ class Converter:
             
         return df
 
-    def convert(self, overwrite: bool, verbose: bool) -> bool:
+    def convert(self, overwrite: bool, verbose: bool) -> tuple[bool, dict]:
         logging.info("Processing chunks for conversion")
         writer = StackedDFWriter(self.outputFile.path, self.map.events)
 
@@ -76,7 +77,7 @@ class Converter:
 
             df = self._processChunk(df)
             if df is None:
-                return False
+                return False, {}
 
             writer.write(df)
 
@@ -86,13 +87,10 @@ class Converter:
 
         writer.combine(removeParts=True)
 
-        self.setAdditionalMetadata(
-            {
-                "total columns": len(self.inputFile.getColumns()),
-                "unmapped columns": writer.uniqueColumns(self.map._unmappedLabel),
-                "rows": totalRows
-            }
-        )
+        metadata = {
+            "total columns": len(self.inputFile.getColumns()),
+            "unmapped columns": writer.uniqueColumns(self.map._unmappedLabel),
+            "rows": totalRows
+        }
 
-        return True
-    
+        return True, metadata
