@@ -127,19 +127,37 @@ class ScriptRunner(Task):
         if not outputs:
             raise Exception("No `outputs` specified in script config") from AttributeError        
 
-        outputs = [DataFile(workingDir / parse.parseArg(output, workingDir, dirLookup, fileLookup)) for output in outputs]
-        fileLookup.merge(parse.DataFileLookup(outputs=outputs))
+        # Split script if necessary for parallel tasks
+        lookups: list[parse.DataFileLookup] = []
+        if parallel:
+            for input in fileLookup.getFiles(parse.FileSelect.INPUT):
+                individualFileLookup = parse.DataFileLookup([input], fileLookup.getFiles(parse.FileSelect.DOWNLOAD), fileLookup.getFiles(parse.FileSelect.PROCESS))
+                lookups.append(individualFileLookup)
+        else:
+            lookups.append(fileLookup)
 
-        self.args = parse.parseList(config.pop(self._args, []), workingDir, dirLookup, fileLookup)
-        self.kwargs = parse.parseDict(config.pop(self._kwargs, {}), workingDir, dirLookup, fileLookup)
+        # Store script objects for run time
+        self.scripts: list[tuple[OutputScript, list, dict]] = []
+        allOutputs = []
+        for lookup in lookups:
+            outputs = [DataFile(workingDir / parse.parseArg(output, workingDir, dirLookup, lookup)) for output in outputs]
+            lookup.add(parse.FileSelect.OUTPUT, outputs)
 
-        self.script = OutputScript(modulePath, functionName, outputs, fileLookup.getFiles(parse.FileSelect.INPUT), dirLookup.paths())
+            args = parse.parseList(config.pop(self._args, []), workingDir, dirLookup, lookup)
+            kwargs = parse.parseDict(config.pop(self._kwargs, {}), workingDir, dirLookup, lookup)
 
-        super().__init__(outputs)
+            self.scripts.append((OutputScript(modulePath, functionName, outputs, lookup.getFiles(parse.FileSelect.INPUT), dirLookup.paths()), args, kwargs))
+            allOutputs.extend(outputs)
+
+        super().__init__(allOutputs)
 
     def run(self, overwrite: bool, verbose: bool) -> bool:
-        success, _ = self.script.run(overwrite, verbose, self.args, self.kwargs)
-        return success
+        allSuccess = True
+        for script, args, kwargs in self.scripts:
+            success, _ = script.run(overwrite, verbose, args, kwargs)
+            allSuccess = allSuccess and success
+
+        return allSuccess
 
 class Conversion(Task):
 

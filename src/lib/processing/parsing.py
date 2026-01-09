@@ -37,6 +37,9 @@ class DataFileLookup:
     def getFiles(self, enum: FileSelect) -> list[DataFile]:
         return self._enumMap.get(enum, [])
     
+    def add(self, enum: FileSelect, file: DataFile) -> None:
+        self._enumMap[enum].append(file)
+    
     def merge(self, other: 'DataFileLookup') -> None:
         for enum in FileSelect:
             self._enumMap[enum] += other._enumMap[enum]
