@@ -1,5 +1,4 @@
-from lib.data.argParser import ArgParser
-from lib.processing.files import Step
+from lib.data.argParser import ArgParser, Step
 
 if __name__ == '__main__':
     parser = ArgParser(description="Prepare for DwC conversion")
