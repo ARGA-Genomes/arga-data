@@ -4,12 +4,14 @@ import pandas as pd
 import logging
 from lib.bigFiles import StackedDFWriter
 import gc
+from pathlib import Path
 
 class Converter:
 
     _mapFileName = "map.json"
 
-    def __init__(self, inputFile: DataFile, outputFile: StackedFile, prefix: str, entityInfo: tuple[str, str], chunkSize: int):
+    def __init__(self, mapDir: Path, inputFile: DataFile, outputFile: StackedFile, prefix: str, entityInfo: tuple[str, str], chunkSize: int):
+        self.mapDir = mapDir
         self.inputFile = inputFile
         self.outputFile = outputFile
         self.prefix = prefix
@@ -19,7 +21,7 @@ class Converter:
         self.map = None
 
     def loadMap(self, mapID: str, mapColumnName: str, forceRetrieve: bool) -> None:
-        mapFile = self.outputFile.path.parent / self._mapFileName
+        mapFile = self.mapDir / self._mapFileName
 
         if mapFile.exists() and not forceRetrieve:
             self.map = Map.fromFile(mapFile)
@@ -27,7 +29,7 @@ class Converter:
         elif mapColumnName:
             self.map = Map.fromModernSheet(mapColumnName, mapFile)
 
-        elif mapID.isdigit() and int(mapID) > 0:
+        elif mapID > 0:
             self.map = Map.fromSheets(mapID, mapFile)
         
         logging.warning("No mapping found")
