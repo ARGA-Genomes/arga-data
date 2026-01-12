@@ -1,10 +1,8 @@
 import json
 from lib.settings import dataSourcesDir
 from pathlib import Path
-from lib.data.database import BasicDB, CrawlDB, ScriptDB, Retrieve
+from lib.data.database import Database
 import logging
-
-sourceConfigName = "config.json"
 
 class SourceManager:
 
@@ -53,7 +51,7 @@ class SourceManager:
     def countSources(self, sources: dict[str, dict[str, list[str]]]) -> int:
         return sum(1 for _, databases in sources.items() for _, subsections in databases.items() for _ in subsections)
 
-    def constructDBs(self, sources: dict[str, dict[str, list[str]]]) -> list[BasicDB]:
+    def constructDBs(self, sources: dict[str, dict[str, list[str]]]) -> list[Database]:
         dbs = []
         for locationName, databases in sources.items():
             for databaseName, subsections in databases.items():
@@ -74,14 +72,14 @@ class SourceManager:
 class Location:
     def __init__(self, locationPath: Path):
         self.locationPath = locationPath
-        self.databases: dict[str, DatabaseConstructor] = {}
+        self.databases: dict[str, Database] = {}
 
         for databaseFolder in locationPath.iterdir():
             if databaseFolder.is_file() or databaseFolder.name in ("__pycache__", "llib"): # Skip files, cached python folder, and location library
                 continue
 
-            generalDatabase = DatabaseConstructor(databaseFolder)
-            self.databases[generalDatabase.getName()] = generalDatabase
+            db = Database(databaseFolder)
+            self.databases[db.databaseName()] = db
 
     def getName(self) -> str:
         return self.locationPath.name
@@ -118,62 +116,7 @@ class Location:
 
         return {databaseName: [subsectionName]}
     
-    def constructDB(self, databaseName, subsection: str, name: str) -> BasicDB | None:
+    def constructDB(self, databaseName, subsection: str, name: str) -> Database:
         database = self.databases[databaseName]
-        return database.construct(subsection, name)
-
-class DatabaseConstructor:
-    _dbMapping: dict[Retrieve, BasicDB] = {
-        Retrieve.URL: BasicDB,
-        Retrieve.CRAWL: CrawlDB,
-        Retrieve.SCRIPT: ScriptDB
-    }
-
-    def __init__(self, databasePath: Path):
-        self.databasePath = databasePath
-
-        configPath = databasePath / sourceConfigName
-        if configPath.exists():
-            with open(configPath) as fp:
-                configData = json.load(fp)
-        else:
-            configData = {}
-
-        self.retrieveType: str = configData.pop("retrieveType", "")
-        self.datasetID: str = configData.pop("datasetID", "")
-        self.subsections: dict[str, dict[str, str]] = configData.pop("subsections", {})
-        self.configData = configData
-
-    def getName(self) -> str:
-        return self.databasePath.name
-    
-    def listSubsections(self) -> list[str]:
-        return list(self.subsections)
-    
-    def construct(self, subsection: str, name: str) -> BasicDB | None:
-        if not self.retrieveType:
-            logging.error("No retrieve type specified")
-            return
-        
-        if not self.datasetID:
-            logging.warning("No datasetID specified, conversion process will not work")
-
-        retrieveType = Retrieve._value2member_map_.get(self.retrieveType, None)
-        if retrieveType is None:
-            logging.error(f"Invalid retrieve type: {self.retrieveType}. Should be one of: {', '.join(key.value for key in self._dbMapping)}")
-            return
-
-        dbObject = self._dbMapping[retrieveType]
-        if not subsection:
-            config = dict(self.configData)
-        else:
-            rawConfig = json.dumps(self.configData)
-            rawConfig = rawConfig.replace("<SUB>", subsection)
-            subsectionData = self.subsections.get(subsection, {})
-            tags = subsectionData.get("tags", {})
-            for tag, replaceValue in tags.items():
-                rawConfig = rawConfig.replace(f"<SUB:{tag.upper()}>", replaceValue)
-
-            config = json.loads(rawConfig)
-
-        return dbObject(name, self.databasePath, subsection, self.datasetID, config)
+        database.constuct(name, subsection)
+        return database
