@@ -12,11 +12,8 @@ class Update(ABC):
     def _getAndAssert(self, properties: dict, property: str, type: type) -> Any:
         value = properties.get(property)
 
-        if value is None:
-            raise Exception(f"No property '{property}' found.")
-        
-        if not isinstance(value, type):
-            raise Exception(f"Property '{property}' should be of type '{type}'.")
+        assert value is not None, f"No property '{property}' found."
+        assert isinstance(value, type), f"Property '{property}' should be of type '{type}'."
 
         return value
 
