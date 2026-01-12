@@ -1,6 +1,6 @@
 from argparse import ArgumentParser, Namespace, _MutuallyExclusiveGroup
 from lib.data.sources import SourceManager
-from lib.data.database import BasicDB, Flag
+from lib.data.database import Database, Flag
 
 class ArgParser:
     def __init__(self, description: str = "", reprepareHelp: str = "Force redoing source preparation", overwriteHelp: str = "Force overwriting all output"):
@@ -18,7 +18,7 @@ class ArgParser:
     def addArgument(self, *args, **kwargs) -> None:
         self._parser.add_argument(*args, **kwargs)
 
-    def parseArgs(self, *args, **kwargs) -> tuple[list[BasicDB], list[Flag], Namespace]:
+    def parseArgs(self, *args, **kwargs) -> tuple[list[Database], list[Flag], Namespace]:
         parsedArgs = self._parser.parse_args(*args, **kwargs)
 
         sources = self._manager.matchSources(self._extract(parsedArgs, "source"))
