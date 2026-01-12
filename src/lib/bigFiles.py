@@ -34,7 +34,10 @@ class DFWriter:
             self._uniqueColumns |= {column: None for column in dataFile.getColumns()}
 
     def _wroteFile(self, name: str) -> None:
-        self.metadata[self._metaFilePaths] += [name]
+        if self.metadata.get(self._metaFilePaths) is None:
+            self.metadata[self._metaFilePaths] = [name]
+        else:
+            self.metadata[self._metaFilePaths] += [name]
 
     def writtenFileCount(self) -> int:
         return len(self._sectionFiles)
@@ -84,7 +87,7 @@ class RecordWriter(DFWriter):
         self._rowsPerSubsection = rowsPerSubsection
         self._records = []
 
-        if self.metadata[self._metaRows] != rowsPerSubsection: # Different chunk size used from previous, throw out results
+        if self.metadata.get(self._metaRows, -1) != rowsPerSubsection: # Different chunk size used from previous, throw out results
             self.metadata.clear()
             self.metadata[self._metaRows] = rowsPerSubsection
         else:
