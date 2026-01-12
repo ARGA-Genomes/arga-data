@@ -57,7 +57,7 @@ class DirLookup:
     def paths(self) -> list[Path]:
         return list(self._lookup.values())
 
-def parseDict(data: dict, relativeDir: Path, dirLookup: DirLookup = DirLookup(), dataFileLookup: DataFileLookup = DataFileLookup()) -> dict:
+def parseDict(data: dict, relativeDir: Path, dirLookup: DirLookup = None, dataFileLookup: DataFileLookup = None) -> dict:
     res = {}
     for key, value in data.items():
         if isinstance(value, list):
@@ -71,10 +71,10 @@ def parseDict(data: dict, relativeDir: Path, dirLookup: DirLookup = DirLookup(),
 
     return res
 
-def parseList(data: list, relativeDir: Path, dirLookup: DirLookup = DirLookup(), dataFileLookup: DataFileLookup = DataFileLookup()) -> list:
+def parseList(data: list, relativeDir: Path, dirLookup: DirLookup = None, dataFileLookup: DataFileLookup = None) -> list:
     return [parseArg(arg, relativeDir, dirLookup, dataFileLookup) for arg in data]
 
-def parseArg(arg: Any, parentDir: Path, dirLookup: DirLookup = DirLookup(), dataFileLookup: DataFileLookup = DataFileLookup()) -> Path | str:
+def parseArg(arg: Any, parentDir: Path, dirLookup: DirLookup = None, dataFileLookup: DataFileLookup = None) -> Path | str:
     if not isinstance(arg, str):
         return arg
 
@@ -90,7 +90,7 @@ def parseArg(arg: Any, parentDir: Path, dirLookup: DirLookup = DirLookup(), data
 
     return arg
 
-def parsePath(arg: str, parentPath: Path, dirLookup: DirLookup = DirLookup()) -> Path | Any:
+def parsePath(arg: str, parentPath: Path, dirLookup: DirLookup = None) -> Path | Any:
     prefix, relPath = arg.split("/", 1)
     if prefix == ".":
         return parentPath / relPath
@@ -103,7 +103,7 @@ def parsePath(arg: str, parentPath: Path, dirLookup: DirLookup = DirLookup()) ->
 
         return cwd / relPath
     
-    if dirLookup.contains(prefix):
+    if dirLookup is not None and dirLookup.contains(prefix):
         return dirLookup.remap(relPath, prefix)
     
     return arg
@@ -111,6 +111,10 @@ def parsePath(arg: str, parentPath: Path, dirLookup: DirLookup = DirLookup()) ->
 def _parseSelectorArg(arg: str, dataFileLookup: DataFileLookup = DataFileLookup()) -> Path | str:
     if "-" not in arg:
         logging.warning(f"Both file type and file property not present in arg, deliminate with '-'")
+        return arg
+    
+    if dataFileLookup is None:
+        logging.error("No DataFile lookup provided")
         return arg
     
     fType, fProperty = arg.split("-")
