@@ -8,11 +8,6 @@ from typing import Iterator
 import pyarrow as pa
 import shutil
 
-class Step(Enum):
-    DOWNLOADING = "downloading"
-    PROCESSING  = "processing"
-    CONVERSION  = "conversion"
-
 class DataFormat(Enum):
     CSV     = ".csv"
     TSV     = ".tsv"
@@ -118,7 +113,7 @@ class CSVFile(DataFile):
         return pd.read_csv(self.path, **(self.properties | kwargs))
     
     def readIterator(self, chunkSize: int, **kwargs) -> Iterator[pd.DataFrame]:
-        for chunk in self.read(chunkSize=chunkSize, **kwargs):
+        for chunk in self.read(chunksize=chunkSize, **kwargs):
             yield chunk
     
     def write(self, df: pd.DataFrame, **kwargs: dict) -> None:
