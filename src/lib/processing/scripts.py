@@ -28,7 +28,7 @@ class FunctionScript:
             return False, None
 
         if verbose:
-            msg = f"Running {self.modulePath} function '{self.function}'"
+            msg = f"Running {self.modulePath} function '{self.functionName}'"
             if args:
                 msg += f" with args {args}"
             if kwargs:

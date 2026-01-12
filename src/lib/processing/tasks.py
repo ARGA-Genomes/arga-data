@@ -37,7 +37,7 @@ class UrlRetrieve(Task):
         self.username = username
         self.password = password
 
-        self.url = config.get(self.url, None)
+        self.url = config.get(self._url, None)
         if self.url is None:
             raise Exception("No url provided for source") from AttributeError
 
@@ -119,6 +119,8 @@ class ScriptRunner(Task):
         if not modulePath:
             raise Exception("No `path` specified in script config") from AttributeError
 
+        modulePath = parse.parseArg(modulePath, workingDir, dirLookup, fileLookup)
+
         functionName = config.pop(self._functionName, "")
         if not functionName:
             raise Exception("No `function` specified in script config") from AttributeError
@@ -141,7 +143,7 @@ class ScriptRunner(Task):
         allOutputs = []
         for lookup in lookups:
             outputs = [DataFile(workingDir / parse.parseArg(output, workingDir, dirLookup, lookup)) for output in outputs]
-            lookup.add(parse.FileSelect.OUTPUT, outputs)
+            lookup.extend(parse.FileSelect.OUTPUT, outputs)
 
             args = parse.parseList(config.pop(self._args, []), workingDir, dirLookup, lookup)
             kwargs = parse.parseDict(config.pop(self._kwargs, {}), workingDir, dirLookup, lookup)
@@ -169,7 +171,7 @@ class Conversion(Task):
     _timestamp = "timestamp"
     _chunkSize = "chunkSize"
 
-    def __init__(self, workingDir: Path, config: dict, inputFile: DataFile, prefix: str, name: str, retrieveMap: bool):
+    def __init__(self, workingDir: Path, config: dict, inputFile: DataFile, prefix: str, name: str, retrieveMap: bool, mapDir: Path):
         self.workingDir = workingDir
 
         datasetID = config.pop(self._datasetID, "")
@@ -189,7 +191,7 @@ class Conversion(Task):
 
         chunkSize = config.pop(self._chunkSize, 1024)
 
-        self.converter = Converter(inputFile, outputFile, prefix, (entityEvent, entityColumn), chunkSize)
+        self.converter = Converter(mapDir, inputFile, outputFile, prefix, (entityEvent, entityColumn), chunkSize)
         self.converter.loadMap(mapID, mapColumnName, retrieveMap)
 
         super().__init__([outputFile])

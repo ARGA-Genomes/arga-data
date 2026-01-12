@@ -39,6 +39,9 @@ class DataFileLookup:
     
     def add(self, enum: FileSelect, file: DataFile) -> None:
         self._enumMap[enum].append(file)
+
+    def extend(self, enum: FileSelect, files: list[DataFile]) -> None:
+        self._enumMap[enum].extend(files)
     
     def merge(self, other: 'DataFileLookup') -> None:
         for enum in FileSelect:
@@ -108,7 +111,7 @@ def parsePath(arg: str, parentPath: Path, dirLookup: DirLookup = None) -> Path |
     
     return arg
 
-def _parseSelectorArg(arg: str, dataFileLookup: DataFileLookup = DataFileLookup()) -> Path | str:
+def _parseSelectorArg(arg: str, dataFileLookup: DataFileLookup = None) -> Path | str:
     if "-" not in arg:
         logging.warning(f"Both file type and file property not present in arg, deliminate with '-'")
         return arg

@@ -9,6 +9,8 @@ import lib.processing.updating as upd
 import lib.processing.parsing as parse
 import time
 from datetime import datetime
+import traceback
+from lib.processing.files import DataFile
 
 sourceConfigName = "config.json"
 
@@ -105,9 +107,7 @@ class Database:
         if self.settings.storage.data: # Overwrite data location
             self.dataDir: Path = self.settings.storage.data / self.dataDir.relative_to(self.locationDir.parent) # Change parent of locationDir (dataSources folder) to storage dir
 
-        self.downloadDir = self.dataDir / Step.DOWNLOADING.value
-        self.processingDir = self.dataDir / Step.PROCESSING.value
-        self.conversionDir = self.dataDir / Step.CONVERSION.value
+        self.workingDirs = {step: self.dataDir / step.value for step in Step}
 
         # Tasks
         self._queuedTasks: dict[Step, list[tasks.Task]] = {Step.DOWNLOADING: [], Step.PROCESSING: [], Step.CONVERSION: []}
@@ -119,7 +119,7 @@ class Database:
         self._update = self._getUpdater(updateConfig)
 
         # Preparation Stage
-        self._prepStage = -1
+        self._lastPrepared = None
 
     def __str__(self):
         return self.name
@@ -130,6 +130,9 @@ class Database:
     def _reportLeftovers(self, config: dict, sectionName: str) -> None:
         for property in config:
             logging.debug(f"{self.name} unknown{f' {sectionName}' if sectionName else ''} config item: {property}")
+
+    def _flattenTaskOutputs(self, taskList: list[tasks.Task]) -> list[DataFile]:
+        return [output for task in taskList for output in task.getOutputs()]
 
     def _prepareDownload(self, flags: list[Flag]) -> None:
         downloadConfig: dict = self.config.pop(Step.DOWNLOADING.value, {})
@@ -157,13 +160,13 @@ class Database:
                 raise Exception(f"URL retrieve type expects a list of task configs for {self.name}") from AttributeError
 
             for taskConfig in downloadTaskConfig:
-                self._queuedTasks[Step.DOWNLOADING].append(tasks.UrlRetrieve(self.downloadDir, taskConfig, username, password))
+                self._queuedTasks[Step.DOWNLOADING].append(tasks.UrlRetrieve(self.workingDirs[Step.DOWNLOADING], taskConfig, username, password))
 
         elif retrieve == Retrieve.CRAWL: # Tasks should be dict
             if not isinstance(downloadTaskConfig, dict):
                 raise Exception(f"Crawl retrieve type expects a dict config for {self.name}")
             
-            self._queuedTasks[Step.DOWNLOADING].append(tasks.CrawlRetrieve(self.downloadDir, downloadTaskConfig, username, password, overwrite))
+            self._queuedTasks[Step.DOWNLOADING].append(tasks.CrawlRetrieve(self.workingDirs[Step.DOWNLOADING], downloadTaskConfig, username, password, overwrite))
 
         elif retrieve == Retrieve.SCRIPT: # Tasks should be dict
             if not isinstance(downloadTaskConfig, dict):
@@ -171,11 +174,11 @@ class Database:
             
             inputs = self._queuedTasks[Step.DOWNLOADING]
             if inputs:
-                inputs = [t.getOutputs() for t in inputs]
-            downloads = [t.getOutputs() for t in self._queuedTasks[Step.DOWNLOADING]]
+                inputs = self._flattenTaskOutputs(inputs)
+            downloads = self._flattenTaskOutputs(self._queuedTasks[Step.DOWNLOADING])
 
             fileLookup = parse.DataFileLookup(inputs, downloads)
-            self._queuedTasks[Step.DOWNLOADING].append(tasks.ScriptRunner(self.downloadDir, downloadTaskConfig, self.dirLookup, fileLookup))
+            self._queuedTasks[Step.DOWNLOADING].append(tasks.ScriptRunner(self.workingDirs[Step.DOWNLOADING], downloadTaskConfig, self.dirLookup, fileLookup))
 
         else:
             raise Exception(f"Unknown retrieve type '{retrieveType}' specified for {self.name}") from AttributeError
@@ -185,11 +188,11 @@ class Database:
 
         for idx, processingStep in enumerate(processingConfig):
             inputs = self._queuedTasks[Step.DOWNLOADING if idx == 0 else Step.PROCESSING][-1].getOutputs()
-            downloads = [t.getOutputs() for t in self._queuedTasks[Step.DOWNLOADING]]
-            processed = [t.getOutputs() for t in self._queuedTasks[Step.PROCESSING]]
+            downloads = self._flattenTaskOutputs(self._queuedTasks[Step.DOWNLOADING])
+            processed = self._flattenTaskOutputs(self._queuedTasks[Step.PROCESSING])
 
             fileLookup = parse.DataFileLookup(inputs, downloads, processed)
-            self._queuedTasks[Step.PROCESSING].append(tasks.ScriptRunner(self.processingDir, processingStep, self.dirLookup, fileLookup))
+            self._queuedTasks[Step.PROCESSING].append(tasks.ScriptRunner(self.workingDirs[Step.PROCESSING], processingStep, self.dirLookup, fileLookup))
 
     def _prepareConversion(self, flags: list[Flag]) -> None:
         conversionConfig: dict = self.config.pop(Step.CONVERSION.value, {})
@@ -197,33 +200,34 @@ class Database:
             raise Exception(f"No conversion config specified as required for {self.name}") from AttributeError
 
         overwrite = Flag.REPREPARE in flags
-        inputFile = self._queuedTasks[Step.PROCESSING][-1][-1] # Last processed file for conversion
+        inputFile = self._queuedTasks[Step.PROCESSING][-1].getOutputs()[0] # Last processed file for conversion
 
-        self._queuedTasks[Step.CONVERSION].append(tasks.Conversion(self.conversionDir, conversionConfig, inputFile, self.locationName(), self.name, overwrite))
+        self._queuedTasks[Step.CONVERSION].append(tasks.Conversion(self.workingDirs[Step.CONVERSION], conversionConfig, inputFile, self.locationName(), self.name, overwrite, self.databaseDir))
 
     def _prepare(self, fileStep: Step, flags: list[Flag]) -> bool:
-        callbacks = {
-            Step.DOWNLOADING: self._prepareDownload,
-            Step.PROCESSING: self._prepareProcessing,
-            Step.CONVERSION: self._prepareConversion
+        stepMap = {
+            Step.DOWNLOADING: (None, self._prepareDownload),
+            Step.PROCESSING: (Step.DOWNLOADING, self._prepareProcessing),
+            Step.CONVERSION: (Step.PROCESSING, self._prepareConversion)
         }
 
-        if fileStep not in callbacks:
+        if fileStep not in stepMap:
             raise Exception(f"Unknown step to prepare: {fileStep}")
 
-        for idx, (stepType, callback) in enumerate(callbacks.items()):
-            if idx <= self._prepStage:
+        for stepType, (requirement, callback) in stepMap.items():
+            if self._lastPrepared != requirement:
                 continue
 
             logging.info(f"Preparing {self} step '{stepType.name}' with flags: {self._printFlags(flags)}")
             try:
                 callback(flags)
-            except AttributeError as e:
-                logging.error(f"Error preparing step: {stepType.name} - {e}")
+            except AttributeError:
+                logging.error(f"Error preparing step: {stepType.name}")
+                logging.error(traceback.format_exc())
                 return False
             
-            self._prepStage = idx
-            if fileStep == stepType:
+            self._lastPrepared = stepType
+            if fileStep is stepType:
                 break
             
         return True
@@ -237,6 +241,9 @@ class Database:
         if not evaluationTasks:
             logging.info(f"No tasks to evaluate for step {step.value}")
             return True
+
+        workingDir = self.workingDirs[step]
+        workingDir.mkdir(parents=True, exist_ok=True)
 
         allSucceeded = False
         startTime = time.perf_counter()
@@ -254,7 +261,7 @@ class Database:
             taskEndDate = datetime.now().isoformat()
 
             packet = {
-                Metadata.OUTPUTS: [t.name for t in task.getOutputs()],
+                Metadata.OUTPUTS: [t.path.name for t in task.getOutputs()],
                 Metadata.SUCCESS: success,
                 Metadata.TASK_START: taskStartDate,
                 Metadata.TASK_END: taskEndDate,
