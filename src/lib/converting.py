@@ -10,12 +10,17 @@ class Converter:
 
     _mapFileName = "map.json"
 
-    def __init__(self, mapDir: Path, inputFile: DataFile, outputFile: StackedFile, prefix: str, entityInfo: tuple[str, str], chunkSize: int):
+    _datasetIDLabel = "dataset_id"
+    _entityIDLabel = "entity_id"
+    _entityIDEvent = "collection"
+
+    def __init__(self, mapDir: Path, inputFile: DataFile, outputFile: StackedFile, prefix: str, datasetID: str, entityInfo: tuple[str, str], chunkSize: int):
         self.mapDir = mapDir
         self.inputFile = inputFile
         self.outputFile = outputFile
         self.prefix = prefix
-        self.entityInfo = entityInfo
+        self.datasetID = datasetID
+        self.entityEvent, self.entityColumn = entityInfo
         self.chunkSize = chunkSize
 
         self.map = None
@@ -24,15 +29,19 @@ class Converter:
         mapFile = self.mapDir / self._mapFileName
 
         if mapFile.exists() and not forceRetrieve:
+            logging.info("Using local map file")
             self.map = Map.fromFile(mapFile)
 
         elif mapColumnName:
+            logging.info("Using updated mapping sheet")
             self.map = Map.fromModernSheet(mapColumnName, mapFile)
 
         elif mapID > 0:
+            logging.info("Using original mapping sheet")
             self.map = Map.fromSheets(mapID, mapFile)
-        
-        logging.warning("No mapping found")
+
+        else:
+            logging.warning("No mapping found")
     
     def _processChunk(self, chunk: pd.DataFrame) -> pd.DataFrame | None:
         df = self.map.applyTo(chunk, self.prefix) # Returns a multi-index dataframe
@@ -40,7 +49,7 @@ class Converter:
         if df is None:
             return
         
-        error = f"Unable to generate '{self.entityIDLabel}':"
+        error = f"Unable to generate '{self._entityIDLabel}':"
         if self.entityEvent not in df.columns:
             logging.error(f"{error} no event found '{self.entityEvent}'")
             return
@@ -49,8 +58,8 @@ class Converter:
             logging.error(f"{error} dataset is missing field '{self.entityColumn}' in event '{self.entityEvent}'")
             return
         
-        df[(self.entityIDEvent, self.datasetIDLabel)] = self.datasetID
-        df[(self.entityIDEvent, self.entityIDLabel)] = df[(self.entityIDEvent, self.datasetIDLabel)] + df[(self.entityEvent, self.entityColumn)]
+        df[(self._entityIDEvent, self._datasetIDLabel)] = self.datasetID
+        df[(self._entityIDEvent, self._entityIDLabel)] = df[(self._entityIDEvent, self._datasetIDLabel)] + df[(self.entityEvent, self.entityColumn)]
         return df
 
     def convert(self, overwrite: bool, verbose: bool) -> tuple[bool, dict]:

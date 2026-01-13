@@ -1,15 +1,13 @@
-import sys
 import logging
-import requests
 import pandas as pd
 from pathlib import Path
-from requests.adapters import HTTPAdapter, Retry
 from multiprocessing import Process, Queue
 from lib.secrets import secrets
 from lib.bigFiles import RecordWriter
 from lib.progressBar import ProgressBar
 from lib.processing.files import DataFile
 from llib.apiWorker import apiWorker
+import numpy as np
 
 def getStats(summaryFile: DataFile, outputPath: Path):
     apiKey = secrets.ncbi.key
@@ -79,14 +77,12 @@ def merge(summaryFile: DataFile, statsFilePath: Path, outputPath: Path) -> None:
     df.to_csv(outputPath, index=False)
 
 def cleanData(inPath: Path, outPath: Path) -> None:
-    df = pd.read_csv(inPath)
-    df = df.replace("na", pd.NaN)
+    df = pd.read_csv(inPath, low_memory=False)
+    df = df.replace("na", np.NaN)
     
     for column in ("sequence_id", "record_id"):
-        if column not in df.columns:
-            df[column] = pd.NaN
+        df[column] = np.NaN
+        df[column] = df[column].fillna(df["#assembly_accession"])
 
-        df = df[column].fillna(df["dataset_id"])
-
-    df = df.rename({"dataset_id": "dna_extract_id"}, axis=1)
+    df = df.rename({"biosample": "dna_extract_id"}, axis=1)
     df.to_csv(outPath, index=False)

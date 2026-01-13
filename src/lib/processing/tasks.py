@@ -191,7 +191,7 @@ class Conversion(Task):
 
         chunkSize = config.pop(self._chunkSize, 1024)
 
-        self.converter = Converter(mapDir, inputFile, outputFile, prefix, (entityEvent, entityColumn), chunkSize)
+        self.converter = Converter(mapDir, inputFile, outputFile, prefix, datasetID, (entityEvent, entityColumn), chunkSize)
         self.converter.loadMap(mapID, mapColumnName, retrieveMap)
 
         super().__init__([outputFile])

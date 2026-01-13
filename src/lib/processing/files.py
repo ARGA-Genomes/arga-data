@@ -209,7 +209,7 @@ class StackedFile(Folder, DataFile):
         self._sectionFormat = sectionFormat
 
     def _getFiles(self) -> list[DataFile]:
-        return [dataFile for dataFile in [DataFile(file) for file in self.path.iterdir()] if dataFile.format == self._sectionFormat]
+        return [dataFile for dataFile in [DataFile(file) for file in self.path.iterdir() if file.is_file()] if dataFile.format == self._sectionFormat]
 
     def read(self, **kwargs: dict) -> pd.DataFrame:
         dfs = {file.path.stem: file.read(**kwargs) for file in self._getFiles()}
