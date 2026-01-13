@@ -4,7 +4,7 @@ from typing import Any
 
 class Update(ABC):
 
-    _repeatFreq = "repeatFreq"
+    _repeatFreq = "interval"
 
     def __init__(self, properties: dict):
         self._freq = self._getAndAssert(properties, self._repeatFreq, int)
@@ -26,7 +26,7 @@ class DailyUpdate(Update):
     
 class WeeklyUpdate(Update):
 
-    _repeatDay = "repeatDay"
+    _repeatDay = "day"
 
     _days = [
         "monday",
@@ -61,7 +61,7 @@ class WeeklyUpdate(Update):
     
 class MonthlyUpdate(Update):
 
-    _repeatDate = "repeatDate"
+    _repeatDate = "date"
 
     _monthDays = [
         31,
