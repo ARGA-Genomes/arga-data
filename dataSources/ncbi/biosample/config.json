@@ -26,18 +26,21 @@
                     "{OUT-PATH}",
                     150000
                 ],
+                "output": "rawBiosample.csv"
+            },
+            {
+                "path": "./processing.py",
+                "function": "splitLatLong",
+                "args": [
+                    "{IN-PATH}",
+                    "{OUT-PATH}"
+                ],
                 "output": "biosample.csv"
             }
         ]
     },
     "conversion": {
-        "mapID": 109194600,
-        "augment": [
-            {
-                "path": "./augment.py",
-                "function": "augment"
-            }
-        ]
+        "mapID": 109194600
     },
     "update": {
         "type": "weekly",

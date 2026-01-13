@@ -1,51 +1,59 @@
 {
-    "datasetID": "ARGA:TL:0002002",
-    "retrieveType": "url",
-    "downloading": [
-        {
-            "url": "https://ftp.ncbi.nih.gov/genomes/refseq/assembly_summary_refseq.txt",
-            "name": "assembly_summary_refseq.tsv",
-            "properties": {
-                "header": 1
+    "downloading": {
+        "retrieveType": "url",
+        "tasks": [
+            {
+                "url": "https://ftp.ncbi.nih.gov/genomes/refseq/assembly_summary_refseq.txt",
+                "name": "assembly_summary_refseq.tsv",
+                "properties": {
+                    "header": 1
+                }
             }
-        }
-    ],
-    "processing": {
-        "linear": [
+        ]
+    },
+    "processing": [
+        {
+            "path": ".llib/sharedProcessing.py",
+            "function": "getStats",
+            "args": [
+                "{IN-FILE}",
+                "{OUT-PATH}"
+            ],
+            "outputs": [
+                "apiData.csv"
+            ]
+        },
+        {
+            "path": ".llib/sharedProcessing.py",
+            "function": "merge",
+            "args": [
+                "{D0-FILE}",
+                "{IN-PATH}",
+                "{OUT-PATH}"
+            ],
+            "outputs": [
+                "refseq.csv"
+            ]
+        },
             {
                 "path": ".llib/sharedProcessing.py",
-                "function": "getStats",
+                "function": "cleanData",
                 "args": [
-                    "{IN-FILE}",
-                    "{OUT-PATH}"
-                ],
-                "output": "apiData.csv"
-            },
-            {
-                "path": ".llib/sharedProcessing.py",
-                "function": "merge",
-                "args": [
-                    "{D0-FILE}",
                     "{IN-PATH}",
                     "{OUT-PATH}"
                 ],
-                "output": "refseq.csv"
+                "outputs": [
+                    "cleanRefseq.csv"
+                ]
             }
-        ]
-    },
+    ],
     "conversion": {
-        "mapID": 2003682060,
-        "augment": [
-            {
-                "path": ".llib/sharedProcessing.py",
-                "function": "genbankAugment"
-            }
-        ]
+        "datasetID": "ARGA:TL:0002002",
+        "mapID": 2003682060
     },
-    "update": {
+    "updating": {
         "type": "weekly",
-        "day": "sunday",
-        "time": 9,
-        "repeat": 1
+        "repeatDay": "sunday",
+        "repeatFreq": 1
     }
 }

@@ -7,13 +7,21 @@
             "name": "Koala_Metadata.csv"
         }
     ],
-    "conversion": {
-        "mapID": 975794491,
-        "augment": [
+    "processing": {
+        "linear": [
             {
-                "path": "./augment.py",
-                "function": "augment"
+                "path": ".llib/processing.py",
+                "function": "addName",
+                "args": [
+                    "{IN-PATH}",
+                    "{OUT-PATH",
+                    "Phascolarctos cinereus"
+                ],
+                "output": "koala.csv"
             }
         ]
+    },
+    "conversion": {
+        "mapID": 975794491
     }
 }

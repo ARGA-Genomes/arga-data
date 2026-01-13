@@ -15,25 +15,6 @@ def reverseLookup(lookup: dict) -> dict:
             nameMap[name].append(newName)
 
     return nameMap
-    
-def latlongToDecimal(latlong: str) -> str:
-    """
-    Paramters:
-        latlong: string representation of both latitude and longitude
-
-    Converts the latitude and longitude string to separate lat and long strings, returned as a tuple.
-    """
-    latlong = str(latlong)
-    split = latlong.split(' ')
-    if len(split) == 4:
-        latlong = f"{split[1]}{split[0]} {split[3]}{split[2]}"
-    elif len(split) == 2:
-        latlong = f"{split[0][-1]}{split[0][:-1]} {split[1][-1]}{split[1][:-1]}"
-    else:
-        return latlong
-
-    latlong = latlong.replace('S', '-').replace('W', '-').replace('N', '').replace('E', '')
-    return latlong.split(' ')
 
 def flatten(inputDict: dict, parent: str = "") -> dict:
     res = {}

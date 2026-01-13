@@ -36,7 +36,6 @@ class Converter:
     
     def _processChunk(self, chunk: pd.DataFrame) -> pd.DataFrame | None:
         df = self.map.applyTo(chunk, self.prefix) # Returns a multi-index dataframe
-        df = self._applyAugments(df)
         
         if df is None:
             return
@@ -52,19 +51,6 @@ class Converter:
         
         df[(self.entityIDEvent, self.datasetIDLabel)] = self.datasetID
         df[(self.entityIDEvent, self.entityIDLabel)] = df[(self.entityIDEvent, self.datasetIDLabel)] + df[(self.entityEvent, self.entityColumn)]
-        return df
-    
-    def _applyAugments(self, df: pd.DataFrame) -> pd.DataFrame | None:
-        for augment in self.augments:
-            success, df = augment.run(False, inputArgs=[df])
-
-            if not success:
-                return None
-
-            if not isinstance(df, pd.DataFrame):
-                logging.error(f"Augment '{augment.function}' does not output dataframe as required, instead output {type(df)}")
-                return None
-            
         return df
 
     def convert(self, overwrite: bool, verbose: bool) -> tuple[bool, dict]:

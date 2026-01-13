@@ -78,25 +78,15 @@ def merge(summaryFile: DataFile, statsFilePath: Path, outputPath: Path) -> None:
     df = df.merge(df2, how="outer", left_on="#assembly_accession", right_on="current_accession")
     df.to_csv(outputPath, index=False)
 
-def genbankAugment(df: pd.DataFrame) -> pd.DataFrame:
+def cleanData(inPath: Path, outPath: Path) -> None:
+    df = pd.read_csv(inPath)
     df = df.replace("na", pd.NaN)
     
-    fillNA = {
-        "assembly": "sequence_id",
-        "annotation": "sequence_id",
-        "record level": "sequence_id",
-        "sequencing": "record_id"
-    }
+    for column in ("sequence_id", "record_id"):
+        if column not in df.columns:
+            df[column] = pd.NaN
 
-    for event, column in fillNA.items():
-        if column not in df[event]:
-            df[(event, column)] = pd.NaN
-            
-        df[(event, column)].fillna(df[("assembly", "dataset_id")], inplace=True)
+        df = df[column].fillna(df["dataset_id"])
 
-    df[("sequencing", "dna_extract_id")] = df[("record level", "dataset_id")]
-    df = df.drop(("record level", "dataset_id"), axis=1)
-
-    df[("sequencing", "scientific_name")] = df[("collection", "scientific_name")]
-
-    return df
+    df = df.rename({"dataset_id": "dna_extract_id"}, axis=1)
+    df.to_csv(outPath, index=False)

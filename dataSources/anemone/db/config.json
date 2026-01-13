@@ -20,17 +20,19 @@
                 "properties": {
                     "separator": "\t"
                 }
+            },
+            {
+                "path": "./processing.py",
+                "function": "splitHaploType",
+                "args": [
+                    "{IN-PATH}"
+                ],
+                "output": "{IN-PATH}"
             }
         ]
     },
     "conversion": {
-        "mapID": 286004534,
-        "augment": [
-            {
-                "path": "./processing.py",
-                "function": "dwcAugment"
-            }
-        ]
+        "mapID": 286004534
     },
     "update": {
         "type": "weekly",

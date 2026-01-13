@@ -30,17 +30,20 @@
                     "{OUT-PATH}"
                 ],
                 "output": "genbank.csv"
+            },
+            {
+                "path": ".llib/sharedProcessing.py",
+                "function": "cleanData",
+                "args": [
+                    "{IN-PATH}",
+                    "{OUT-PATH}"
+                ],
+                "output": "cleanGenbank.csv"
             }
         ]
     },
     "conversion": {
-        "mapID": 2003682060,
-        "augment": [
-            {
-                "path": ".llib/sharedProcessing.py",
-                "function": "genbankAugment"
-            }
-        ]
+        "mapID": 2003682060
     },
     "update": {
         "type": "weekly",
