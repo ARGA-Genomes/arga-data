@@ -1,6 +1,6 @@
 import json
 import logging
-from lib.settings import globalSettings as gs
+import lib.settings as settings
 from lib.secrets import secrets
 from enum import Enum
 from pathlib import Path
@@ -9,8 +9,8 @@ import lib.processing.updating as upd
 import lib.processing.parsing as parse
 import time
 from datetime import datetime
-import traceback
 from lib.processing.files import DataFile
+from lib.json import JsonSynchronizer
 
 sourceConfigName = "config.json"
 
@@ -92,11 +92,12 @@ class Database:
         self.exampleDir = self.subsectionDir / "examples" # Data sample storage location
         self.dirLookup = parse.DirLookup({
             ".": self.databaseDir / "scripts",
+            ".lib": settings.rootDir / "src" / "lib",
             ".llib": self.locationDir / "llib"
         })
 
         # Local settings
-        self.settings = gs
+        self.settings = settings.globalSettings
         for dir in (self.locationDir, self.databaseDir, self.subsectionDir):
             subdirConfig = Path(dir / "settings.toml")
             if subdirConfig.exists():
@@ -111,8 +112,7 @@ class Database:
 
         # Tasks
         self._queuedTasks: dict[Step, list[tasks.Task]] = {Step.DOWNLOADING: [], Step.PROCESSING: [], Step.CONVERSION: []}
-        self._metadataPath = self.subsectionDir / self._metadataFileName
-        self._metadata = self._loadMetadata()
+        self._metadata = JsonSynchronizer(self.subsectionDir / self._metadataFileName)
 
         # Updating
         updateConfig: dict = self.config.pop("updating", {})
@@ -304,20 +304,6 @@ class Database:
     def _printFlags(self, flags: list[Flag]) -> str:
         return " | ".join(f"{flag.value}={flag in flags}" for flag in Flag)
 
-    def _loadMetadata(self) -> dict:
-        if not self._metadataPath.exists():
-            return {}
-        
-        with open(self._metadataPath) as fp:
-            try:
-                return json.load(fp)
-            except json.JSONDecodeError:
-                return {}
-
-    def _syncMetadata(self) -> None:
-        with open(self._metadataPath, "w") as fp:
-            json.dump(self._metadata, fp, indent=4)
-
     def updateMetadata(self, step: Step, stepIndex: int, metadata: dict[Metadata, any]) -> None:
         parsedMetadata = {}
         for key, value in metadata.items():
@@ -333,13 +319,15 @@ class Database:
             parsedMetadata[key.value] = value
 
         taskMetadata: list[dict] = self._metadata.get(step.value, [])
+        if not isinstance(taskMetadata, list):
+            taskMetadata = []
+
         if stepIndex < len(taskMetadata):
             taskMetadata[stepIndex] |= parsedMetadata
         else:
             taskMetadata.append(parsedMetadata)
 
         self._metadata[step.value] = taskMetadata
-        self._syncMetadata()
 
         logging.info(f"Updated {step.value} metadata and saved to file")
 
@@ -347,8 +335,6 @@ class Database:
         self._metadata[Metadata.TOTAL_DURATION.value] = totalTime
         if allSucceeded:
             self._metadata[Metadata.LAST_SUCCESS_TOTAL_DURATION.value] = totalTime
-
-        self._syncMetadata()
 
     def getLastUpdate(self, step: Step) -> datetime | None:
         timestamp = self._metadata[step.value][0][Metadata.LAST_SUCCESS_START.value]
