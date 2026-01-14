@@ -171,12 +171,19 @@ class Conversion(Task):
     _timestamp = "timestamp"
     _chunkSize = "chunkSize"
 
-    def __init__(self, workingDir: Path, config: dict, inputFile: DataFile, prefix: str, name: str, retrieveMap: bool, mapDir: Path):
+    def __init__(self, workingDir: Path, mapDir: Path, config: dict, inputFile: DataFile, prefix: str, name: str, subsection: str, retrieveMap: bool):
         self.workingDir = workingDir
 
         datasetID = config.pop(self._datasetID, "")
+        if isinstance(datasetID, dict):
+            datasetID = datasetID.get(subsection, "")
+
         if not datasetID:
-            raise Exception(f"No `datasetID` specified") from AttributeError
+            error = "No `datasetID` specified"
+            if subsection:
+                error += f" for subsection `{subsection}`"
+
+            raise Exception(error) from AttributeError
 
         mapID = config.pop(self._mapID, "")
         mapColumnName = config.pop(self._mapColumnName, "")

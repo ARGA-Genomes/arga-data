@@ -60,7 +60,7 @@ class Database:
         else:
             config = {}
 
-        self.subsections: dict[str, dict[str, str]] = config.pop("subsections", {})
+        self.subsections: dict[str, str] | list[str] = config.pop("subsections", {})
         self.config = config
 
     def locationName(self) -> str:
@@ -74,17 +74,17 @@ class Database:
 
     def constuct(self, name: str, subsection: str):
         self.name = name
+        self.subsection = subsection # Subsection is verified before construction, so is valid
         self.subsectionDir = self.databaseDir / subsection # Same as databaseDir if no subsection
         self.locationDir = self.databaseDir.parent
 
         # Subsection remapping
         if subsection:
-            subsectionTags = self.subsections.get(subsection, {}).get("tags", {})
             rawConfig = json.dumps(self.config)
             rawConfig = rawConfig.replace("<SUB>", subsection)
 
-            for tag, replaceValue in subsectionTags.items():
-                rawConfig = rawConfig.replace(f"<SUB:{tag.upper()}>", replaceValue)
+            if isinstance(self.subsections, dict): # Name provided with subsections
+                 rawConfig = rawConfig.replace("<SUB:NAME>", self.subsections[subsection])
 
             self.config = json.loads(rawConfig)
 
@@ -202,7 +202,7 @@ class Database:
         overwrite = Flag.REPREPARE in flags
         inputFile = self._queuedTasks[Step.PROCESSING][-1].getOutputs()[0] # Last processed file for conversion
 
-        self._queuedTasks[Step.CONVERSION].append(tasks.Conversion(self.workingDirs[Step.CONVERSION], conversionConfig, inputFile, self.locationName(), self.name, overwrite, self.databaseDir))
+        self._queuedTasks[Step.CONVERSION].append(tasks.Conversion(self.workingDirs[Step.CONVERSION], self.databaseDir, conversionConfig, inputFile, self.locationName(), self.name, self.subsection, overwrite))
 
     def _prepare(self, fileStep: Step, flags: list[Flag]) -> bool:
         stepMap = {
