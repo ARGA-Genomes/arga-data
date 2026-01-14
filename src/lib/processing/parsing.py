@@ -95,6 +95,9 @@ def parseArg(arg: Any, parentDir: Path, dirLookup: DirLookup = None, dataFileLoo
 
 def parsePath(arg: str, parentPath: Path, dirLookup: DirLookup = None) -> Path | Any:
     prefix, relPath = arg.split("/", 1)
+    if dirLookup is not None and dirLookup.contains(prefix):
+        return dirLookup.remap(relPath, prefix)
+
     if prefix == ".":
         return parentPath / relPath
         
@@ -105,9 +108,6 @@ def parsePath(arg: str, parentPath: Path, dirLookup: DirLookup = None) -> Path |
             relPath = relPath[3:]
 
         return cwd / relPath
-    
-    if dirLookup is not None and dirLookup.contains(prefix):
-        return dirLookup.remap(relPath, prefix)
     
     return arg
 
