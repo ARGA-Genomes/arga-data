@@ -61,8 +61,8 @@ class OutputScript(FunctionScript):
     def run(self, overwrite: bool, verbose: bool, args: list = [], kwargs: dict = {}) -> tuple[bool, any]:
         if all(output.exists() for output in self.outputs):
             if not overwrite:
-                logging.info(f"All outputs for function '{self.functionName}' exist and not overwriting, skipping ...")
-                return True, None
+                logging.info(f"All outputs for function '{self.functionName}' exist and not overwriting, skipping...")
+                return False, None
             
         if not all(input.exists() for input in self.inputs):
             logging.warning(f"Missing {len(self.inputs)} required file(s) needed to run script {self.functionName}")

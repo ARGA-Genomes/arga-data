@@ -24,7 +24,7 @@ class Map:
     def fromFile(cls, filePath: Path) -> 'Map':
         if not filePath.exists():
             logging.warning(f"No map file found at path: {filePath}")
-            return cls()
+            return cls({})
         
         with open(filePath) as fp:
             return cls(json.load(fp))
@@ -35,7 +35,7 @@ class Map:
         df = cls._loadGoogleSheet(documentID, sheetID)
         
         if df is None:
-            return cls()
+            return cls({})
         
         eventNames = [
             "collection",
@@ -92,7 +92,7 @@ class Map:
         df = cls._loadGoogleSheet(documentID, 0)
 
         if df is None:
-            return cls()
+            return cls({})
         
         event = "event"
         argaSchema = "arga_schema_label"
@@ -161,3 +161,6 @@ class Map:
             eventCollections[event] = pd.concat(seriesList, axis=1) # Convert list of series to dataframe
 
         return pd.concat(eventCollections.values(), keys=eventCollections.keys(), axis=1)
+
+    def isEmpty(self) -> bool:
+        return not self.translation

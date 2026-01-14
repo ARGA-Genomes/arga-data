@@ -155,33 +155,25 @@ class Database:
         overwrite = Flag.REPREPARE in flags
 
         retrieve = Retrieve._value2member_map_.get(retrieveType, None)
-        if retrieve == Retrieve.URL: # Tasks should be a list of dicts
-            if not isinstance(downloadTaskConfig, list):
-                raise Exception(f"URL retrieve type expects a list of task configs for {self.name}") from AttributeError
-
-            for taskConfig in downloadTaskConfig:
+        for taskConfig in downloadTaskConfig:
+            if retrieve == Retrieve.URL:
                 self._queuedTasks[Step.DOWNLOADING].append(tasks.UrlRetrieve(self.workingDirs[Step.DOWNLOADING], taskConfig, username, password))
 
-        elif retrieve == Retrieve.CRAWL: # Tasks should be dict
-            if not isinstance(downloadTaskConfig, dict):
-                raise Exception(f"Crawl retrieve type expects a dict config for {self.name}")
-            
-            self._queuedTasks[Step.DOWNLOADING].append(tasks.CrawlRetrieve(self.workingDirs[Step.DOWNLOADING], downloadTaskConfig, username, password, overwrite))
+            elif retrieve == Retrieve.CRAWL: # Tasks should be dict
+                self._queuedTasks[Step.DOWNLOADING].append(tasks.CrawlRetrieve(self.workingDirs[Step.DOWNLOADING], taskConfig, username, password, overwrite))
 
-        elif retrieve == Retrieve.SCRIPT: # Tasks should be dict
-            if not isinstance(downloadTaskConfig, dict):
-                raise Exception(f"Script retrieve type expects a dict config for {self.name}")
-            
-            inputs = self._queuedTasks[Step.DOWNLOADING]
-            if inputs:
-                inputs = self._flattenTaskOutputs(inputs)
-            downloads = self._flattenTaskOutputs(self._queuedTasks[Step.DOWNLOADING])
+            elif retrieve == Retrieve.SCRIPT: # Tasks should be dict
+                inputs = self._queuedTasks[Step.DOWNLOADING][-1:]
+                if inputs:
+                    inputs = self._flattenTaskOutputs(inputs)
 
-            fileLookup = parse.DataFileLookup(inputs, downloads)
-            self._queuedTasks[Step.DOWNLOADING].append(tasks.ScriptRunner(self.workingDirs[Step.DOWNLOADING], downloadTaskConfig, self.dirLookup, fileLookup))
+                downloads = self._flattenTaskOutputs(self._queuedTasks[Step.DOWNLOADING])
 
-        else:
-            raise Exception(f"Unknown retrieve type '{retrieveType}' specified for {self.name}") from AttributeError
+                fileLookup = parse.DataFileLookup(inputs, downloads)
+                self._queuedTasks[Step.DOWNLOADING].append(tasks.ScriptRunner(self.workingDirs[Step.DOWNLOADING], taskConfig, self.dirLookup, fileLookup))
+
+            else:
+                raise Exception(f"Unknown retrieve type '{retrieveType}' specified for {self.name}") from AttributeError
 
     def _prepareProcessing(self, flags: list[Flag]) -> None:
         processingConfig: list[dict] = self.config.pop(Step.PROCESSING.value, [])
@@ -200,7 +192,10 @@ class Database:
             raise Exception(f"No conversion config specified as required for {self.name}") from AttributeError
 
         overwrite = Flag.REPREPARE in flags
-        inputFile = self._queuedTasks[Step.PROCESSING][-1].getOutputs()[0] # Last processed file for conversion
+        if self._queuedTasks[Step.PROCESSING]:
+            inputFile = self._queuedTasks[Step.PROCESSING][-1].getOutputs()[0] # Last processed file for conversion
+        else:
+            inputFile = self._queuedTasks[Step.DOWNLOADING][-1].getOutputs()[0]
 
         self._queuedTasks[Step.CONVERSION].append(tasks.Conversion(self.workingDirs[Step.CONVERSION], self.databaseDir, conversionConfig, inputFile, self.locationName(), self.name, self.subsection, overwrite))
 
@@ -221,9 +216,8 @@ class Database:
             logging.info(f"Preparing {self} step '{stepType.name}' with flags: {self._printFlags(flags)}")
             try:
                 callback(flags)
-            except AttributeError:
-                logging.error(f"Error preparing step: {stepType.name}")
-                logging.error(traceback.format_exc())
+            except Exception as e:
+                logging.error(f"Error preparing step \'{stepType.name}\'. Reason: {e}")
                 return False
             
             self._lastPrepared = stepType

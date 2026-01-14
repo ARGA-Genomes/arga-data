@@ -31,18 +31,18 @@ class Converter:
         if mapFile.exists() and not forceRetrieve:
             logging.info("Using local map file")
             self.map = Map.fromFile(mapFile)
-
         elif mapColumnName:
             logging.info("Using updated mapping sheet")
             self.map = Map.fromModernSheet(mapColumnName, mapFile)
-
         elif mapID > 0:
             logging.info("Using original mapping sheet")
             self.map = Map.fromSheets(mapID, mapFile)
-
         else:
             logging.warning("No mapping found")
-    
+
+        if self.map is None or self.map.isEmpty():
+            raise Exception("Unable to load map file") from FileNotFoundError
+
     def _processChunk(self, chunk: pd.DataFrame) -> pd.DataFrame | None:
         df = self.map.applyTo(chunk, self.prefix) # Returns a multi-index dataframe
         
@@ -67,7 +67,7 @@ class Converter:
         writer = StackedDFWriter(self.outputFile.path, self.map.events)
 
         totalRows = 0
-        chunks = self.inputFile.readIterator(self.chunkSize)
+        chunks = self.inputFile.readIterator(self.chunkSize, low_memory=False)
         for idx, df in enumerate(chunks, start=1):
             if verbose:
                 print(f"At chunk: {idx}", end='\r')
