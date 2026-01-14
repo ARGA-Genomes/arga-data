@@ -1,27 +1,29 @@
 {
-    "datasetID": "ARGA:TL:0008000",
-    "retrieveType": "url",
-    "downloading": [
-        {
-            "url": "https://koalagenomes.s3.ap-southeast-2.amazonaws.com/Koala_Metadata-19-10-2022.csv",
-            "name": "Koala_Metadata.csv"
-        }
-    ],
-    "processing": {
-        "linear": [
+    "downloading": {
+        "retrieveType": "url",
+        "tasks": [
             {
-                "path": ".llib/processing.py",
-                "function": "addName",
-                "args": [
-                    "{IN-PATH}",
-                    "{OUT-PATH",
-                    "Phascolarctos cinereus"
-                ],
-                "output": "koala.csv"
+                "url": "https://koalagenomes.s3.ap-southeast-2.amazonaws.com/Koala_Metadata-19-10-2022.csv",
+                "name": "Koala_Metadata.csv"
             }
         ]
     },
+    "processing": [
+        {
+            "path": ".llib/processing.py",
+            "function": "addName",
+            "args": [
+                "{IN-PATH}",
+                "{OUT-PATH",
+                "Phascolarctos cinereus"
+            ],
+            "outputs": [
+                "koala.csv"
+            ]
+        }
+    ],
     "conversion": {
+        "datasetID": "ARGA:TL:0008000",
         "mapID": 975794491
     }
 }

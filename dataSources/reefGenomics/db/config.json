@@ -1,23 +1,30 @@
 {
-    "datasetID": "ARGA:TL:0000187",
-    "subsections": {
-        "project": {},
-        "organism": {}
-    },
-    "retrieveType": "script",
+    "subsections": [
+        "project",
+        "organism"
+    ],
     "downloading": {
-        "path": "./processing.py",
-        "function": "build",
-        "args": [
-            "{OUT-DIR}",
-            "<SUB>"
-        ],
-        "output": "<SUB>.csv"
+        "retrieveType": "script",
+        "tasks": [
+            {
+                "path": "./processing.py",
+                "function": "build",
+                "args": [
+                    "{OUT-DIR}",
+                    "<SUB>"
+                ],
+                "outputs": [
+                    "<SUB>.csv"
+                ]
+            }
+        ]
     },
-    "update": {
+    "conversion": {
+        "datasetID": "ARGA:TL:0000187"
+    },
+    "updating": {
         "type": "weekly",
         "day": "sunday",
-        "time": 9,
-        "repeat": 2
+        "interval": 2
     }
 }

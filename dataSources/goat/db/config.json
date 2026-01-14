@@ -1,31 +1,39 @@
 {
-    "datasetID": "ARGA:TL:0000184",
-    "retrieveType": "script",
     "downloading": {
-        "path": "./processing.py",
-        "function": "build",
-        "args": [
-            "{OUT-PATH}"
-        ],
-        "output": "rawgoat.csv"
-    },
-    "processing": {
-        "parallel": [
+        "retrieveType": "script",
+        "tasks": [
             {
                 "path": "./processing.py",
-                "function": "clean",
+                "function": "build",
                 "args": [
-                    "{IN-PATH}",
                     "{OUT-PATH}"
                 ],
-                "output": "cleanedgoat.csv"
+                "outputs": [
+                    "rawgoat.csv"
+                ]
             }
         ]
     },
-    "update": {
+    "processing": [
+        {
+            "parallel": true,
+            "path": "./processing.py",
+            "function": "clean",
+            "args": [
+                "{IN-PATH}",
+                "{OUT-PATH}"
+            ],
+            "outputs": [
+                "cleanedgoat.csv"
+            ]
+        }
+    ],
+    "conversion": {
+        "datasetID": "ARGA:TL:0000184"
+    },
+    "updating": {
         "type": "weekly",
         "day": "sunday",
-        "time": 9,
-        "repeat": 2
+        "interval": 2
     }
 }

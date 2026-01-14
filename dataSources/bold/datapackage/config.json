@@ -1,43 +1,49 @@
 {
-    "datasetID": "ARGA:TL:0004000",
-    "retrieveType": "script",
     "downloading": {
-        "path": "./processing.py",
-        "function": "retrieve",
-        "output": "datapackage.tar.gz"
-    },
-    "processing": {
-        "linear": [
-            {
-                "path": ".lib/zipping.py",
-                "function": "extract",
-                "args": [
-                    "{IN-PATH}",
-                    "{OUT-DIR}"
-                ],
-                "output": "datapackage"
-            },
+        "retrieveType": "script",
+        "tasks": [
             {
                 "path": "./processing.py",
-                "function": "cleanUp",
-                "args": [
-                    "{IN-PATH}"
-                ],
-                "output": "dataPackage.tsv",
-                "properties": {
-                    "separator": "\t",
-                    "encoding": "iso-8859-1"
-                }
+                "function": "retrieve",
+                "outputs": [
+                    "datapackage.tar.gz"
+                ]
             }
         ]
     },
+    "processing": [
+        {
+            "path": ".lib/zipping.py",
+            "function": "extract",
+            "args": [
+                "{IN-PATH}",
+                "{OUT-DIR}"
+            ],
+            "outputs": [
+                "datapackage"
+            ]
+        },
+        {
+            "path": "./processing.py",
+            "function": "cleanUp",
+            "args": [
+                "{IN-PATH}"
+            ],
+            "outputs": [
+                "dataPackage.tsv"
+            ],
+            "properties": {
+                "encoding": "iso-8859-1"
+            }
+        }
+    ],
     "conversion": {
+        "datasetID": "ARGA:TL:0004000",
         "mapID": 1154592624
     },
-    "update": {
+    "updating": {
         "type": "weekly",
         "day": "sunday",
-        "time": 9,
-        "repeat": 2
+        "interval": 2
     }
 }

@@ -1,41 +1,42 @@
 {
-    "datasetID": "ARGA:TL:0002006",
-    "retrieveType": "url",
-    "downloading": [
-        {
-            "url": "https://ftp.ebi.ac.uk/pub/databases/ena/genome_collections/gc.xml",
-            "name": "genomeCollections.xml"
-        }
-    ],
-    "processing": {
-        "linear": [
+    "downloading": {
+        "retrieveType": "url",
+        "tasks": [
             {
-                "path": "tools/processing/xmlProcess.py",
-                "function": "process",
-                "args": [
-                    "{IN-PATH}",
-                    "{OUT-PATH}"
-                ],
-                "kwargs": {
-                    "subfileRows": 150000,
-                    "compressChild": [
-                        "CHROMOSOMES",
-                        "ASSEMBLY_LINKS",
-                        "ASSEMBLY_ATTRIBUTES",
-                        "ASSEMBLY"
-                    ]
-                },
-                "output": "genomeCollections.csv"
+                "url": "https://ftp.ebi.ac.uk/pub/databases/ena/genome_collections/gc.xml",
+                "name": "genomeCollections.xml"
             }
         ]
     },
+    "processing": [
+        {
+            "path": "tools/processing/xmlProcess.py",
+            "function": "process",
+            "args": [
+                "{IN-PATH}",
+                "{OUT-PATH}"
+            ],
+            "kwargs": {
+                "subfileRows": 150000,
+                "compressChild": [
+                    "CHROMOSOMES",
+                    "ASSEMBLY_LINKS",
+                    "ASSEMBLY_ATTRIBUTES",
+                    "ASSEMBLY"
+                ]
+            },
+            "outputs": [
+                "genomeCollections.csv"
+            ]
+        }
+    ],
     "conversion": {
+        "datasetID": "ARGA:TL:0002006",
         "mapID": 1058330275
     },
-    "update": {
+    "updating": {
         "type": "weekly",
         "day": "sunday",
-        "time": 9,
-        "repeat": 2
+        "interval": 2
     }
 }

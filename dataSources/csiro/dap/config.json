@@ -1,21 +1,26 @@
 {
-    "datasetID": "ARGA:TL:0000178",
-    "retrieveType": "script",
     "downloading": {
-        "path": "./processing.py",
-        "function": "getPortalData",
-        "args": [
-            "{OUT-PATH}"
-        ],
-        "output": "portalData.csv"
+        "retrieveType": "script",
+        "tasks": [
+            {
+                "path": "./processing.py",
+                "function": "getPortalData",
+                "args": [
+                    "{OUT-PATH}"
+                ],
+                "outputs": [
+                    "portalData.csv"
+                ]
+            }
+        ]
     },
     "conversion": {
+        "datasetID": "ARGA:TL:0000178",
         "mapID": 16336602
     },
-    "update": {
+    "updating": {
         "type": "weekly",
         "day": "sunday",
-        "time": 9,
-        "repeat": 2
+        "interval": 2
     }
 }

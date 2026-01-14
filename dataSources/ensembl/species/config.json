@@ -1,12 +1,20 @@
 {
-    "datasetID": "ARGA:TL:0002013",
-    "retrieveType": "script",
     "downloading": {
-        "path": "sourceProcessing/ensembl.py",
-        "function": "speciesDownload",
-        "args": [
-            "{OUT-PATH}"
-        ],
-        "output": "species.csv"
+        "retrieveType": "script",
+        "tasks": [
+            {
+                "path": "sourceProcessing/ensembl.py",
+                "function": "speciesDownload",
+                "args": [
+                    "{OUT-PATH}"
+                ],
+                "outputs": [
+                    "species.csv"
+                ]
+            }
+        ]
+    },
+    "conversion": {
+        "datasetID": "ARGA:TL:0002013"
     }
 }

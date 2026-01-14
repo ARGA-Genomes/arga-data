@@ -1,13 +1,20 @@
 {
-    "datasetID": "ARGA:TL:0002014",
-    "retrieveType": "script",
     "downloading": {
-        "path": "sourceProcessing/ensembl.py",
-        "function": "collectVGP",
-        "args": [
-            "{OUT-PATH}"
-        ],
-        "output": "vgp.csv"
+        "retrieveType": "script",
+        "tasks": [
+            {
+                "path": "sourceProcessing/ensembl.py",
+                "function": "collectVGP",
+                "args": [
+                    "{OUT-PATH}"
+                ],
+                "outputs": [
+                    "vgp.csv"
+                ]
+            }
+        ]
     },
-    "conversion": {}
+    "conversion": {
+        "datasetID": "ARGA:TL:0002014"
+    }
 }

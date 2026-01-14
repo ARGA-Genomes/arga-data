@@ -1,26 +1,27 @@
 {
-    "datasetID": "",
-    "retrieveType": "crawl",
     "downloading": {
-        "location": "https://www.arb-silva.de/no_cache/download/archive/current/Exports/full_metadata/",
-        "link": "https://www.arb-silva.de/",
-        "regex": ".*\\.gz$",
-        "maxDepth": 0
-    },
-    "processing": {
-        "parallel": [
+        "retrieveType": "crawl",
+        "tasks": [
             {
-                "path": ".lib/zipping.py",
-                "function": "extract",
-                "args": [
-                    "{IN-PATH}",
-                    "{OUT-DIR}"
-                ],
-                "output": "{IN-PATH.}",
-                "properties": {
-                    "separator": "\t"
-                }
+                "location": "https://www.arb-silva.de/no_cache/download/archive/current/Exports/full_metadata/",
+                "link": "https://www.arb-silva.de/",
+                "regex": ".*\\.gz$",
+                "maxDepth": 0
             }
         ]
-    }
+    },
+    "processing": [
+        {
+            "parallel": true,
+            "path": ".lib/zipping.py",
+            "function": "extract",
+            "args": [
+                "{IN-PATH}",
+                "{OUT-DIR}"
+            ],
+            "outputs": [
+                "{IN-PATH.}"
+            ]
+        }
+    ]
 }

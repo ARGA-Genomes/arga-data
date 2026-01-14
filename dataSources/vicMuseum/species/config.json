@@ -1,33 +1,40 @@
 {
-    "datasetID": "ARGA:TL:0000190",
-    "retrieveType": "script",
     "downloading": {
-        "path": ".llib/processing.py",
-        "function": "retrieve",
-        "args": [
-            "species",
-            "{OUT-DIR}",
-            1000
-        ],
-        "output": "species.csv"
-    },
-    "processing": {
-        "linear": [
+        "retrieveType": "script",
+        "tasks": [
             {
                 "path": ".llib/processing.py",
-                "function": "expandTaxa",
+                "function": "retrieve",
                 "args": [
-                    "{IN-PATH}",
-                    "{OUT-PATH}"
+                    "species",
+                    "{OUT-DIR}",
+                    1000
                 ],
-                "output": "species.csv"
+                "outputs": [
+                    "species.csv"
+                ]
             }
         ]
     },
-    "update": {
+    "processing": [
+        {
+            "path": ".llib/processing.py",
+            "function": "expandTaxa",
+            "args": [
+                "{IN-PATH}",
+                "{OUT-PATH}"
+            ],
+            "outputs": [
+                "species.csv"
+            ]
+        }
+    ],
+    "conversion": {
+        "datasetID": "ARGA:TL:0000190"
+    },
+    "updating": {
         "type": "weekly",
         "day": "sunday",
-        "time": 9,
-        "repeat": 2
+        "interval": 2
     }
 }

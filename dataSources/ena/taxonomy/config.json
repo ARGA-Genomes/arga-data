@@ -1,45 +1,47 @@
 {
-    "datasetID": "ARGA:TL:0002004",
-    "retrieveType": "url",
-    "downloading": [
-        {
-            "url": "https://ftp.ebi.ac.uk/pub/databases/ena/taxonomy/taxonomy.xml.gz",
-            "name": "taxonomy.xml.gz"
-        }
-        
-    ],
-    "processing": {
-        "linear": [
+    "downloading": {
+        "retrieveType": "url",
+        "tasks": [
             {
-                "path": ".lib/zipping.py",
-                "function": "extract",
-                "args": [
-                    "{IN-PATH}",
-                    "{OUT-DIR}"
-                ],
-                "output": "taxonomy.xml"
-            },
-            {
-                "path": "tools/processing/xmlProcess.py",
-                "function": "process",
-                "args": [
-                    "{IN-PATH}",
-                    "{OUT-PATH}"
-                ],
-                "kwargs": {
-                    "subfileRows": 100000
-                },
-                "output": "taxonomy.csv"
+                "url": "https://ftp.ebi.ac.uk/pub/databases/ena/taxonomy/taxonomy.xml.gz",
+                "name": "taxonomy.xml.gz"
             }
         ]
     },
+    "processing": [
+        {
+            "path": ".lib/zipping.py",
+            "function": "extract",
+            "args": [
+                "{IN-PATH}",
+                "{OUT-DIR}"
+            ],
+            "outputs": [
+                "taxonomy.xml"
+            ]
+        },
+        {
+            "path": "tools/processing/xmlProcess.py",
+            "function": "process",
+            "args": [
+                "{IN-PATH}",
+                "{OUT-PATH}"
+            ],
+            "kwargs": {
+                "subfileRows": 100000
+            },
+            "outputs": [
+                "taxonomy.csv"
+            ]
+        }
+    ],
     "conversion": {
+        "datasetID": "ARGA:TL:0002004",
         "mapID": 1058330275
     },
-    "update": {
+    "updating": {
         "type": "weekly",
         "day": "sunday",
-        "time": 9,
-        "repeat": 2
+        "interval": 2
     }
 }

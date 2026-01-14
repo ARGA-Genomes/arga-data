@@ -1,41 +1,48 @@
 {
-    "datasetID": "ARGA:TL:0000167",
-    "retrieveType": "url",
-    "downloading": [
-        {
-            "url": "https://ftp.ncbi.nlm.nih.gov/tpa/release/con_tpa_cu.gbff.gz",
-            "name": "con_tpa_cu.gbff.gz"
-        },
-        {
-            "url": "https://ftp.ncbi.nlm.nih.gov/tpa/release/tpa_cu.gbff.gz",
-            "name": "tpa_cu.gbff.gz"
-        }
-    ],
-    "processing": {
-        "parallel": [
+    "downloading": {
+        "retrieveType": "url",
+        "tasks": [
             {
-                "path": ".lib/zipping.py",
-                "function": "extract",
-                "args": [
-                    "{IN-PATH}",
-                    "{OUT-DIR}"
-                ],
-                "output": "{IN-PATH.}"
+                "url": "https://ftp.ncbi.nlm.nih.gov/tpa/release/con_tpa_cu.gbff.gz",
+                "name": "con_tpa_cu.gbff.gz"
             },
             {
-                "path": ".llib/flatFileParser.py",
-                "function": "parseFlatfile",
-                "args": [
-                    "{IN-PATH}"
-                ],
-                "output": "{IN-PATH.}"
+                "url": "https://ftp.ncbi.nlm.nih.gov/tpa/release/tpa_cu.gbff.gz",
+                "name": "tpa_cu.gbff.gz"
             }
         ]
     },
-    "update": {
+    "processing": [
+        {
+            "parallel": true,
+            "path": ".lib/zipping.py",
+            "function": "extract",
+            "args": [
+                "{IN-PATH}",
+                "{OUT-DIR}"
+            ],
+            "outputs": [
+                "{IN-PATH.}"
+            ]
+        },
+        {
+            "parallel": true,
+            "path": ".llib/flatFileParser.py",
+            "function": "parseFlatfile",
+            "args": [
+                "{IN-PATH}"
+            ],
+            "outputs": [
+                "{IN-PATH.}"
+            ]
+        }
+    ],
+    "conversion": {
+        "datasetID": "ARGA:TL:0000167"
+    },
+    "updating": {
         "type": "weekly",
         "day": "sunday",
-        "time": 9,
-        "repeat": 2
+        "interval": 2
     }
 }

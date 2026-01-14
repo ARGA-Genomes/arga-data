@@ -1,38 +1,40 @@
 {
-    "datasetID": "",
-    "retrieveType": "url",
-    "downloading": [
-        {
-            "url": "https://biodiversity.org.au/nsl/services/export/taxonCsv",
-            "name": "apc.csv"
-        }
-    ],
-    "processing": {
-        "linear": [
+    "downloading": {
+        "retrieveType": "url",
+        "tasks": [
             {
-                "path": "./processing.py",
-                "function": "denormalize",
-                "args": [
-                    "{IN-PATH}",
-                    "{OUT-PATH}"
-                ],
-                "output": "demormalized.csv"
-            },
-            {
-                "path": "./processing.py",
-                "function": "cleanup",
-                "args": [
-                    "{IN-PATH}",
-                    "{OUT-PATH}"
-                ],
-                "output": "all-taxa.csv"
+                "url": "https://biodiversity.org.au/nsl/services/export/taxonCsv",
+                "name": "apc.csv"
             }
         ]
     },
-    "update": {
+    "processing": [
+        {
+            "path": "./processing.py",
+            "function": "denormalize",
+            "args": [
+                "{IN-PATH}",
+                "{OUT-PATH}"
+            ],
+            "outputs": [
+                "demormalized.csv"
+            ]
+        },
+        {
+            "path": "./processing.py",
+            "function": "cleanup",
+            "args": [
+                "{IN-PATH}",
+                "{OUT-PATH}"
+            ],
+            "outputs": [
+                "all-taxa.csv"
+            ]
+        }
+    ],
+    "updating": {
         "type": "weekly",
         "day": "sunday",
-        "time": 9,
-        "repeat": 2
+        "interval": 2
     }
 }

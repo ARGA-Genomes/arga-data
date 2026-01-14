@@ -1,39 +1,43 @@
 {
-    "retrieveType": "url",
-    "datasetID": "ARGA:TL:0001021",
-    "downloading": [
-        {
-            "url": "https://sftp.kew.org/pub/data-repositories/WCVP/wcvp_dwca.zip",
-            "name": "wcvp_dwca.zip"
-        }
-    ],
-    "processing": {
-        "linear": [
+    "downloading": {
+        "retrieveType": "url",
+        "tasks": [
             {
-                "path": ".lib/zipping.py",
-                "function": "extract",
-                "args": [
-                    "{IN-PATH}",
-                    "{OUT-DIR}"
-                ],
-                "output": "{IN-PATH.}"
-            },
-            {
-                "path": "./processing.py",
-                "function": "combine",
-                "args": [
-                    "{IN-PATH}",
-                    "{OUT-PATH}"
-                ],
-                "output": "powo.csv"
+                "url": "https://sftp.kew.org/pub/data-repositories/WCVP/wcvp_dwca.zip",
+                "name": "wcvp_dwca.zip"
             }
         ]
     },
-    "conversion": {},
-    "update": {
+    "processing": [
+        {
+            "path": ".lib/zipping.py",
+            "function": "extract",
+            "args": [
+                "{IN-PATH}",
+                "{OUT-DIR}"
+            ],
+            "outputs": [
+                "{IN-PATH.}"
+            ]
+        },
+        {
+            "path": "./processing.py",
+            "function": "combine",
+            "args": [
+                "{IN-PATH}",
+                "{OUT-PATH}"
+            ],
+            "outputs": [
+                "powo.csv"
+            ]
+        }
+    ],
+    "conversion": {
+        "datasetID": "ARGA:TL:0001021"
+    },
+    "updating": {
         "type": "weekly",
         "day": "sunday",
-        "time": 9,
-        "repeat": 2
+        "interval": 2
     }
 }

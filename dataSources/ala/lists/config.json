@@ -1,12 +1,17 @@
 {
-    "retrieveType": "script",
     "downloading": {
-        "path": "./processing.py",
-        "function": "collect",
-        "args": [
-            "{OUT-PATH}"
-        ],
-        "output": "lists.csv"
-    },
-    "conversion": {}
+        "retrieveType": "script",
+        "tasks": [
+            {
+                "path": "./processing.py",
+                "function": "collect",
+                "args": [
+                    "{OUT-PATH}"
+                ],
+                "outputs": [
+                    "lists.csv"
+                ]
+            }
+        ]
+    }
 }

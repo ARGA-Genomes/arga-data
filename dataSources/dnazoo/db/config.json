@@ -1,21 +1,26 @@
 {
-    "datasetID": "ARGA:TL:0000181",
-    "retrieveType": "script",
     "downloading": {
-        "path": "./processing.py",
-        "function": "build",
-        "args": [
-            "{OUT-PATH}"
-        ],
-        "output": "dnazoo.csv"
+        "retrieveType": "script",
+        "tasks": [
+            {
+                "path": "./processing.py",
+                "function": "build",
+                "args": [
+                    "{OUT-PATH}"
+                ],
+                "outputs": [
+                    "dnazoo.csv"
+                ]
+            }
+        ]
     },
     "conversion": {
+        "datasetID": "ARGA:TL:0000181",
         "mapID": 570069681
     },
-    "update": {
+    "updating": {
         "type": "weekly",
         "day": "sunday",
-        "time": 9,
-        "repeat": 2
+        "interval": 2
     }
 }

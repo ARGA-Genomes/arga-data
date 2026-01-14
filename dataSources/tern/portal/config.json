@@ -1,21 +1,26 @@
 {
-    "datasetID": "ARGA:TL:0000188",
-    "retrieveType": "script",
     "downloading": {
-        "path": "./processing.py",
-        "function": "build",
-        "args": [
-            "{OUT-PATH}"
-        ],
-        "output": "tern.csv"
+        "retrieveType": "script",
+        "tasks": [
+            {
+                "path": "./processing.py",
+                "function": "build",
+                "args": [
+                    "{OUT-PATH}"
+                ],
+                "outputs": [
+                    "tern.csv"
+                ]
+            }
+        ]
     },
     "conversion": {
+        "datasetID": "ARGA:TL:0000188",
         "mapID": 1651969444
     },
-    "update": {
+    "updating": {
         "type": "weekly",
         "day": "sunday",
-        "time": 9,
-        "repeat": 2
+        "interval": 2
     }
 }

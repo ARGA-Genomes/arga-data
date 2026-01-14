@@ -1,39 +1,43 @@
 {
-    "retrieveType": "url",
-    "datasetID": "ARGA:TL:0001018",
-    "downloading": [
-        {
-            "url": "https://api.checklistbank.org/dataset/3LR/export.zip?extended=true&format=DwCA",
-            "name": "catalogueOfLife.zip"
-        }
-    ],
-    "processing": {
-        "linear": [
+    "downloading": {
+        "retrieveType": "url",
+        "tasks": [
             {
-                "path": ".lib/zipping.py",
-                "function": "extract",
-                "args": [
-                    "{IN-PATH}",
-                    "{OUT-DIR}"
-                ],
-                "output": "{IN-PATH.}"
-            },
-            {
-                "path": "./processing.py",
-                "function": "process",
-                "args": [
-                    "{IN-PATH}",
-                    "{OUT-PATH}"
-                ],
-                "output": "col.csv"
+                "url": "https://api.checklistbank.org/dataset/3LR/export.zip?extended=true&format=DwCA",
+                "name": "catalogueOfLife.zip"
             }
         ]
     },
-    "conversion": {},
-    "update": {
+    "processing": [
+        {
+            "path": ".lib/zipping.py",
+            "function": "extract",
+            "args": [
+                "{IN-PATH}",
+                "{OUT-DIR}"
+            ],
+            "outputs": [
+                "{IN-PATH.}"
+            ]
+        },
+        {
+            "path": "./processing.py",
+            "function": "process",
+            "args": [
+                "{IN-PATH}",
+                "{OUT-PATH}"
+            ],
+            "outputs": [
+                "col.csv"
+            ]
+        }
+    ],
+    "conversion": {
+        "datasetID": "ARGA:TL:0001018"
+    },
+    "updating": {
         "type": "weekly",
         "day": "sunday",
-        "time": 9,
-        "repeat": 2
+        "interval": 2
     }
 }

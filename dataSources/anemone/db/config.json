@@ -1,43 +1,46 @@
 {
-    "datasetID": "ARGA:TL:0000174",
-    "retrieveType": "crawl",
-    "auth": "auth.txt",
     "downloading": {
-        "url": "https://db.anemone.bio/dist/",
-        "regex": ".*\\.tsv\\.xz",
-        "urlPrefix": 2
-    },
-    "processing": {
-        "parallel": [
+        "retrieveType": "crawl",
+        "tasks": [
             {
-                "path": ".lib/zipping.py",
-                "function": "extract",
-                "args": [
-                    "{IN-PATH}",
-                    "{OUT-DIR}"
-                ],
-                "output": "{IN-PATH.}",
-                "properties": {
-                    "separator": "\t"
-                }
-            },
-            {
-                "path": "./processing.py",
-                "function": "splitHaploType",
-                "args": [
-                    "{IN-PATH}"
-                ],
-                "output": "{IN-PATH}"
+                "url": "https://db.anemone.bio/dist/",
+                "regex": ".*\\.tsv\\.xz",
+                "urlPrefix": 2
             }
         ]
     },
+    "processing": [
+        {
+            "parallel": true,
+            "path": ".lib/zipping.py",
+            "function": "extract",
+            "args": [
+                "{IN-PATH}",
+                "{OUT-DIR}"
+            ],
+            "outputs": [
+                "{IN-PATH.}"
+            ]
+        },
+        {
+            "parallel": true,
+            "path": "./processing.py",
+            "function": "splitHaploType",
+            "args": [
+                "{IN-PATH}"
+            ],
+            "outputs": [
+                "{IN-PATH}"
+            ]
+        }
+    ],
     "conversion": {
+        "datasetID": "ARGA:TL:0000174",
         "mapID": 286004534
     },
-    "update": {
+    "updating": {
         "type": "weekly",
         "day": "sunday",
-        "time": 9,
-        "repeat": 2
+        "interval": 2
     }
 }

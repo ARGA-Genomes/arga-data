@@ -1,44 +1,55 @@
 {
-    "datasetID": "ARGA:TL:0001000",
-    "retrieveType": "script",
     "downloading": {
-        "path": "./processing.py",
-        "function": "retrieve",
-        "args": [
-            "{OUT-PATH}"
-        ],
-        "output": "rawAFD.csv"
-    },
-    "processing": {
-        "linear": [
+        "retrieveType": "script",
+        "tasks": [
             {
                 "path": "./processing.py",
-                "function": "cleanup",
+                "function": "retrieve",
                 "args": [
-                    "{IN-PATH}",
                     "{OUT-PATH}"
                 ],
-                "output": "cleanedAFD.csv"
-            },
-            {
-                "path": "./processing.py",
-                "function": "addParents",
-                "args": [
-                    "{IN-PATH}",
-                    "{OUT-PATH}"
-                ],
-                "output": "afd.csv"
-            },
-            {
-                "path": "./processing.py",
-                "function": "enrich",
-                "args": [
-                    "{IN-PATH}",
-                    "{OUT-PATH}"
-                ],
-                "output": "enrichedAFD.csv"
+                "outputs": [
+                    "rawAFD.csv"
+                ]
             }
         ]
     },
-    "conversion": {}
+    "processing": [
+        {
+            "path": "./processing.py",
+            "function": "cleanup",
+            "args": [
+                "{IN-PATH}",
+                "{OUT-PATH}"
+            ],
+            "outputs": [
+                "cleanedAFD.csv"
+            ]
+        },
+        {
+            "path": "./processing.py",
+            "function": "addParents",
+            "args": [
+                "{IN-PATH}",
+                "{OUT-PATH}"
+            ],
+            "outputs": [
+                "afd.csv"
+            ]
+        },
+        {
+            "path": "./processing.py",
+            "function": "enrich",
+            "args": [
+                "{IN-PATH}",
+                "{OUT-PATH}"
+            ],
+            "outputs": [
+                "enrichedAFD.csv"
+            ]
+        }
+    ],
+    "conversion": {
+        "datasetID": "ARGA:TL:0001000"
+    }
 }

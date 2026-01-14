@@ -1,30 +1,32 @@
 {
-    "datasetID": "ARGA:TL:0000196",
-    "retrieveType": "url",
-    "downloading": [
-        {
-            "url": "https://threatenedspecies.s3-ap-southeast-2.amazonaws.com/Mastacomys_fuscus/BTR_Metadata.csv",
-            "name": "Mouse_Metadata.csv"
-        }
-    ],
-    "processing": {
-        "linear": [
+    "downloading": {
+        "retrieveType": "url",
+        "tasks": [
             {
-                "path": ".llib/processing.py",
-                "function": "addName",
-                "args": [
-                    "{IN-PATH}",
-                    "{OUT-PATH",
-                    "Mastacomys fuscus"
-                ],
-                "kwargs": {
-                    "bibliographic_citation": "This data was produced by Museums Victoria as part of the Genomic Analysis of Broad-toothed Rats project with funding from the Victorian and Australian Government’s Bushfire Biodiversity Response and Recovery program, further support was provided by the University of Sydney, Amazon Web Services Open Data Sets, and the Australian Genome Research Facility."
-                },
-                "output": "BTR.csv"
+                "url": "https://threatenedspecies.s3-ap-southeast-2.amazonaws.com/Mastacomys_fuscus/BTR_Metadata.csv",
+                "name": "Mouse_Metadata.csv"
             }
         ]
     },
+    "processing": [
+        {
+            "path": ".llib/processing.py",
+            "function": "addName",
+            "args": [
+                "{IN-PATH}",
+                "{OUT-PATH",
+                "Mastacomys fuscus"
+            ],
+            "kwargs": {
+                "bibliographic_citation": "This data was produced by Museums Victoria as part of the Genomic Analysis of Broad-toothed Rats project with funding from the Victorian and Australian Government\u00e2\u20ac\u2122s Bushfire Biodiversity Response and Recovery program, further support was provided by the University of Sydney, Amazon Web Services Open Data Sets, and the Australian Genome Research Facility."
+            },
+            "outputs": [
+                "BTR.csv"
+            ]
+        }
+    ],
     "conversion": {
+        "datasetID": "ARGA:TL:0000196",
         "augment": [
             {
                 "path": "./augment.py",

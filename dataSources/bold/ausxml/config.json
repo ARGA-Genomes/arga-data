@@ -1,41 +1,42 @@
 {
-    "datasetID": "ARGA:TL:0000176",
-    "retrieveType": "url",
-    "downloading": [
-        {
-            "url": "http://v4.boldsystems.org/index.php/API_Public/combined?geo=Australia&format=xml",
-            "name": "bold_data.xml"
-        }
-    ],
-    "processing": {
-        "linear": [
+    "downloading": {
+        "retrieveType": "url",
+        "tasks": [
             {
-                "path": "tools/processing/xmlProcess.py",
-                "function": "process",
-                "args": [
-                    "{IN-PATH}",
-                    "{OUT-PATH}"
-                ],
-                "kwargs": {
-                    "encoding": "iso-8859-1",
-                    "subfileRows": 1000000,
-                    "compressChild": [
-                        "tracefiles",
-                        "sequences",
-                        "specimen_imagery"
-                    ]
-                },
-                "output": "bold_xml.csv"
+                "url": "http://v4.boldsystems.org/index.php/API_Public/combined?geo=Australia&format=xml",
+                "name": "bold_data.xml"
             }
         ]
     },
+    "processing": [
+        {
+            "path": "tools/processing/xmlProcess.py",
+            "function": "process",
+            "args": [
+                "{IN-PATH}",
+                "{OUT-PATH}"
+            ],
+            "kwargs": {
+                "encoding": "iso-8859-1",
+                "subfileRows": 1000000,
+                "compressChild": [
+                    "tracefiles",
+                    "sequences",
+                    "specimen_imagery"
+                ]
+            },
+            "outputs": [
+                "bold_xml.csv"
+            ]
+        }
+    ],
     "conversion": {
+        "datasetID": "ARGA:TL:0000176",
         "mapID": 984983691
     },
-    "update": {
+    "updating": {
         "type": "weekly",
         "day": "sunday",
-        "time": 9,
-        "repeat": 2
+        "interval": 2
     }
 }

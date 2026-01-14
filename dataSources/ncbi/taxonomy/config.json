@@ -1,42 +1,45 @@
 {
-    "datasetID": "ARGA:TL:0002000",
-    "retrieveType": "url",
-    "downloading": [
-        {
-            "url": "https://ftp.ncbi.nlm.nih.gov/pub/taxonomy/taxdmp.zip",
-            "name": "taxdump.zip"
-        }
-    ],
-    "processing": {
-        "linear": [
+    "downloading": {
+        "retrieveType": "url",
+        "tasks": [
             {
-                "path": ".lib/zipping.py",
-                "function": "extract",
-                "args": [
-                    "{IN-PATH}",
-                    "{OUT-DIR}"
-                ],
-                "output": "taxdump"
-            },
-            {
-                "path": "./processing.py",
-                "function": "parse",
-                "args": [
-                    "{IN-PATH}",
-                    "{OUT-PATH}"
-                ],
-                "output": "ncbiTaxonomy.csv"
+                "url": "https://ftp.ncbi.nlm.nih.gov/pub/taxonomy/taxdmp.zip",
+                "name": "taxdump.zip"
             }
         ]
     },
+    "processing": [
+        {
+            "path": ".lib/zipping.py",
+            "function": "extract",
+            "args": [
+                "{IN-PATH}",
+                "{OUT-DIR}"
+            ],
+            "outputs": [
+                "taxdump"
+            ]
+        },
+        {
+            "path": "./processing.py",
+            "function": "parse",
+            "args": [
+                "{IN-PATH}",
+                "{OUT-PATH}"
+            ],
+            "outputs": [
+                "ncbiTaxonomy.csv"
+            ]
+        }
+    ],
     "conversion": {
+        "datasetID": "ARGA:TL:0002000",
         "mapID": 240630744,
         "chunkSize": 65536
     },
-    "update": {
+    "updating": {
         "type": "weekly",
         "day": "sunday",
-        "time": 9,
-        "repeat": 2
+        "interval": 2
     }
 }

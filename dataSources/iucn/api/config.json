@@ -1,25 +1,30 @@
 {
-    "retrieveType": "script",
     "downloading": {
-        "path": "./processing.py",
-        "function": "retrieve",
-        "args": [
-            "{OUT-PATH}"
-        ],
-        "output": "iucn.csv"
-    },
-    "processing": {
-        "linear": [
+        "retrieveType": "script",
+        "tasks": [
             {
                 "path": "./processing.py",
-                "function": "reduce",
+                "function": "retrieve",
                 "args": [
-                    "{IN-PATH}",
                     "{OUT-PATH}"
                 ],
-                "output": "refinedIUCN.csv"
+                "outputs": [
+                    "iucn.csv"
+                ]
             }
         ]
     },
-    "conversion": {}
+    "processing": [
+        {
+            "path": "./processing.py",
+            "function": "reduce",
+            "args": [
+                "{IN-PATH}",
+                "{OUT-PATH}"
+            ],
+            "outputs": [
+                "refinedIUCN.csv"
+            ]
+        }
+    ]
 }
