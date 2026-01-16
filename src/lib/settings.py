@@ -35,10 +35,13 @@ def generate() -> None:
 
     if not settingsPath.exists():
         with open(settingsPath, "w") as fp:
-            fp.write("\n".join(line.strip() for line in _defaultSettings.split("\n")))
+            fp.write("\n".join(line.strip() for line in _defaultSettings.split("\n")[1:]))
 
 def load(generateFile: bool = False) -> Settings:
     if generateFile:
         generate()
 
     return Settings(settingsPath)
+
+def exists() -> bool:
+    return settingsPath.exists()

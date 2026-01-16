@@ -15,9 +15,15 @@ logLevelLookup = {
 def createLogger() -> logging.Logger:
     logger = logging.getLogger()
 
-    globalSettings = settings.load()
-    logToConsole = globalSettings.logging.logToConsole
-    logLevel = globalSettings.logging.logLevel
+    if settings.exists():
+        globalSettings = settings.load()
+        logToConsole = globalSettings.logging.logToConsole
+        logLevel = globalSettings.logging.logLevel
+        logFolder = globalSettings.folders.logs
+    else: # Default logging config
+        logToConsole = True
+        logLevel = "debug"
+        logFolder = settings.rootDir / "logs"
 
     level = logLevelLookup.get(logLevel, None)
     if level is None:
@@ -27,7 +33,6 @@ def createLogger() -> logging.Logger:
 
     formatter = logging.Formatter("[%(asctime)s] %(levelname)s: %(message)s", "%H:%M:%S")
 
-    logFolder: Path = globalSettings.folders.logs
     logFolder.mkdir(parents=True, exist_ok=True)
 
     logFileName = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
@@ -44,5 +49,3 @@ def createLogger() -> logging.Logger:
         logger.addHandler(streamHandler)
 
     return logger
-
-createLogger()
