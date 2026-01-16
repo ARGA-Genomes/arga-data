@@ -1,5 +1,5 @@
-from lib.settings import globalSettings as gs
-from lib.secrets import secrets
+import lib.settings as settings
+import lib.secrets as scr
 from enum import Enum
 from pathlib import Path
 
@@ -45,7 +45,7 @@ class BasicDB:
         self.exampleDir = self.subsectionDir / "examples" # Pre and post conversion sample location
 
         # Local settings
-        self.settings = gs
+        self.settings = settings.load()
         for dir in (self.locationDir, self.databaseDir, self.subsectionDir):
             subdirConfig = Path(dir / "settings.toml")
             if subdirConfig.exists():
@@ -57,6 +57,7 @@ class BasicDB:
             self.dataDir = self.settings.storage.data / self.dataDir.relative_to(self.locationDir.parent) # Change parent of locationDir (dataSources folder) to storage dir
 
         # Username/Password
+        secrets = scr.load()
         sourceSecrets = secrets[self.locationDir.name]
         username = sourceSecrets.username if sourceSecrets is not None else ""
         password = sourceSecrets.password if sourceSecrets is not None else ""

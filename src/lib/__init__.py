@@ -1,5 +1,5 @@
 import logging
-from lib.settings import globalSettings as gs
+import lib.settings as settings
 from pathlib import Path
 from datetime import datetime
 import sys
@@ -14,8 +14,10 @@ logLevelLookup = {
 
 def createLogger() -> logging.Logger:
     logger = logging.getLogger()
-    logToConsole = gs.logging.logToConsole
-    logLevel = gs.logging.logLevel
+
+    globalSettings = settings.load()
+    logToConsole = globalSettings.logging.logToConsole
+    logLevel = globalSettings.logging.logLevel
 
     level = logLevelLookup.get(logLevel, None)
     if level is None:
@@ -25,7 +27,7 @@ def createLogger() -> logging.Logger:
 
     formatter = logging.Formatter("[%(asctime)s] %(levelname)s: %(message)s", "%H:%M:%S")
 
-    logFolder: Path = gs.folders.logs
+    logFolder: Path = globalSettings.folders.logs
     logFolder.mkdir(parents=True, exist_ok=True)
 
     logFileName = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
