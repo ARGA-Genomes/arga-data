@@ -28,8 +28,6 @@
 hs_err_pid*
 
 # Local Folders #
-src/unsortedFiles
-src/tests
 logs
 env
 
@@ -40,6 +38,9 @@ dataSources/**/crawlerProgress
 dataSources/**/*.json
 dataSources/**/*.toml
 !dataSources/**/config.json
+
+# Tests
+src/tests/*
 
 # Data Files #
 *.tsv
