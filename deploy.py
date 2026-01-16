@@ -1,6 +1,7 @@
 import venv
 import sys
 from pathlib import Path
+from src.lib.settings import generate
 
 if __name__ == "__main__":
     rootDir = Path(__file__).parent
@@ -37,6 +38,8 @@ if __name__ == "__main__":
         print("ERROR: No site-packages path found")
         exit()
     
+    generate() # Generate a settings file
+
     print("-" * 40)
     print("Virtual environment has been set up!\n")
     print("To enter virtual environment run:\n\t- Windows: env/Scipts/activate\n\t- MacOS/Linux: source env/bin/activate\n")

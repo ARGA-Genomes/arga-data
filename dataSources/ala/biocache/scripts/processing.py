@@ -2,10 +2,12 @@ import requests
 from pathlib import Path
 import lib.downloading as dl
 import logging
-from lib.secrets import secrets
+import lib.secrets as scr
 import lib.bigFiles as bf
 
 def collectBiocache(queryParamters: dict, outputFilePath: Path) -> None:
+    secrets = scr.load()
+
     paramters = {
         "email": secrets.general.email,
         "emailNotify": False
