@@ -145,9 +145,9 @@ class StackedDFWriter:
     def uniqueColumns(self, subsection: str) -> list[str]:
         return self._subWriters[subsection].uniqueColumns()
 
-    def write(self, df: pd.DataFrame) -> None: # Expects multilayer dataframe
-        for outerColumn in df.columns.levels[0]:
-            self._subWriters[outerColumn].write(df[outerColumn])
+    def write(self, dfSections: dict[str, pd.DataFrame]) -> None:
+        for sectionName, df in dfSections.items():
+            self._subWriters[sectionName].write(df)
 
     def combine(self, removeParts: bool = False) -> None:
         for writer in self._subWriters.values():

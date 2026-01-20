@@ -43,24 +43,24 @@ class Converter:
         if self.map is None or self.map.isEmpty():
             raise Exception("Unable to load map file") from FileNotFoundError
 
-    def _processChunk(self, chunk: pd.DataFrame) -> pd.DataFrame | None:
-        df = self.map.applyTo(chunk, self.prefix) # Returns a multi-index dataframe
+    def _processChunk(self, chunk: pd.DataFrame) -> dict[str, pd.DataFrame]:
+        dfEvents = self.map.applyTo(chunk, self.prefix) # Returns a multi-index dataframe
         
-        if df is None:
-            return
+        if not dfEvents:
+            return {}
         
         error = f"Unable to generate '{self._entityIDLabel}':"
-        if self.entityEvent not in df.columns:
+        if self.entityEvent not in dfEvents:
             logging.error(f"{error} no event found '{self.entityEvent}'")
-            return
+            return {}
         
-        if self.entityColumn not in df[self.entityEvent].columns:
+        if self.entityColumn not in dfEvents[self.entityEvent].columns:
             logging.error(f"{error} dataset is missing field '{self.entityColumn}' in event '{self.entityEvent}'")
-            return
+            return {}
         
-        df[(self._entityIDEvent, self._datasetIDLabel)] = self.datasetID
-        df[(self._entityIDEvent, self._entityIDLabel)] = df[(self._entityIDEvent, self._datasetIDLabel)] + df[(self.entityEvent, self.entityColumn)]
-        return df
+        dfEvents[self._entityIDEvent][self._datasetIDLabel] = self.datasetID
+        dfEvents[self._entityIDEvent][self._entityIDLabel] = dfEvents[self._entityIDEvent][self._datasetIDLabel] + dfEvents[self.entityEvent][self.entityColumn]
+        return dfEvents
 
     def convert(self, overwrite: bool, verbose: bool) -> tuple[bool, dict]:
         logging.info("Processing chunks for conversion")
@@ -72,11 +72,11 @@ class Converter:
             if verbose:
                 print(f"At chunk: {idx}", end='\r')
 
-            df = self._processChunk(df)
-            if df is None:
+            dfSections = self._processChunk(df)
+            if not dfSections:
                 return False, {}
 
-            writer.write(df)
+            writer.write(dfSections)
 
             totalRows += len(df)
             del df

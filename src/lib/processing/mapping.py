@@ -141,7 +141,7 @@ class Map:
 
         logging.info(f"Saved map data to local file: {filePath}")
 
-    def applyTo(self, df: pd.DataFrame, unmappedPrefix: str = "") -> pd.DataFrame:
+    def applyTo(self, df: pd.DataFrame, unmappedPrefix: str = "") -> dict[str, pd.DataFrame]:
         eventCollections: dict[str, list[pd.Series]] = {}
 
         for column in df.columns:
@@ -160,7 +160,7 @@ class Map:
         for event, seriesList in eventCollections.items():
             eventCollections[event] = pd.concat(seriesList, axis=1) # Convert list of series to dataframe
 
-        return pd.concat(eventCollections.values(), keys=eventCollections.keys(), axis=1)
+        return {event: pd.concat(seriesList, axis=1) for event, seriesList in eventCollections.items()}
 
     def isEmpty(self) -> bool:
         return not self.translation
