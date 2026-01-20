@@ -9,7 +9,7 @@ from lib.json import JsonSynchronizer
 class DFWriter:
 
     _chunkPrefix = "chunk"
-    _metaFilePaths = "filePaths"
+    _metaFilenames = "fileNames"
 
     def __init__(self, outputFilePath: Path, chunkFormat: DataFormat = DataFormat.PARQUET, subDirName: str = "bigFileWriter", loadOnInit: bool = True):
         self.outputFile = DataFile(outputFilePath)
@@ -28,16 +28,16 @@ class DFWriter:
                 logging.info(f"Added {len(self._sectionFiles)} existing files from working directory '{self.workingDir.path}'")
 
     def _loadFiles(self) -> None:
-        for filePath in self.metadata.get(self._metaFilePaths, []):
-            dataFile = DataFile(filePath)
+        for fileName in self.metadata.get(self._metaFilenames, []):
+            dataFile = DataFile(self.workingDir.path / fileName)
             self._sectionFiles.append(dataFile)
             self._uniqueColumns |= {column: None for column in dataFile.getColumns()}
 
     def _wroteFile(self, name: str) -> None:
-        if self.metadata.get(self._metaFilePaths) is None:
-            self.metadata[self._metaFilePaths] = [name]
+        if self.metadata.get(self._metaFilenames) is None:
+            self.metadata[self._metaFilenames] = [name]
         else:
-            self.metadata[self._metaFilePaths] += [name]
+            self.metadata[self._metaFilenames] = self.metadata[self._metaFilenames] + [name]
 
     def writtenFileCount(self) -> int:
         return len(self._sectionFiles)
@@ -51,7 +51,7 @@ class DFWriter:
             
         subfile = DataFile(self.workingDir.path / (fileName + self._chunkFormat.value))
         subfile.write(df, index=False)
-        self._wroteFile(fileName)
+        self._wroteFile(subfile.path.name)
 
         self._sectionFiles.append(subfile)
         self._uniqueColumns |= {column: None for column in df.columns}
@@ -138,10 +138,10 @@ def combineDataFiles(outputFilePath: Path, dataFiles: list[DataFile], columns: l
             dataFile.delete()
 
 class StackedDFWriter:
-    def __init__(self, outputFilePath: Path, subsections: list[str], chunkFormat: DataFormat = DataFormat.PARQUET):
-        self.outputFile = StackedFile(outputFilePath)
-        self._subWriters = {subsection: DFWriter(outputFilePath / f"{subsection}.csv", chunkFormat=chunkFormat, subDirName=subsection) for subsection in subsections}
-    
+    def __init__(self, outputFile: StackedFile, subsections: list[str], chunkFormat: DataFormat = DataFormat.PARQUET):
+        self.outputFile = outputFile
+        self._subWriters = {subsection: DFWriter(outputFile.path / f"{subsection}.csv", chunkFormat=chunkFormat, subDirName=subsection) for subsection in subsections}
+
     def uniqueColumns(self, subsection: str) -> list[str]:
         return self._subWriters[subsection].uniqueColumns()
 

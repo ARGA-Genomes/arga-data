@@ -64,7 +64,7 @@ class Converter:
 
     def convert(self, overwrite: bool, verbose: bool) -> tuple[bool, dict]:
         logging.info("Processing chunks for conversion")
-        writer = StackedDFWriter(self.outputFile.path, self.map.events)
+        writer = StackedDFWriter(self.outputFile, self.map.events)
 
         totalRows = 0
         chunks = self.inputFile.readIterator(self.chunkSize, low_memory=False)
