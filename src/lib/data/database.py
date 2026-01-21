@@ -148,6 +148,7 @@ class Database:
             raise Exception(f"No download tasks specified in download config for {self.name}") from AttributeError
 
         # Get username/password for url/crawl downloads
+        secrets = scr.load()
         sourceSecrets = secrets[self.locationDir.name]
         username = sourceSecrets.username if sourceSecrets is not None else ""
         password = sourceSecrets.password if sourceSecrets is not None else ""
