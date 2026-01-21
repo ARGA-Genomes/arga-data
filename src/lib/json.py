@@ -12,7 +12,10 @@ class JsonSynchronizer:
         if key in self._data and self._data[key] == value:
             return
         
-        self._data[key] = value
+        if isinstance(value, list):
+            self._data[key] = _SyncList(self, value)
+        else:
+            self._data[key] = value
         self._sync()
 
     def __getitem__(self, key: str) -> any:
@@ -44,3 +47,19 @@ class JsonSynchronizer:
         
         self._data = {}
         self._sync()
+
+class _SyncList(list):
+    def __init__(self, parent: JsonSynchronizer, value: list):
+        super().__init__(value)
+
+        self._parent = parent
+
+    def append(self, object):
+        retVal = super().append(object)
+        self._parent._sync()
+        return retVal
+
+    def extend(self, iterable):
+        retVal = super().extend(iterable)
+        self._parent._sync()
+        return retVal
