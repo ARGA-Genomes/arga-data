@@ -68,17 +68,24 @@ class Converter:
 
         totalRows = 0
         chunks = self.inputFile.readIterator(self.chunkSize, low_memory=False)
+        completed = writer.completedCount()
+
+        if completed > 0:
+            logging.info(f"Already completed {completed} chunks, resuming...")
+
         for idx, df in enumerate(chunks, start=1):
-            if verbose:
-                print(f"At chunk: {idx}", end='\r')
-
-            dfSections = self._processChunk(df)
-            if not dfSections:
-                return False, {}
-
-            writer.write(dfSections)
-
             totalRows += len(df)
+
+            if idx > completed:
+                if verbose:
+                    print(f"At chunk: {idx}", end='\r')
+
+                dfSections = self._processChunk(df)
+                if not dfSections:
+                    return False, {}
+
+                writer.write(dfSections, idx-1)
+
             del df
             gc.collect()
 

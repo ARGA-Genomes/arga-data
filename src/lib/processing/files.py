@@ -150,7 +150,7 @@ class ParquetFile(DataFile):
             yield batch.to_pandas()
 
     def write(self, df: pd.DataFrame, **kwargs: dict) -> None:
-        df.astype(str).to_parquet(self.path, "pyarrow")
+        df.where(pd.notnull(df), "").astype(str).to_parquet(self.path, "pyarrow")
 
     def writeIterator(self, iterator: Iterator[pd.DataFrame], columns: list[str], **kwargs: dict) -> None:
         schema = pa.schema([(column, pa.string()) for column in columns])

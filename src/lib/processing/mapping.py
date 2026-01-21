@@ -157,9 +157,6 @@ class Map:
 
             eventCollections[event].append(series.rename(newName))
 
-        for event, seriesList in eventCollections.items():
-            eventCollections[event] = pd.concat(seriesList, axis=1) # Convert list of series to dataframe
-
         return {event: pd.concat(seriesList, axis=1) for event, seriesList in eventCollections.items()}
 
     def isEmpty(self) -> bool:

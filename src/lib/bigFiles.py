@@ -45,9 +45,9 @@ class DFWriter:
     def uniqueColumns(self) -> list[str]:
         return list(self._uniqueColumns.keys())
 
-    def write(self, df: pd.DataFrame, fileName: str = "") -> None:
+    def write(self, df: pd.DataFrame, fileName: str = "", index: int = -1) -> None:
         if not fileName:
-            fileName = f"{self._chunkPrefix}_{len(self._sectionFiles)}"
+            fileName = f"{self._chunkPrefix}_{len(self._sectionFiles) if index < 0 else index}"
             
         subfile = DataFile(self.workingDir.path / (fileName + self._chunkFormat.value))
         subfile.write(df, index=False)
@@ -145,10 +145,13 @@ class StackedDFWriter:
     def uniqueColumns(self, subsection: str) -> list[str]:
         return self._subWriters[subsection].uniqueColumns()
 
-    def write(self, dfSections: dict[str, pd.DataFrame]) -> None:
+    def write(self, dfSections: dict[str, pd.DataFrame], index: int = -1) -> None:
         for sectionName, df in dfSections.items():
-            self._subWriters[sectionName].write(df)
+            self._subWriters[sectionName].write(df, index=index)
 
     def combine(self, removeParts: bool = False) -> None:
         for writer in self._subWriters.values():
             writer.combine(removeParts=removeParts)
+
+    def completedCount(self) -> int:
+        return min(writer.writtenFileCount() for writer in self._subWriters.values())
