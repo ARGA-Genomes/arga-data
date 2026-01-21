@@ -105,7 +105,7 @@ class Crawler:
                 break
 
             pageData = self._parallelPageLinks(folderURLs, pattern)
-            metadata[self._metaProgress] += [pageData]
+            metadata[self._metaProgress].append(pageData)
 
     def getFileURLs(self, altDLURL: str = "") -> list[str]:
         metadata = JsonSynchronizer(self.outputDir / self._progressFile)

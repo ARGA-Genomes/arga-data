@@ -37,7 +37,7 @@ class DFWriter:
         if self.metadata.get(self._metaFilenames) is None:
             self.metadata[self._metaFilenames] = [name]
         else:
-            self.metadata[self._metaFilenames] = self.metadata[self._metaFilenames] + [name]
+            self.metadata[self._metaFilenames].append(name)
 
     def writtenFileCount(self) -> int:
         return len(self._sectionFiles)
