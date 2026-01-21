@@ -1,15 +1,13 @@
-import sys
 import logging
-import requests
 import pandas as pd
 from pathlib import Path
-from requests.adapters import HTTPAdapter, Retry
 from multiprocessing import Process, Queue
 import lib.secrets as scr
 from lib.bigFiles import RecordWriter
 from lib.progressBar import ProgressBar
 from lib.processing.files import DataFile
 from llib.apiWorker import apiWorker
+import numpy as np
 
 def getStats(summaryFile: DataFile, outputPath: Path):
     secrets = scr.load()
@@ -80,25 +78,13 @@ def merge(summaryFile: DataFile, statsFilePath: Path, outputPath: Path) -> None:
     df = df.merge(df2, how="outer", left_on="#assembly_accession", right_on="current_accession")
     df.to_csv(outputPath, index=False)
 
-def genbankAugment(df: pd.DataFrame) -> pd.DataFrame:
-    df = df.replace("na", pd.NaN)
+def cleanData(inPath: Path, outPath: Path) -> None:
+    df = pd.read_csv(inPath, low_memory=False)
+    df = df.replace("na", np.NaN)
     
-    fillNA = {
-        "assembly": "sequence_id",
-        "annotation": "sequence_id",
-        "record level": "sequence_id",
-        "sequencing": "record_id"
-    }
+    for column in ("sequence_id", "record_id"):
+        df[column] = np.NaN
+        df[column] = df[column].fillna(df["#assembly_accession"])
 
-    for event, column in fillNA.items():
-        if column not in df[event]:
-            df[(event, column)] = pd.NaN
-            
-        df[(event, column)].fillna(df[("assembly", "dataset_id")], inplace=True)
-
-    df[("sequencing", "dna_extract_id")] = df[("record level", "dataset_id")]
-    df = df.drop(("record level", "dataset_id"), axis=1)
-
-    df[("sequencing", "scientific_name")] = df[("collection", "scientific_name")]
-
-    return df
+    df = df.rename({"biosample": "dna_extract_id"}, axis=1)
+    df.to_csv(outPath, index=False)

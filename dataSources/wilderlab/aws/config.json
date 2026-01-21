@@ -1,33 +1,36 @@
 {
-    "datasetID": "ARGA:TL:0000192",
-    "retrieveType": "url",
-    "subsections": {
-        "records": {},
-        "samples": {}
-    },
-    "downloading": [
-        {
-            "url": "https://s3.ap-southeast-2.amazonaws.com/wilderlab.publicdata/<SUB>3.csv",
-            "name": "<SUB>.csv"
-        }
+    "subsections": [
+        "records",
+        "samples"
     ],
-    "processing": {
-        "linear": [
+    "downloading": {
+        "retrieveType": "url",
+        "tasks": [
             {
-                "path": "./processing.py",
-                "function": "clean",
-                "args": [
-                    "{IN-PATH}",
-                    "{OUT-PATH}"
-                ],
-                "output": "cleaned<SUB>.csv"
+                "url": "https://s3.ap-southeast-2.amazonaws.com/wilderlab.publicdata/<SUB>3.csv",
+                "name": "<SUB>.csv"
             }
         ]
     },
-    "update": {
+    "processing": [
+        {
+            "path": "./processing.py",
+            "function": "clean",
+            "args": [
+                "{IN-PATH}",
+                "{OUT-PATH}"
+            ],
+            "outputs": [
+                "cleaned<SUB>.csv"
+            ]
+        }
+    ],
+    "conversion": {
+        "datasetID": "ARGA:TL:0000192"
+    },
+    "updating": {
         "type": "weekly",
         "day": "sunday",
-        "time": 9,
-        "repeat": 2
+        "interval": 2
     }
 }

@@ -1,63 +1,38 @@
 from pathlib import Path
-from lib.processing.files import DataFile, Folder
+from lib.processing.files import DataFile
 import logging
 import importlib.util
 import traceback
 import sys
-import lib.processing.parsing as parse
 
 class FunctionScript:
-    _libDir = Path(__file__).parents[2]
+    def __init__(self, modulePath: Path, functionName: str, libraryDirs: list[Path] = []):
+        self.modulePath = modulePath
+        self.functionName = functionName
+        self.libraryDirs = libraryDirs
 
-    def __init__(self, scriptDir: Path, scriptInfo: dict, imports: list[str]):
-        self.scriptDir = scriptDir
-        self.scriptInfo = scriptInfo
-        self.imports = imports + [self._libDir]
-
-        # Script information
-        modulePath: str = scriptInfo.pop("path", None)
-        self.function: str = scriptInfo.pop("function", None)
-        self.args: list[str] = scriptInfo.pop("args", [])
-        self.kwargs: dict[str, str] = scriptInfo.pop("kwargs", {})
-
-        if modulePath is None:
-            raise Exception("No script path specified") from AttributeError
-        
-        if self.function is None:
-            raise Exception("No script function specified") from AttributeError
-        
-        self.modulePath = parse.parsePath(modulePath, self.scriptDir)
-        self.dirLookup = parse.DirLookup(imports)
-        self.dataFileLookup = parse.DataFileLookup()
-
-        for parameter in scriptInfo:
-            logging.debug(f"Unknown script parameter: {parameter}")
-
-    def _importFunction(self, modulePath: Path, functionName: str) -> callable:
-        spec = importlib.util.spec_from_file_location(modulePath.name, modulePath)
+    def _importFunction(self) -> callable:
+        spec = importlib.util.spec_from_file_location(self.modulePath.name, self.modulePath)
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)
-        return getattr(module, functionName)
-    
-    def run(self, verbose: bool, inputArgs: list = [], inputKwargs: dict = {}) -> tuple[bool, any]:
+        return getattr(module, self.functionName)
+
+    def run(self, verbose: bool, args: list = [], kwargs: dict = {}) -> tuple[bool, any]:
+        pathExtension = [str(libraryPath.parent) for libraryPath in self.libraryDirs]
+        sys.path.extend(pathExtension)
+
         try:
-            pathExtension = [str(path.parent) for path in self.imports]
-            sys.path.extend(pathExtension)
-            processFunction = self._importFunction(self.modulePath, self.function)
+            processFunction = self._importFunction()
         except:
-            logging.error(f"Error importing function '{self.function}' from path '{self.modulePath}'")
-            logging.error(traceback.format_exc())
+            logging.error(f"Error importing function '{self.functionName}' from path '{self.modulePath}'")
             return False, None
 
-        args = [parse.parseArg(arg, self.scriptDir, self.dirLookup, self.dataFileLookup) for arg in self.args] + inputArgs
-        kwargs = {key: parse.parseArg(value, self.scriptDir, self.dirLookup, self.dataFileLookup) for key, value in self.kwargs.items()} | inputKwargs
-
         if verbose:
-            msg = f"Running {self.modulePath} function '{self.function}'"
-            if self.args:
+            msg = f"Running {self.modulePath} function '{self.functionName}'"
+            if args:
                 msg += f" with args {args}"
-            if self.kwargs:
-                if self.args:
+            if kwargs:
+                if args:
                     msg += " and"
                 msg += f" with kwargs {kwargs}"
             logging.info(msg)
@@ -66,62 +41,56 @@ class FunctionScript:
             retVal = processFunction(*args, **kwargs)
         except KeyboardInterrupt:
             logging.info("Cancelled external script")
-            sys.path = sys.path[:-len(pathExtension)]
             return False, None
         except PermissionError:
             logging.info("External script does not have permission to modify file, potentially open")
-            sys.path = sys.path[:-len(pathExtension)]
             return False, None
         except:
             logging.error(f"Error running external script:\n{traceback.format_exc()}")
-            sys.path = sys.path[:-len(pathExtension)]
             return False, None
-        
-        sys.path = sys.path[:-len(pathExtension)]
+                
         return True, retVal
 
 class OutputScript(FunctionScript):
-    def __init__(self, scriptDir: Path, scriptInfo: dict, outputDir: Path, imports: list[Path] = [], inputs: parse.DataFileLookup = parse.DataFileLookup()):
-        super().__init__(scriptDir, scriptInfo, imports)
+    def __init__(self, modulePath: Path, functionName: str, outputs: list[DataFile], inputs: list[DataFile] = [], libraryDirs: list[Path] = []):
+        super().__init__(modulePath, functionName, libraryDirs)
 
-        self.outputDir = outputDir
+        self.outputs = outputs
+        self.inputs = inputs
 
-        # Output information
-        outputName = scriptInfo.pop("output", None)
-        outputProperties = scriptInfo.pop("properties", {})
-
-        if outputName is None:
-            raise Exception("No output specified, please use FunctionScript if intentionally has no output") from AttributeError
-
-        self.dataFileLookup.merge(inputs)
-
-        outputName = parse.parseArg(outputName, self.outputDir, self.dirLookup, self.dataFileLookup)
-        if isinstance(outputName, Path):
-            outputName = outputName.name # Clean off old parent to output in proper output dir
-
-        outputPath = self.outputDir / outputName
-        self.output = Folder(outputPath) if not outputPath.suffix else DataFile(outputPath, outputProperties)
-
-        self.dataFileLookup.merge(parse.DataFileLookup(outputs=[self.output]))
-
-    def run(self, overwrite: bool, verbose: bool, inputArgs: list = [], inputKwargs: dict = {}) -> tuple[bool, any]:
-        if self.output.exists():
+    def run(self, overwrite: bool, verbose: bool, args: list = [], kwargs: dict = {}) -> tuple[bool, any]:
+        if all(output.exists() for output in self.outputs):
             if not overwrite:
-                logging.info(f"Output {self.output} exist and not overwriting, skipping '{self.function}'")
-                return True, None
+                logging.info(f"All outputs for function '{self.functionName}' exist and not overwriting, skipping...")
+                return False, None
             
-            self.output.backUp(True)
+        if not all(input.exists() for input in self.inputs):
+            logging.warning(f"Missing {len(self.inputs)} required file(s) needed to run script {self.functionName}")
+            return False, None
+            
+        # All files don't exist and forced rerun OR overwriting
+        for output in self.outputs:
+            if output.exists():
+                output.backUp(True)
 
-        success, retVal = super().run(verbose, inputArgs, inputKwargs)
+        success, retVal = super().run(verbose, args, kwargs)
+
         if not success:
-            self.output.restoreBackUp()
+            for output in self.outputs:
+                output.restoreBackUp()
+
             return False, retVal
         
-        if not self.output.exists():
-            logging.warning(f"Output {self.output} was not created")
-            self.output.restoreBackUp()
+        if not all(output.exists() for output in self.outputs):
+            logging.warning(f"Output {self.outputs[0]} was not created" if len(self.outputs) == 1 else f"Failed to create all {len(self.outputs)} files")
+
+            for output in self.outputs:
+                output.restoreBackUp()
+
             return False, retVal
         
-        logging.info(f"Created file {self.output}")
-        self.output.deleteBackup()
+        logging.info(f"Created file {self.outputs[0]}" if len(self.outputs) == 1 else f"Created all {len(self.outputs)} files")
+        for output in self.outputs:
+            output.deleteBackup()
+
         return True, retVal

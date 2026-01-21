@@ -1,75 +1,66 @@
 {
     "subsections": {
-        "plants": {
-            "id": "ARGA:TL:0002009",
-            "tags": {
-                "name": "Plants"
-            }
-        },
-        "metazoa": {
-            "id": "ARGA:TL:0002008",
-            "tags": {
-                "name": "Metazoa"
-            }
-        },
-        "protists": {
-            "id": "ARGA:TL:0002010",
-            "tags": {
-                "name": "Protists"
-            }
-        },
-        "fungi": {
-            "id": "ARGA:TL:0002011",
-            "tags": {
-                "name": "Fungi"
-            }
-        }
+        "plants": "Plants",
+        "metazoa": "Metazoa",
+        "protists": "Protists",
+        "fungi": "Fungi"
     },
-    "retrieveType": "url",
-    "downloading": [
-        {
-            "url": "http://ftp.ensemblgenomes.org/pub/<SUB>/current/species_metadata_Ensembl<SUB:NAME>.json",
-            "name": "<SUB>.json"
-        },
-        {
-            "url": "http://ftp.ensemblgenomes.org/pub/<SUB>/current/species_Ensembl<SUB:NAME>.txt",
-            "name": "<SUB>.tsv",
-            "properties": {
-                "sep": "\t"
-            }
-        }
-    ],
-    "processing": {
-        "linear": [
+    "downloading": {
+        "retrieveType": "url",
+        "tasks": [
             {
-                "path": "./processing.py",
-                "function": "flatten",
-                "args": [
-                    "{D0-PATH}",
-                    "{OUT-PATH}"
-                ],
-                "output": "metadata.csv"
+                "url": "http://ftp.ensemblgenomes.org/pub/<SUB>/current/species_metadata_Ensembl<SUB:VALUE>.json",
+                "name": "<SUB>.json"
             },
             {
-                "path": "./processing.py",
-                "function": "enrich",
-                "args": [
-                    "{D1-PATH}",
-                    "<SUB>",
-                    "{OUT-PATH}"
-                ],
-                "output": "enrichedStats.csv"
-            },
-            {
-                "path": "./processing.py",
-                "function": "combine",
-                "args": [
-                    "{P0-PATH}",
-                    "{P1-PATH}",
-                    "{OUT-PATH}"
-                ],
-                "output": "<SUB>.csv"
+                "url": "http://ftp.ensemblgenomes.org/pub/<SUB>/current/species_Ensembl<SUB:VALUE>.txt",
+                "name": "<SUB>.tsv"
             }
         ]
+    },
+    "processing": [
+        {
+            "path": "./processing.py",
+            "function": "flatten",
+            "args": [
+                "{D0-PATH}",
+                "{OUT-PATH}"
+            ],
+            "outputs": [
+                "metadata.csv"
+            ]
+        },
+        {
+            "path": "./processing.py",
+            "function": "enrich",
+            "args": [
+                "{D1-PATH}",
+                "<SUB>",
+                "{OUT-PATH}"
+            ],
+            "outputs": [
+                "enrichedStats.csv"
+            ]
+        },
+        {
+            "path": "./processing.py",
+            "function": "combine",
+            "args": [
+                "{P0-PATH}",
+                "{P1-PATH}",
+                "{OUT-PATH}"
+            ],
+            "outputs": [
+                "<SUB>.csv"
+            ]
+        }
+    ],
+    "conversion": {
+        "datasetID": {
+            "plants": "ARGA:TL:0002009",
+            "metazoa": "ARGA:TL:0002008",
+            "protists": "ARGA:TL:0002010",
+            "fungi": "ARGA:TL:0002011"
+        }
     }
 }

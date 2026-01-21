@@ -1,18 +1,25 @@
 {
-    "datasetID": "ARGA:TL:0003001",
-    "retrieveType": "script",
     "downloading": {
-        "path": "./processing.py",
-        "function": "build",
-        "args": [
-            "{OUT-PATH}"
-        ],
-        "output": "algaeBase.csv"
+        "retrieveType": "script",
+        "tasks": [
+            {
+                "path": "./processing.py",
+                "function": "build",
+                "args": [
+                    "{OUT-PATH}"
+                ],
+                "outputs": [
+                    "algaeBase.csv"
+                ]
+            }
+        ]
     },
-    "update": {
+    "conversion": {
+        "datasetID": "ARGA:TL:0003001"
+    },
+    "updating": {
         "type": "weekly",
         "day": "sunday",
-        "time": 9,
-        "repeat": 2
+        "interval": 2
     }
 }

@@ -1,18 +1,25 @@
 {
-    "datasetID": "ARGA:TL:0000185",
-    "retrieveType": "script",
     "downloading": {
-        "path": "./processing.py",
-        "function": "retrieve",
-        "args": [
-            "{OUT-PATH}"
-        ],
-        "output": "i5k.csv"
+        "retrieveType": "script",
+        "tasks": [
+            {
+                "path": "./processing.py",
+                "function": "retrieve",
+                "args": [
+                    "{OUT-PATH}"
+                ],
+                "outputs": [
+                    "i5k.csv"
+                ]
+            }
+        ]
     },
-    "update": {
+    "conversion": {
+        "datasetID": "ARGA:TL:0000185"
+    },
+    "updating": {
         "type": "weekly",
         "day": "sunday",
-        "time": 9,
-        "repeat": 2
+        "interval": 2
     }
 }

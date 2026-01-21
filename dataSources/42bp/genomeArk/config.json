@@ -1,22 +1,27 @@
 {
-    "datasetID": "ARGA:TL:0000193",
-    "retrieveType": "script",
     "downloading": {
-        "path": "./processing.py",
-        "function": "build",
-        "args": [
-            "{OUT-PATH}",
-            "./species.json"
-        ],
-        "output": "genomeArk.csv"
+        "retrieveType": "script",
+        "tasks": [
+            {
+                "path": "./processing.py",
+                "function": "build",
+                "args": [
+                    "{OUT-PATH}",
+                    "./species.json"
+                ],
+                "outputs": [
+                    "genomeArk.csv"
+                ]
+            }
+        ]
     },
     "conversion": {
+        "datasetID": "ARGA:TL:0000193",
         "mapID": 84855374
     },
-    "update": {
+    "updating": {
         "type": "weekly",
         "day": "sunday",
-        "time": 9,
-        "repeat": 2
+        "interval": 2
     }
 }

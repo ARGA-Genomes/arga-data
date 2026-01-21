@@ -1,48 +1,56 @@
 {
-    "datasetID": "ARGA:TL:0002001",
-    "retrieveType": "url",
-    "downloading": [
+    "downloading": {
+        "retrieveType": "url",
+        "tasks": [
+            {
+                "url": "https://ftp.ncbi.nlm.nih.gov/biosample/biosample_set.xml.gz",
+                "name": "biosample_set.xml.gz"
+            }
+        ]
+    },
+    "processing": [
         {
-            "url": "https://ftp.ncbi.nlm.nih.gov/biosample/biosample_set.xml.gz",
-            "name": "biosample_set.xml.gz"
+            "path": ".lib/zipping.py",
+            "function": "extract",
+            "args": [
+                "{IN-PATH}",
+                "{OUT-DIR}"
+            ],
+            "outputs": [
+                "biosample_set.xml"
+            ]
+        },
+        {
+            "path": ".lib/xml.py",
+            "function": "basicXMLProcessor",
+            "args": [
+                "{IN-PATH}",
+                "{OUT-PATH}",
+                150000
+            ],
+            "outputs": [
+                "rawBiosample.csv"
+            ]
+        },
+        {
+            "path": "./processing.py",
+            "function": "splitLatLong",
+            "args": [
+                "{IN-PATH}",
+                "{OUT-PATH}"
+            ],
+            "outputs": [
+                "biosample.csv"
+            ]
         }
     ],
-    "processing": {
-        "linear": [
-            {
-                "path": ".lib/zipping.py",
-                "function": "extract",
-                "args": [
-                    "{IN-PATH}",
-                    "{OUT-DIR}"
-                ],
-                "output": "biosample_set.xml"
-            },
-            {
-                "path": ".lib/xml.py",
-                "function": "basicXMLProcessor",
-                "args": [
-                    "{IN-PATH}",
-                    "{OUT-PATH}",
-                    150000
-                ],
-                "output": "biosample.csv"
-            }
-        ]
-    },
     "conversion": {
-        "mapID": 109194600,
-        "augment": [
-            {
-                "path": "./augment.py",
-                "function": "augment"
-            }
-        ]
+        "datasetID": "ARGA:TL:0002001",
+        "mapID": 109194600
     },
-    "update": {
+    "updating": {
         "type": "weekly",
         "day": "sunday",
-        "time": 9,
-        "repeat": 2
+        "interval": 2
     }
 }

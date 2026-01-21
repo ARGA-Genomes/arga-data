@@ -1,25 +1,30 @@
 {
-    "retrieveType": "script",
-    "subsections": {
-        "kamilaroi": {},
-        "noongar": {},
-        "southEastarnHemland": {},
-        "mangroveWatch": {},
-        "weeds-australia": {}
-    },
+    "subsections": [
+        "kamilaroi",
+        "noongar",
+        "southEastarnHemland",
+        "mangroveWatch",
+        "weeds-australia"
+    ],
     "downloading": {
-        "path": "./processing.py",
-        "function": "collect",
-        "args": [
-            "{OUT-DIR}",
-            "<SUB>"
-        ],
-        "output": "<SUB>.csv"
+        "retrieveType": "script",
+        "tasks": [
+            {
+                "path": "./processing.py",
+                "function": "collect",
+                "args": [
+                    "{OUT-DIR}",
+                    "<SUB>"
+                ],
+                "outputs": [
+                    "<SUB>.csv"
+                ]
+            }
+        ]
     },
-    "update": {
+    "updating": {
         "type": "weekly",
         "day": "sunday",
-        "time": 9,
-        "repeat": 2
+        "interval": 2
     }
 }

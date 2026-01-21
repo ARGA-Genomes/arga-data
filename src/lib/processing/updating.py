@@ -4,7 +4,7 @@ from typing import Any
 
 class Update(ABC):
 
-    _repeatFreq = "repeatFreq"
+    _repeatFreq = "interval"
 
     def __init__(self, properties: dict):
         self._freq = self._getAndAssert(properties, self._repeatFreq, int)
@@ -12,11 +12,8 @@ class Update(ABC):
     def _getAndAssert(self, properties: dict, property: str, type: type) -> Any:
         value = properties.get(property)
 
-        if value is None:
-            raise Exception(f"No property '{property}' found.")
-        
-        if not isinstance(value, type):
-            raise Exception(f"Property '{property}' should be of type '{type}'.")
+        assert value is not None, f"No property '{property}' found."
+        assert isinstance(value, type), f"Property '{property}' should be of type '{type}'."
 
         return value
 
@@ -29,7 +26,7 @@ class DailyUpdate(Update):
     
 class WeeklyUpdate(Update):
 
-    _repeatDay = "repeatDay"
+    _repeatDay = "day"
 
     _days = [
         "monday",
@@ -64,7 +61,7 @@ class WeeklyUpdate(Update):
     
 class MonthlyUpdate(Update):
 
-    _repeatDate = "repeatDate"
+    _repeatDate = "date"
 
     _monthDays = [
         31,

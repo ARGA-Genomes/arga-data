@@ -1,36 +1,37 @@
 {
-    "retrieveType": "url",
-    "downloading": [
-        {
-            "url": "https://ftp.ncbi.nih.gov/pub/taxonomy/biocollections/Collection_codes.txt",
-            "name": "Collection_codes.txt"
-        },
-        {
-            "url": "https://ftp.ncbi.nih.gov/pub/taxonomy/biocollections/Institution_codes.txt",
-            "name": "Institution_codes.txt"
-        },
-        {
-            "url": "https://ftp.ncbi.nih.gov/pub/taxonomy/biocollections/Unique_institution_codes.txt",
-            "name": "Unique_institution_codes.txt"
-        } 
-    ],
-    "processing": {
-        "linear": [
+    "downloading": {
+        "retrieveType": "url",
+        "tasks": [
             {
-                "path": "./processing.py",
-                "function": "compile",
-                "args": [
-                    "{IN-DIR}",
-                    "{OUT-PATH}"
-                ],
-                "output": "biocollections.csv"
+                "url": "https://ftp.ncbi.nih.gov/pub/taxonomy/biocollections/Collection_codes.txt",
+                "name": "Collection_codes.txt"
+            },
+            {
+                "url": "https://ftp.ncbi.nih.gov/pub/taxonomy/biocollections/Institution_codes.txt",
+                "name": "Institution_codes.txt"
+            },
+            {
+                "url": "https://ftp.ncbi.nih.gov/pub/taxonomy/biocollections/Unique_institution_codes.txt",
+                "name": "Unique_institution_codes.txt"
             }
         ]
     },
-    "update": {
+    "processing": [
+        {
+            "path": "./processing.py",
+            "function": "compile",
+            "args": [
+                "{IN-DIR}",
+                "{OUT-PATH}"
+            ],
+            "outputs": [
+                "biocollections.csv"
+            ]
+        }
+    ],
+    "updating": {
         "type": "weekly",
         "day": "sunday",
-        "time": 9,
-        "repeat": 2
+        "interval": 2
     }
 }

@@ -1,136 +1,68 @@
 {
-    "datasetID": "ARGA:TL:0000160",
     "subsections": {
-        "bacteria": {
-            "tags": {
-                "name" : "bct"
-            }
-        },
-        "constructed": {
-            "tags": {
-                "name": "con"
-            }
-        },
-        "environmental": {
-            "tags": {
-                "name": "env"
-            }
-        },
-        "expressedSeq": {
-            "tags": {
-                "name": "est"
-            }
-        },
-        "genomeSurvey": {
-            "tags": {
-                "name": "gss"
-            }
-        },
-        "highCDNA": {
-            "tags": {
-                "name": "htc"
-            }
-        },
-        "invertebrate": {
-            "tags": {
-                "name": "inv"
-            }
-        },
-        "mammalian": {
-            "tags": {
-                "name": "mam"
-            }
-        },
-        "otherVertebrate": {
-            "tags": {
-                "name": "vrt"
-            }
-        },
-        "patent": {
-            "tags": {
-                "name": "pat"
-            }
-        },
-        "phage": {
-            "tags": {
-                "name": "phg"
-            }
-        },
-        "plant": {
-            "tags": {
-                "name": "pln"
-            }
-        },
-        "primate": {
-            "tags": {
-                "name": "pri"
-            }
-        },
-        "rodent": {
-            "tags": {
-                "name": "rod"
-            }
-        },
-        "sequenceTagged": {
-            "tags": {
-                "name": "sts"
-            }
-        },
-        "synthetic": {
-            "tags": {
-                "name": "syn"
-            }
-        },
-        "transcriptome": {
-            "tags": {
-                "name": "tsa"
-            }
-        },
-        "viral": {
-            "tags": {
-                "name": "vrl"
-            }
-        }
+        "bacteria": "bct",
+        "constructed": "con",
+        "environmental": "env",
+        "expressedSeq": "est",
+        "genomeSurvey": "gss",
+        "highCDNA": "htc",
+        "invertebrate": "inv",
+        "mammalian": "mam",
+        "otherVertebrate": "vrt",
+        "patent": "pat",
+        "phage": "phg",
+        "plant": "pln",
+        "primate": "pri",
+        "rodent": "rod",
+        "sequenceTagged": "sts",
+        "synthetic": "syn",
+        "transcriptome": "tsa",
+        "viral": "vrl"
     },
-    "retrieveType": "crawl",
     "downloading": {
-        "url": "https://ftp.ncbi.nlm.nih.gov/genbank/",
-        "regex": "gb<SUB:NAME>\\d+\\.seq\\.gz",
-        "maxDepth": 0
-    },
-    "processing": {
-        "parallel": [
+        "retrieveType": "crawl",
+        "tasks": [
             {
-                "path": "./processing.py",
-                "function": "parse",
-                "args": [
-                    "{IN-PATH}",
-                    "{OUT-PATH}"
-                ],
-                "output": "{IN-PATH.parquet}"
-            }
-        ],
-        "linear": [
-            {
-                "path": ".lib/bigFiles.py",
-                "function": "combineDirectoryFiles",
-                "args": [
-                    "{OUT-PATH}",
-                    "{IN-DIR}",
-                    "*.parquet"
-                ],
-                "output": "<SUB>.csv"
+                "url": "https://ftp.ncbi.nlm.nih.gov/genbank/",
+                "regex": "gb<SUB:VALUE>\\d+\\.seq\\.gz",
+                "maxDepth": 0
             }
         ]
     },
+    "processing": [
+        {
+            "mode": "individual",
+            "path": "./processing.py",
+            "function": "parse",
+            "args": [
+                "{IN-PATH}",
+                "{OUT-PATH}"
+            ],
+            "outputs": [
+                "{IN-PATH.parquet}"
+            ]
+        },
+        {
+            "path": ".lib/bigFiles.py",
+            "function": "combineDirectoryFiles",
+            "args": [
+                "{OUT-PATH}",
+                "{IN-DIR}",
+                "*.parquet"
+            ],
+            "outputs": [
+                "<SUB>.csv"
+            ]
+        }
+    ],
     "conversion": {
+        "datasetID": "ARGA:TL:0000160",
         "mapID": 1182330400,
         "chunkSize": 512
     },
-    "update": {
+    "updating": {
         "type": "weekly",
         "day": "sunday",
-        "time": 9,
-        "repeat": 2
+        "interval": 2
     }
 }

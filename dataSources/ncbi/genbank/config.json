@@ -1,51 +1,59 @@
 {
-    "datasetID": "ARGA:TL:0002003",
-    "retrieveType": "url",
-    "downloading": [
-        {
-            "url": "https://ftp.ncbi.nih.gov/genomes/genbank/assembly_summary_genbank.txt",
-            "name": "assembly_summary_genbank.tsv",
-            "properties": {
-                "header": 1
+    "downloading": {
+        "retrieveType": "url",
+        "tasks": [
+            {
+                "url": "https://ftp.ncbi.nih.gov/genomes/genbank/assembly_summary_genbank.txt",
+                "name": "assembly_summary_genbank.tsv",
+                "properties": {
+                    "header": 1
+                }
             }
+        ]
+    },
+    "processing": [
+        {
+            "path": ".llib/sharedProcessing.py",
+            "function": "getStats",
+            "args": [
+                "{IN-FILE}",
+                "{OUT-PATH}"
+            ],
+            "outputs": [
+                "apiData.csv"
+            ]
+        },
+        {
+            "path": ".llib/sharedProcessing.py",
+            "function": "merge",
+            "args": [
+                "{D0-FILE}",
+                "{IN-PATH}",
+                "{OUT-PATH}"
+            ],
+            "outputs": [
+                "genbank.csv"
+            ]
+        },
+        {
+            "path": ".llib/sharedProcessing.py",
+            "function": "cleanData",
+            "args": [
+                "{IN-PATH}",
+                "{OUT-PATH}"
+            ],
+            "outputs": [
+                "cleanGenbank.csv"
+            ]
         }
     ],
-    "processing": {
-        "linear": [
-            {
-                "path": ".llib/sharedProcessing.py",
-                "function": "getStats",
-                "args": [
-                    "{IN-FILE}",
-                    "{OUT-PATH}"
-                ],
-                "output": "apiData.csv"
-            },
-            {
-                "path": ".llib/sharedProcessing.py",
-                "function": "merge",
-                "args": [
-                    "{D0-FILE}",
-                    "{IN-PATH}",
-                    "{OUT-PATH}"
-                ],
-                "output": "genbank.csv"
-            }
-        ]
-    },
     "conversion": {
-        "mapID": 2003682060,
-        "augment": [
-            {
-                "path": ".llib/sharedProcessing.py",
-                "function": "genbankAugment"
-            }
-        ]
+        "datasetID": "ARGA:TL:0002003",
+        "mapID": 2003682060
     },
-    "update": {
+    "updating": {
         "type": "weekly",
         "day": "sunday",
-        "time": 9,
-        "repeat": 1
+        "interval": 1
     }
 }

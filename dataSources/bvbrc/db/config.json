@@ -1,22 +1,20 @@
 {
-    "datasetID": "ARGA:TL:0000194",
-    "retrieveType": "url",
-    "downloading": [
-        {
-            "url": "ftp://ftp.bvbrc.org/RELEASE_NOTES/genome_metadata",
-            "name": "metadata.tsv",
-            "properties": {
-                "separator": "\t"
+    "downloading": {
+        "retrieveType": "url",
+        "tasks": [
+            {
+                "url": "ftp://ftp.bvbrc.org/RELEASE_NOTES/genome_metadata",
+                "name": "metadata.tsv"
             }
-        }
-    ],
+        ]
+    },
     "conversion": {
+        "datasetID": "ARGA:TL:0000194",
         "mapID": 685936034
     },
-    "update": {
+    "updating": {
         "type": "weekly",
         "day": "sunday",
-        "time": 9,
-        "repeat": 2
+        "interval": 2
     }
 }

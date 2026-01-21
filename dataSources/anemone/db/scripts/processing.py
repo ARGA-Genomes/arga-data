@@ -1,7 +1,9 @@
 import pandas as pd
 import numpy as np
+from pathlib import Path
 
-def dwcAugment(df: pd.DataFrame) -> pd.DataFrame:
+def splitHaploType(inPath: Path) -> None:
+    df = pd.read_csv(inPath)
 
     matching = df['source_mat_id'].apply(lambda x: df.index[df['source_mat_id'] == x].tolist())
     df['haplotype'] = [lst.index(idx)+1 for idx, lst in enumerate(matching)]
@@ -10,4 +12,4 @@ def dwcAugment(df: pd.DataFrame) -> pd.DataFrame:
     for col in df.columns:
         df[col] = df[col].replace('unidentified .*', np.NaN, regex=True)
 
-    return df
+    df.to_csv(inPath, index=False)

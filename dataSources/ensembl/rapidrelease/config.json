@@ -1,23 +1,27 @@
 {
-    "datasetID": "ARGA:TL:0002012",
-    "retrieveType": "url",
-    "download" : [
-        {
-            "url": "https://ftp.ensembl.org/pub/rapid-release/species_metadata.json",
-            "name": "species_metadata.json"
-        }
-    ],
-    "processing": {
-        "linear": [
+    "downloading": {
+        "retrieveType": "url",
+        "tasks": [
             {
-                "path": "./processing.py",
-                "function": "convert",
-                "args": [
-                    "{IN-PATH}",
-                    "{OUT-PATH}"
-                ],
-                "output": "metadata.csv"
+                "url": "https://ftp.ensembl.org/pub/rapid-release/species_metadata.json",
+                "name": "species_metadata.json"
             }
         ]
+    },
+    "processing": [
+        {
+            "path": "./processing.py",
+            "function": "convert",
+            "args": [
+                "{IN-PATH}",
+                "{OUT-PATH}"
+            ],
+            "outputs": [
+                "metadata.csv"
+            ]
+        }
+    ],
+    "conversion": {
+        "datasetID": "ARGA:TL:0002012"
     }
 }

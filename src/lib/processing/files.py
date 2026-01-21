@@ -8,11 +8,6 @@ from typing import Iterator
 import pyarrow as pa
 import shutil
 
-class Step(Enum):
-    DOWNLOADING = "downloading"
-    PROCESSING  = "processing"
-    CONVERSION  = "conversion"
-
 class DataFormat(Enum):
     CSV     = ".csv"
     TSV     = ".tsv"
@@ -118,7 +113,7 @@ class CSVFile(DataFile):
         return pd.read_csv(self.path, **(self.properties | kwargs))
     
     def readIterator(self, chunkSize: int, **kwargs) -> Iterator[pd.DataFrame]:
-        for chunk in self.read(chunkSize=chunkSize, **kwargs):
+        for chunk in self.read(chunksize=chunkSize, **kwargs):
             yield chunk
     
     def write(self, df: pd.DataFrame, **kwargs: dict) -> None:
@@ -155,7 +150,7 @@ class ParquetFile(DataFile):
             yield batch.to_pandas()
 
     def write(self, df: pd.DataFrame, **kwargs: dict) -> None:
-        df.to_parquet(self.path, "pyarrow")
+        df.where(pd.notnull(df), "").astype(str).to_parquet(self.path, "pyarrow")
 
     def writeIterator(self, iterator: Iterator[pd.DataFrame], columns: list[str], **kwargs: dict) -> None:
         schema = pa.schema([(column, pa.string()) for column in columns])
@@ -214,7 +209,7 @@ class StackedFile(Folder, DataFile):
         self._sectionFormat = sectionFormat
 
     def _getFiles(self) -> list[DataFile]:
-        return [dataFile for dataFile in [DataFile(file) for file in self.path.iterdir()] if dataFile.format == self._sectionFormat]
+        return [dataFile for dataFile in [DataFile(file) for file in self.path.iterdir() if file.is_file()] if dataFile.format == self._sectionFormat]
 
     def read(self, **kwargs: dict) -> pd.DataFrame:
         dfs = {file.path.stem: file.read(**kwargs) for file in self._getFiles()}

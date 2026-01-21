@@ -1,29 +1,34 @@
 {
-    "subsections": {
-        "datasets": {
-            "id": "ARGA:TL:0000179"
-        },
-        "genomes": {
-            "id": "ARGA:TL:0000180"
-        }
-    },
-    "retrieveType": "script",
+    "subsections": [
+        "datasets",
+        "genomes"
+    ],
     "downloading": {
-        "path": "./processing.py",
-        "function": "build",
-        "args": [
-            "<SUB>",
-            "{OUT-PATH}"
-        ],
-        "output": "genomes.csv"
+        "retrieveType": "script",
+        "tasks": [
+            {
+                "path": "./processing.py",
+                "function": "build",
+                "args": [
+                    "<SUB>",
+                    "{OUT-PATH}"
+                ],
+                "outputs": [
+                    "genomes.csv"
+                ]
+            }
+        ]
     },
     "conversion": {
+        "datasetID": {
+            "datasets": "ARGA:TL:0000179",
+            "genomes": "ARGA:TL:0000180"
+        },
         "mapID": 215504073
     },
-    "update": {
+    "updating": {
         "type": "weekly",
         "day": "sunday",
-        "time": 9,
-        "repeat": 2
+        "interval": 2
     }
 }

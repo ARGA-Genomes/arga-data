@@ -9,7 +9,7 @@ from lib.json import JsonSynchronizer
 class DFWriter:
 
     _chunkPrefix = "chunk"
-    _metaFilePaths = "filePaths"
+    _metaFilenames = "fileNames"
 
     def __init__(self, outputFilePath: Path, chunkFormat: DataFormat = DataFormat.PARQUET, subDirName: str = "bigFileWriter", loadOnInit: bool = True):
         self.outputFile = DataFile(outputFilePath)
@@ -28,13 +28,16 @@ class DFWriter:
                 logging.info(f"Added {len(self._sectionFiles)} existing files from working directory '{self.workingDir.path}'")
 
     def _loadFiles(self) -> None:
-        for filePath in self.metadata.get(self._metaFilePaths, []):
-            dataFile = DataFile(filePath)
+        for fileName in self.metadata.get(self._metaFilenames, []):
+            dataFile = DataFile(self.workingDir.path / fileName)
             self._sectionFiles.append(dataFile)
             self._uniqueColumns |= {column: None for column in dataFile.getColumns()}
 
     def _wroteFile(self, name: str) -> None:
-        self.metadata[self._metaFilePaths] += [name]
+        if self.metadata.get(self._metaFilenames) is None:
+            self.metadata[self._metaFilenames] = [name]
+        else:
+            self.metadata[self._metaFilenames] = self.metadata[self._metaFilenames] + [name]
 
     def writtenFileCount(self) -> int:
         return len(self._sectionFiles)
@@ -42,13 +45,13 @@ class DFWriter:
     def uniqueColumns(self) -> list[str]:
         return list(self._uniqueColumns.keys())
 
-    def write(self, df: pd.DataFrame, fileName: str = "") -> None:
+    def write(self, df: pd.DataFrame, fileName: str = "", index: int = -1) -> None:
         if not fileName:
-            fileName = f"{self._chunkPrefix}_{len(self._sectionFiles)}"
+            fileName = f"{self._chunkPrefix}_{len(self._sectionFiles) if index < 0 else index}"
             
         subfile = DataFile(self.workingDir.path / (fileName + self._chunkFormat.value))
         subfile.write(df, index=False)
-        self._wroteFile(fileName)
+        self._wroteFile(subfile.path.name)
 
         self._sectionFiles.append(subfile)
         self._uniqueColumns |= {column: None for column in df.columns}
@@ -84,7 +87,7 @@ class RecordWriter(DFWriter):
         self._rowsPerSubsection = rowsPerSubsection
         self._records = []
 
-        if self.metadata[self._metaRows] != rowsPerSubsection: # Different chunk size used from previous, throw out results
+        if self.metadata.get(self._metaRows, -1) != rowsPerSubsection: # Different chunk size used from previous, throw out results
             self.metadata.clear()
             self.metadata[self._metaRows] = rowsPerSubsection
         else:
@@ -135,17 +138,20 @@ def combineDataFiles(outputFilePath: Path, dataFiles: list[DataFile], columns: l
             dataFile.delete()
 
 class StackedDFWriter:
-    def __init__(self, outputFilePath: Path, subsections: list[str], chunkFormat: DataFormat = DataFormat.PARQUET):
-        self.outputFile = StackedFile(outputFilePath)
-        self._subWriters = {subsection: DFWriter(outputFilePath / f"{subsection}.csv", chunkFormat=chunkFormat, subDirName=subsection) for subsection in subsections}
-    
+    def __init__(self, outputFile: StackedFile, subsections: list[str], chunkFormat: DataFormat = DataFormat.PARQUET):
+        self.outputFile = outputFile
+        self._subWriters = {subsection: DFWriter(outputFile.path / f"{subsection}.csv", chunkFormat=chunkFormat, subDirName=subsection) for subsection in subsections}
+
     def uniqueColumns(self, subsection: str) -> list[str]:
         return self._subWriters[subsection].uniqueColumns()
 
-    def write(self, df: pd.DataFrame) -> None: # Expects multilayer dataframe
-        for outerColumn in df.columns.levels[0]:
-            self._subWriters[outerColumn].write(df[outerColumn])
+    def write(self, dfSections: dict[str, pd.DataFrame], index: int = -1) -> None:
+        for sectionName, df in dfSections.items():
+            self._subWriters[sectionName].write(df, index=index)
 
     def combine(self, removeParts: bool = False) -> None:
         for writer in self._subWriters.values():
             writer.combine(removeParts=removeParts)
+
+    def completedCount(self) -> int:
+        return min(writer.writtenFileCount() for writer in self._subWriters.values())

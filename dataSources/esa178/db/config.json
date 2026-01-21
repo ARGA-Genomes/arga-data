@@ -1,40 +1,36 @@
 {
-    "datasetID": "{SUBSECTION:ID}",
     "subsections": {
-        "bird": {
-            "id": "ARGA:TL:0000182",
-            "tags": {
-                "name": "Bird"
+        "bird": "Bird",
+        "mammal": "Mam"
+    },
+    "downloading": {
+        "retrieveType": "url",
+        "tasks": [
+            {
+                "url": "https://www.esapubs.org/archive/ecol/E095/178/<SUB:VALUE>FuncDat.txt",
+                "name": "<SUB>Data.tsv",
+                "properties": {
+                    "encoding": "cp1252"
+                }
+            },
+            {
+                "url": "https://www.esapubs.org/archive/ecol/E095/178/<SUB:VALUE>FuncDatSources.txt",
+                "name": "<SUB>Sources.tsv",
+                "properties": {
+                    "encoding": "cp1252"
+                }
             }
-        },
-        "mammal": {
-            "id": "ARGA:TL:0000183",
-            "tags": {
-                "name": "Mam"
-            }
+        ]
+    },
+    "conversion": {
+        "datasetID": {
+            "bird": "ARGA:TL:0000182",
+            "mammal": "ARGA:TL:0000183"
         }
     },
-    "retrieveType": "url",
-    "downloading": [
-        {
-            "url": "https://www.esapubs.org/archive/ecol/E095/178/<SUB:NAME>FuncDat.txt",
-            "name": "<SUB>Data.tsv",
-            "properties": {
-                "encoding": "cp1252"
-            }
-        },
-        {
-            "url": "https://www.esapubs.org/archive/ecol/E095/178/<SUB:NAME>FuncDatSources.txt",
-            "name": "<SUB>Sources.tsv",
-            "properties": {
-                "encoding": "cp1252"
-            }
-        }
-    ],
-    "update": {
+    "updating": {
         "type": "weekly",
         "day": "sunday",
-        "time": 9,
-        "repeat": 2
+        "interval": 2
     }
 }

@@ -14,18 +14,6 @@ def getColumnCount(df: pd.DataFrame, column: str) -> int:
 
     return len(df[df[column].notna()])
 
-def splitField(df: pd.DataFrame, column: str, func: callable, newColumns: dict) -> pd.DataFrame:
-    seriesList = zip(*df[column].apply(lambda x: func(x)))
-    for colname, series in zip(newColumns, seriesList):
-        if column is None:
-            continue
-        
-        df[colname] = pd.Series(series, dtype=object).replace('', np.nan)
-
-    df = df.drop(column, axis=1)
-
-    return df
-
 def dropEmptyColumns(df: pd.DataFrame, verbose: bool = False) -> pd.DataFrame:
     remainingColumns = set(df.columns)
     df.dropna(how='all', axis=1, inplace=True) # Drop all completely empty columns
