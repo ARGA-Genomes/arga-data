@@ -6,7 +6,6 @@ import lib.downloading as dl
 from lib.crawler import Crawler
 from lib.converting import Converter
 from datetime import date
-from lib.settings import globalSettings as gs
 import lib.processing.parsing as parse
 
 class Task:

@@ -49,3 +49,5 @@ def createLogger() -> logging.Logger:
         logger.addHandler(streamHandler)
 
     return logger
+
+createLogger()
