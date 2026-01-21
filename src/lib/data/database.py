@@ -1,7 +1,7 @@
 import json
 import logging
 import lib.settings as settings
-from lib.secrets import secrets
+import lib.secrets as scr
 from enum import Enum
 from pathlib import Path
 from lib.processing import tasks
@@ -97,7 +97,7 @@ class Database:
         })
 
         # Local settings
-        self.settings = settings.globalSettings
+        self.settings = settings.load()
         for dir in (self.locationDir, self.databaseDir, self.subsectionDir):
             subdirConfig = Path(dir / "settings.toml")
             if subdirConfig.exists():

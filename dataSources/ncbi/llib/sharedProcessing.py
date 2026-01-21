@@ -2,7 +2,7 @@ import logging
 import pandas as pd
 from pathlib import Path
 from multiprocessing import Process, Queue
-from lib.secrets import secrets
+import lib.secrets as scr
 from lib.bigFiles import RecordWriter
 from lib.progressBar import ProgressBar
 from lib.processing.files import DataFile
@@ -10,6 +10,8 @@ from llib.apiWorker import apiWorker
 import numpy as np
 
 def getStats(summaryFile: DataFile, outputPath: Path):
+    secrets = scr.load()
+
     apiKey = secrets.ncbi.key
     if not isinstance(apiKey, str):
         logging.error("No API key found in secrets file, and is required to access NCBI api. Please update 'secrets.toml' with 'key' field under 'ncbi'.")

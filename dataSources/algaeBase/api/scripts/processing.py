@@ -4,11 +4,13 @@ import pandas as pd
 import json
 import lib.dataframes as dff
 from lib.progressBar import ProgressBar
-from lib.secrets import secrets
+import lib.secrets as scr
 import logging
 
 def build(outputFile: Path) -> None:
+    secrets = scr.load()
     entriesPerCall = 1000
+    
     headers = {
         "abapikey": secrets.algaebase.key
     }

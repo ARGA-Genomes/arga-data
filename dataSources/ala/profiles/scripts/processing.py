@@ -1,7 +1,7 @@
 import requests
 import pandas as pd
 from pathlib import Path
-from lib.secrets import secrets
+import lib.secrets as scr
 import lib.downloading as dl
 from lib.progressBar import ProgressBar
 import logging
@@ -9,6 +9,7 @@ import lib.dataframes as dff
 
 def collect(outputDir: Path, profile: str) -> None:
     session = requests.session()
+    secrets = scr.load()
 
     response = session.post(
         "https://auth.ala.org.au/cas/oidc/oidcAccessToken",

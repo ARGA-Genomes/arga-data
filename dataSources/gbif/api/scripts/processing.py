@@ -1,9 +1,11 @@
 from pathlib import Path
 import lib.downloading as dl
-from lib.secrets import secrets
+import lib.secrets as scr
 import requests
 
 def collect(outputFilePath: Path) -> None:
+    secrets = scr.load()
+
     baseURL = "https://api.gbif.org/v1"
     requestEndpoint = "/occurrence/download/request"
     statusEndpoint = "/occurrence/download"
