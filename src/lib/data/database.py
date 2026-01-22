@@ -23,7 +23,6 @@ class Flag(Enum):
 class Step(Enum):
     DOWNLOADING = "downloading"
     PROCESSING  = "processing"
-    CONVERSION  = "conversion"
 
 class Retrieve(Enum):
     URL     = "url"
@@ -183,24 +182,10 @@ class Database:
         for processingStep in processingConfig:
             self._queuedTasks[Step.PROCESSING].append(tasks.ScriptRunner(self.workingDirs[Step.PROCESSING], processingStep, self.dirLookup, self._getCurrentLookup()))
 
-    def _prepareConversion(self, flags: list[Flag]) -> None:
-        conversionConfig: dict = self.config.pop(Step.CONVERSION.value, {})
-        if not conversionConfig:
-            raise Exception(f"No conversion config specified as required for {self.name}") from AttributeError
-
-        overwrite = Flag.REPREPARE in flags
-        if self._queuedTasks[Step.PROCESSING]:
-            inputFile = self._queuedTasks[Step.PROCESSING][-1].getOutputs()[0] # Last processed file for conversion
-        else:
-            inputFile = self._queuedTasks[Step.DOWNLOADING][-1].getOutputs()[0]
-
-        self._queuedTasks[Step.CONVERSION].append(tasks.Conversion(self.workingDirs[Step.CONVERSION], self.databaseDir, conversionConfig, inputFile, self.locationName(), self.name, self.subsection, overwrite))
-
     def _prepare(self, fileStep: Step, flags: list[Flag]) -> bool:
         stepMap = {
             Step.DOWNLOADING: (None, self._prepareDownload),
-            Step.PROCESSING: (Step.DOWNLOADING, self._prepareProcessing),
-            Step.CONVERSION: (Step.PROCESSING, self._prepareConversion)
+            Step.PROCESSING: (Step.DOWNLOADING, self._prepareProcessing)
         }
 
         if fileStep not in stepMap:
