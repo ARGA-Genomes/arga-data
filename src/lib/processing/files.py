@@ -12,7 +12,6 @@ class DataFormat(Enum):
     CSV     = ".csv"
     TSV     = ".tsv"
     PARQUET = ".parquet"
-    STACKED = ""
     UNKNOWN = None
 
 class DataProperty(Enum):
@@ -201,38 +200,6 @@ class Folder(FileObject):
 
         cmn.clearFolder(self._backupPath, True)
         self._backupPath = None
-
-class StackedFile(Folder, DataFile):
-
-    format = DataFormat.STACKED
-
-    def __init__(self, path: Path, create: bool = False, sectionFormat: DataFormat = DataFormat.CSV):
-        super().__init__(path, create)
-
-        self._sectionFormat = sectionFormat
-
-    def _getFiles(self) -> list[DataFile]:
-        return [dataFile for dataFile in [DataFile(file) for file in self.path.iterdir() if file.is_file()] if dataFile.format == self._sectionFormat]
-
-    def read(self, **kwargs: dict) -> pd.DataFrame:
-        dfs = {file.path.stem: file.read(**kwargs) for file in self._getFiles()}
-        return pd.concat(dfs.values(), axis=1, keys=dfs.keys())
-    
-    def readIterator(self, chunkSize, **kwargs: dict) -> Iterator[pd.DataFrame]:
-        sections = {file.path.stem: file.readIterator(chunkSize, **kwargs) for file in self._getFiles()}
-        while True:
-            try:
-                yield pd.concat([next(chunk) for chunk in sections.values()], axis=1, keys=sections.keys())
-            except StopIteration:
-                return
-            
-    def write(self, df: pd.DataFrame, **kwargs: dict) -> None:
-        for outerColumn in df.columns.levels[0]:
-            dataFile = DataFile(self.path / f"{outerColumn}{self._sectionFormat.value}")
-            dataFile.write(df[outerColumn])
-
-    def getColumns(self) -> dict[str, list[str]]:
-        return {file.path.stem: file.getColumns() for file in self._getFiles()}
 
 def moveDataFile(inputFile: DataFile, outputFile: DataFile):
     if inputFile.format == outputFile.format:

@@ -2,7 +2,7 @@ from pathlib import Path
 import pandas as pd
 import logging
 import lib.processing.files as files
-from lib.processing.files import DataFormat, DataFile, Folder, StackedFile
+from lib.processing.files import DataFormat, DataFile, Folder
 from typing import Iterator
 from lib.json import JsonSynchronizer
 
