@@ -6,6 +6,9 @@ import logging
 from lib.progressBar import ProgressBar
 from urllib.parse import quote
 import time
+import pandas as pd
+import urllib
+
 
 class RepeatDownloader:
     def __init__(self, headers: dict = {}, username: str = "", password: str = "", chunkSize: int = 1024*1024, verbose: bool = False):
@@ -119,3 +122,13 @@ def asyncRunner(checkURL: str, statusField: str, completedStr: str, downloadFiel
         return False
 
     return download(downloadURL, outputFilePath, verbose=True)
+
+def getGoogleSheet(documentID: str, sheetID: int) -> pd.DataFrame | None:
+    webURL = f"https://docs.google.com/spreadsheets/d/{documentID}/edit?gid={sheetID}#gid={sheetID}"
+    retrieveURL = f"https://docs.google.com/spreadsheets/d/{documentID}/export?format=csv&gid={sheetID}"
+
+    logging.info(f"Reading sheet {retrieveURL}")
+    try:
+        return pd.read_csv(retrieveURL, keep_default_na=False)
+    except urllib.error.HTTPError:
+        logging.warning(f"Unable to read sheet. Web URL: {webURL}")
