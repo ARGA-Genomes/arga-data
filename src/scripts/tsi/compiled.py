@@ -1,8 +1,19 @@
 from pathlib import Path
-import pandas as pd
+import lib.downloading as dl
+from lib.processing.scripts import importableScript
 
-def manualCollect(sheetsID: str, specificSheetID: str, outputFilePath: Path) -> None:
-    sheetURL = f"https://docs.google.com/spreadsheets/d/{sheetsID}/export?format=csv&gid={specificSheetID}"
-    df = pd.read_csv(sheetURL, keep_default_na=False, skiprows=[x for x in range(23) if x != 4])
-    df = df.drop(["ARGA_DwC"], axis=1)
-    df.to_csv(outputFilePath, index=False)
+@importableScript(inputCount=0)
+def collectFromSheets(outputDir: Path):
+    documentID = "1xy15ARqq8_0WRmTY7xcMz3giBwfs0iFOU6dMWjQN-oo"
+    
+    sheetTabs = {
+        "organisms": 0,
+        "collecting": 1174387857,
+        "tissues": 1559676056,
+        "lab_samples": 2130570893
+    }
+
+    outputDir.mkdir(exist_ok=True)
+    for fileName, sheetID in sheetTabs.items():
+        df = dl.getGoogleSheet(documentID, sheetID)
+        df.to_csv(outputDir / f"{fileName}.csv", index=False)
