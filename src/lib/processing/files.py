@@ -23,6 +23,7 @@ class FileObject:
     def __init__(self, path: Path):
         self.path = path
         self._backupPath = None
+        self._originalPath = None
 
     def __str__(self) -> str:
         return str(self.path)
@@ -62,8 +63,20 @@ class FileObject:
     def delete(self) -> None:
         self.path.unlink(True)
 
-    def rename(self, newPath: Path) -> None:
-        self.path.rename(newPath)
+    def rename(self, newPath: Path) -> Path:
+        return self.path.rename(newPath)
+    
+    def relocate(self, folder: Path) -> None:
+        self._originalPath = self.path
+        self.path = self.path.rename(folder / self.path.name)
+
+    def restoreLocation(self) -> None:
+        if self._originalPath is None:
+            logging.info("Unable to restore location as file has not been relocated")
+            return
+        
+        self.path = self.path.rename(self._originalPath)
+        self._originalPath = None
 
     def move(self, newDir: Path) -> None:
         self.rename(newDir / self.path.name)
