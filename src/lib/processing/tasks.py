@@ -1,12 +1,13 @@
 from pathlib import Path
 import logging
-from lib.processing.files import DataFile, StackedFile
+from lib.processing.files import DataFile
 from lib.processing.scripts import OutputScript
 import lib.downloading as dl
 from lib.crawler import Crawler
-from lib.converting import Converter
-from datetime import date
+from datetime import datetime
 import lib.processing.parsing as parse
+import lib.settings as settings
+import lib.zipping as zp
 
 class Task:
     def __init__(self, outputs: list[DataFile] = []):
@@ -170,3 +171,31 @@ class ScriptRunner(Task):
                 return False
 
         return True
+
+class Compiler(Task):
+    def __init__(self, workingDir: Path, config: dict, name: str, dirLookup: parse.DirLookup, fileLookup: parse.DataFileLookup):
+        self.workingDir = workingDir
+
+        inputs = config.pop("files", [])
+        if not inputs:
+            raise Exception("No `files` specified in config") from AttributeError
+
+        self.inputs: list[DataFile] = parse.parseList(inputs, workingDir, dirLookup, fileLookup)
+        outputDir: Path = settings.overwrites.package
+
+        super().__init__([outputDir / f"{name}_{datetime.now().date()}"])
+
+    def run(self, overwrite: bool, verbose: bool) -> bool:
+        for file in self.inputs:
+            if not file.exists():
+                raise Exception(f"Unable to find file at path: {file}") from FileNotFoundError
+            
+            file.relocate(self.workingDir)
+            
+        output = self._outputs[0]
+        compressedPath = zp.compress(self.workingDir, output.path.parent, output.path.name, includeFolder=False)
+
+        for file in self.inputs:
+            file.restoreLocation()
+
+        return compressedPath is None

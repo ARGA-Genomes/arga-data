@@ -23,6 +23,7 @@ class Flag(Enum):
 class Step(Enum):
     DOWNLOADING = "downloading"
     PROCESSING  = "processing"
+    COMPILING = "compiling"
 
 class Retrieve(Enum):
     URL     = "url"
@@ -182,10 +183,21 @@ class Database:
         for processingStep in processingConfig:
             self._queuedTasks[Step.PROCESSING].append(tasks.ScriptRunner(self.workingDirs[Step.PROCESSING], processingStep, self.dirLookup, self._getCurrentLookup()))
 
+    def _prepareCompiling(self, flags: list[Flag]) -> None:
+        compilingConfig: dict = self.config.pop(Step.COMPILING, {})
+
+        inputs = self._queuedTasks[Step.PROCESSING][-1:] or self._queuedTasks[Step.DOWNLOADING][-1:]
+        downloads = self._flattenTaskOutputs(self._queuedTasks[Step.DOWNLOADING])
+        processed = self._flattenTaskOutputs(self._queuedTasks[Step.PROCESSING])
+        fileLookup = parse.DataFile(inputs, downloads, processed)
+
+        self._queuedTasks[Step.COMPILING].append(tasks.Compiler(self.workingDirs[Step.COMPILING], compilingConfig, self.name, self.dirLookup, fileLookup))
+
     def _prepare(self, fileStep: Step, flags: list[Flag]) -> bool:
         stepMap = {
             Step.DOWNLOADING: (None, self._prepareDownload),
-            Step.PROCESSING: (Step.DOWNLOADING, self._prepareProcessing)
+            Step.PROCESSING: (Step.DOWNLOADING, self._prepareProcessing),
+            Step.COMPILING: (Step.PROCESSING, self._prepareCompiling)
         }
 
         if fileStep not in stepMap:
