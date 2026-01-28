@@ -3,15 +3,16 @@
         "retrieveType": "script",
         "tasks": [
             {
-                "path": "./compiled.py",
-                "function": "manualCollect",
+                "path": "./processing.py",
+                "function": "collectFromSheets",
                 "args": [
-                    "1LfrFMdXRn6oq4SfmcSYVOW3E8p83-y0mBFsQ5iKT36E",
-                    "1365022184",
                     "{OUT-PATH}"
                 ],
                 "outputs": [
-                    "tsiCompiled.csv"
+                    "TSICompiled/collecting.csv",
+                    "TSICompiled/lab_samples.csv",
+                    "TSICompiled/organisms.csv",
+                    "TSICompiled/tissues.csv"
                 ]
             }
         ]
