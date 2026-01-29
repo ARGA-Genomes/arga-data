@@ -180,22 +180,34 @@ class Compiler(Task):
         if not inputs:
             raise Exception("No `files` specified in config") from AttributeError
 
-        self.inputs: list[DataFile] = parse.parseList(inputs, workingDir, dirLookup, fileLookup)
-        outputDir: Path = settings.overwrites.package
+        self.inputs: list[Path] = parse.parseList(inputs, workingDir, dirLookup, fileLookup)
 
-        super().__init__([outputDir / f"{name}_{datetime.now().date()}"])
+        allSettings = settings.load()
+        outputDir: Path = allSettings.storage.package
+
+        super().__init__([DataFile(outputDir / f"{name}_{datetime.now().date()}")])
 
     def run(self, overwrite: bool, verbose: bool) -> bool:
-        for file in self.inputs:
-            if not file.exists():
-                raise Exception(f"Unable to find file at path: {file}") from FileNotFoundError
-            
-            file.relocate(self.workingDir)
-            
-        output = self._outputs[0]
-        compressedPath = zp.compress(self.workingDir, output.path.parent, output.path.name, includeFolder=False)
+        brokenPath = ""
+        originalPaths: dict[Path, Path] = {}
+        for path in self.inputs:
+            if not path.exists():
+                brokenPath = str(path)
+                break
+        
+            originalPaths[path] = path.rename(self.workingDir / path.name)
 
-        for file in self.inputs:
-            file.restoreLocation()
+        if not brokenPath:
+            output = self._outputs[0]
+            try:
+                compressedPath = zp.compress(self.workingDir, output.path.parent, output.path.name, includeFolder=False)
+            except:
+                brokenPath = output.path.name
+        
+        for oldPath, currentPath in originalPaths.items():
+            currentPath.rename(oldPath)
+
+        if brokenPath:
+            raise Exception(f"Unable to find file at path: {brokenPath}") from FileNotFoundError
 
         return compressedPath is None

@@ -6,7 +6,7 @@
                 "path": "./processing.py",
                 "function": "collectFromSheets",
                 "args": [
-                    "{OUT-PATH}"
+                    "{OUT-DIR}"
                 ],
                 "outputs": [
                     "TSICompiled/collecting.csv",
@@ -16,5 +16,19 @@
                 ]
             }
         ]
+    },
+    "compiling": {
+        "files": [
+            "{D0-PATH}",
+            "{D1-PATH}",
+            "{D2-PATH}",
+            "{D3-PATH}",
+            "../../meta.toml"
+        ]
+    },
+    "updating": {
+        "type": "weekly",
+        "day": "sunday",
+        "interval": 2
     }
 }
