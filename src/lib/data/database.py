@@ -111,7 +111,7 @@ class Database:
         self.workingDirs = {step: self.dataDir / step.value for step in Step}
 
         # Tasks
-        self._queuedTasks: dict[Step, list[tasks.Task]] = {Step.DOWNLOADING: [], Step.PROCESSING: [], Step.CONVERSION: []}
+        self._queuedTasks: dict[Step, list[tasks.Task]] = {step: [] for step in Step}
         self._metadata = JsonSynchronizer(self.subsectionDir / self._metadataFileName)
 
         # Updating
