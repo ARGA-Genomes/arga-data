@@ -346,7 +346,10 @@ class Database:
         return self._metadata.get(step.value, [])[-1].get(Metadata.OUTPUTS.value, [])
 
     def _getUpdater(self, config: dict) -> upd.Update:
-        updaterTypeValue = config.get("type", Updates.WEEKLY.value)
+        updaterTypeValue = config.get("type", None)
+        if updaterTypeValue is None:
+            raise Exception("No update config specified") from AttributeError
+
         updaterType = Updates._value2member_map_.get(updaterTypeValue, None)
         if updaterType is None:
             raise Exception(f"Unknown update type: {updaterTypeValue}") from AttributeError
