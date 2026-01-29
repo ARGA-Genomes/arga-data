@@ -184,14 +184,8 @@ class Database:
             self._queuedTasks[Step.PROCESSING].append(tasks.ScriptRunner(self.workingDirs[Step.PROCESSING], processingStep, self.dirLookup, self._getCurrentLookup()))
 
     def _prepareCompiling(self, flags: list[Flag]) -> None:
-        compilingConfig: dict = self.config.pop(Step.COMPILING, {})
-
-        inputs = self._queuedTasks[Step.PROCESSING][-1:] or self._queuedTasks[Step.DOWNLOADING][-1:]
-        downloads = self._flattenTaskOutputs(self._queuedTasks[Step.DOWNLOADING])
-        processed = self._flattenTaskOutputs(self._queuedTasks[Step.PROCESSING])
-        fileLookup = parse.DataFile(inputs, downloads, processed)
-
-        self._queuedTasks[Step.COMPILING].append(tasks.Compiler(self.workingDirs[Step.COMPILING], compilingConfig, self.name, self.dirLookup, fileLookup))
+        compilingConfig: dict = self.config.pop(Step.COMPILING.value, {})
+        self._queuedTasks[Step.COMPILING].append(tasks.Compiler(self.workingDirs[Step.COMPILING], compilingConfig, self.name, self.dirLookup, self._getCurrentLookup()))
 
     def _prepare(self, fileStep: Step, flags: list[Flag]) -> bool:
         stepMap = {
