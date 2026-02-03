@@ -18,12 +18,21 @@
         ]
     },
     "compiling": {
+        "metadata": {
+            "id": 0,
+            "name": "Threatened Species Initiative",
+            "short_name": "TSI",
+            "citation": "Council of Heads of Australia Faunel Collections. Online Zoological Collections of Australian Museums.",
+            "source_url": "https://ozcam.org.au",
+            "license": null,
+            "rights_holder": "Council of Heads of Australian Faunal Collections (CHAFC)",
+            "collection": "ARGA Backbone Taxonomy"
+        },
         "files": [
             "{D0-PATH}",
             "{D1-PATH}",
             "{D2-PATH}",
-            "{D3-PATH}",
-            "../../meta.toml"
+            "{D3-PATH}"
         ]
     },
     "updating": {
