@@ -8,6 +8,7 @@ from datetime import datetime
 import lib.processing.parsing as parse
 import lib.settings as settings
 import lib.zipping as zp
+import toml
 
 class Task:
     def __init__(self, outputs: list[DataFile] = []):
@@ -173,19 +174,65 @@ class ScriptRunner(Task):
         return True
 
 class Compiler(Task):
+
+    _metadata = "metadata"
+    _files = "files"
+
+    _metaID = "id"
+    _metaName = "name"
+    _metaShortName = "short_name"
+    _metaCitation = "citation"
+    _metaSource = "source_url"
+    _metaLicense = "license"
+    _metaRights = "rights_holder"
+    _metaCollection = "collection"
+
     def __init__(self, workingDir: Path, config: dict, name: str, dirLookup: parse.DirLookup, fileLookup: parse.DataFileLookup):
         self.workingDir = workingDir
 
-        inputs = config.pop("files", [])
+        metadata: dict = config.pop(self._metadata, {})
+        if not metadata:
+            raise Exception("No 'metadata' found in config")
+
+        inputs = config.pop(self._files, [])
         if not inputs:
-            raise Exception("No `files` specified in config") from AttributeError
+            raise Exception("No 'files' specified in config") from AttributeError
 
         self.inputs: list[Path] = parse.parseList(inputs, workingDir, dirLookup, fileLookup)
 
         allSettings = settings.load()
         outputDir: Path = allSettings.storage.package
+        date = datetime.now().date()
 
-        super().__init__([DataFile(outputDir / f"{name}_{datetime.now().date()}")])
+        self.metadata = {
+            "dataset": {
+                self._metaID: f"ARGA:TL:{metadata.get(self._metaID, 0):06}",
+                self._metaName: metadata.get(self._metaName, ""),
+                self._metaShortName: metadata.get(self._metaShortName, ""),
+                "version": date,
+                "published_at": None,
+                "url": "https://arga.org.au",
+                "schema": f"https://arga.org.au/schemas/maps/{metadata.get(self._metaShortName, '?')}"
+            },
+            "changelog": {
+                "notes": []
+            },
+            "attribution": {
+                self._metaCitation: metadata.get(self._metaCitation, ""),
+                self._metaSource: metadata.get(self._metaSource, ""),
+                self._metaLicense: metadata.get(self._metaLicense, None),
+                self._metaRights: metadata.get(self._metaRights, "")
+            },
+            "collection": {
+                "name": metadata.get(self._metaCollection, ""),
+                "author": "ARGA Team",
+                "license": "https://creativecommons.org/licenses/by/4.0/",
+                "rights_holder": "Australian Reference Genome Atlas (ARGA) Project for the Atlas of Living Australian and Bioplatforms Australia",
+                "access_rights": "https://www.arga.org.au/about/terms-of-use"
+            }
+        }
+
+        super().__init__([DataFile(outputDir / f"{name}_{date}")])
 
     def run(self, overwrite: bool, verbose: bool) -> bool:
         brokenPath = ""
@@ -199,6 +246,11 @@ class Compiler(Task):
 
         if not brokenPath:
             output = self._outputs[0]
+
+            self.metadata["dataset"]["published_at"] = datetime.now()
+            with open(self.workingDir / "meta.toml", "w") as fp:
+                toml.dump(self.metadata, fp)
+
             try:
                 compressedPath = zp.compress(self.workingDir, output.path.parent, output.path.name, includeFolder=False)
             except:
