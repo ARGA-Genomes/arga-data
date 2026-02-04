@@ -1,87 +1,30 @@
 {
-    "datasetID": "",
     "subsections": {
-        "fungi": {
-            "tags": {
-                "name" : "FUN"
-            }
-        },
-        "environmental": {
-            "tags": {
-                "name": "ENV"
-            }
-        },
-        "human": {
-            "tags": {
-                "name": "HUM"
-            }
-        },
-        "invertebrate": {
-            "tags": {
-                "name": "INV"
-            }
-        },
-        "mammals": {
-            "tags": {
-                "name": "MAM"
-            }
-        },
-        "musMusculus": {
-            "tags": {
-                "name": "MUS"
-            }
-        },
-        "phage": {
-            "tags": {
-                "name": "PHG"
-            }
-        },
-        "plants": {
-            "tags": {
-                "name": "PLN"
-            }
-        },
-        "pro": {
-            "tags": {
-                "name": "PRO"
-            }
-        },
-        "rodent": {
-            "tags": {
-                "name": "ROD"
-            }
-        },
-        "synthetic": {
-            "tags": {
-                "name": "SYN"
-            }
-        },
-        "unclassified": {
-            "tags": {
-                "name": "UNC"
-            }
-        },
-        "virus": {
-            "tags": {
-                "name": "VRL"
-            }
-        },
-        "vertebrate": {
-            "tags": {
-                "name": "VRT"
-            }
-        },
-        "unknown": {
-            "tags": {
-                "name": "XXX"
-            }
-        }
+        "fungi": "FUN",
+        "environmental": "ENV",
+        "human": "HUM",
+        "invertebrate": "INV",
+        "mammals": "MAM",
+        "musMusculus": "MUS",
+        "phage": "PHG",
+        "plants": "PLN",
+        "pro": "PRO",
+        "rodent": "ROD",
+        "synthetic": "SYN",
+        "unclassified": "UNC",
+        "virus": "VRL",
+        "vertebrate": "VRT",
+        "unknown": "XXX"
     },
-    "retrieveType": "crawl",
     "downloading": {
-        "url": "https://ftp.ebi.ac.uk/pub/databases/ena/sequence/con-std_latest/",
-        "regex": "[A-Z]{3}_<SUB:NAME>_\\d+\\.dat\\.gz",
-        "maxDepth": 1
+        "retrieveType": "crawl",
+        "tasks": [
+            {
+                "url": "https://ftp.ebi.ac.uk/pub/databases/ena/sequence/con-std_latest/",
+                "regex": "[A-Z]{3}_<SUB:NAME>_\\d+\\.dat\\.gz",
+                "maxDepth": 1
+            }
+        ]
     },
     "processing": {
         "parallel": [
@@ -114,6 +57,7 @@
         ]
     },
     "conversion": {
+        "datasetID": "",
         "mapID": 1182330400,
         "chunkSize": 512
     },

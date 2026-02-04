@@ -1,12 +1,13 @@
 {
-    "datasetID": "ARGA:TL:0002006",
-    "retrieveType": "url",
-    "downloading": [
-        {
-            "url": "https://ftp.ebi.ac.uk/pub/databases/ena/genome_collections/gc.xml",
-            "name": "genomeCollections.xml"
-        }
-    ],
+    "downloading": {
+        "retrieveType": "url",
+        "tasks": [
+            {
+                "url": "https://ftp.ebi.ac.uk/pub/databases/ena/genome_collections/gc.xml",
+                "name": "genomeCollections.xml"
+            }
+        ]
+    },
     "processing": {
         "linear": [
             {
@@ -22,12 +23,12 @@
         ]
     },
     "conversion": {
+        "datasetID": "ARGA:TL:0002006",
         "mapID": 1058330275
     },
-    "update": {
+    "updating": {
         "type": "weekly",
         "day": "sunday",
-        "time": 9,
-        "repeat": 2
+        "interval": 2
     }
 }
