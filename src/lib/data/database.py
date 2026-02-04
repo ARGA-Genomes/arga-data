@@ -133,6 +133,13 @@ class Database:
 
     def _flattenTaskOutputs(self, taskList: list[tasks.Task]) -> list[DataFile]:
         return [output for task in taskList for output in task.getOutputs()]
+    
+    def _getCurrentLookup(self) -> parse.DataFileLookup:
+        inputs = self._flattenTaskOutputs(self._queuedTasks[Step.PROCESSING][-1:] or self._queuedTasks[Step.DOWNLOADING][-1:])
+        downloads = self._flattenTaskOutputs(self._queuedTasks[Step.DOWNLOADING])
+        processed = self._flattenTaskOutputs(self._queuedTasks[Step.PROCESSING])
+
+        return parse.DataFileLookup(inputs, downloads, processed)
 
     def _prepareDownload(self, flags: list[Flag]) -> None:
         downloadConfig: dict = self.config.pop(Step.DOWNLOADING.value, {})
@@ -164,14 +171,7 @@ class Database:
                 self._queuedTasks[Step.DOWNLOADING].append(tasks.CrawlRetrieve(self.workingDirs[Step.DOWNLOADING], taskConfig, username, password, overwrite))
 
             elif retrieve == Retrieve.SCRIPT: # Tasks should be dict
-                inputs = self._queuedTasks[Step.DOWNLOADING][-1:]
-                if inputs:
-                    inputs = self._flattenTaskOutputs(inputs)
-
-                downloads = self._flattenTaskOutputs(self._queuedTasks[Step.DOWNLOADING])
-
-                fileLookup = parse.DataFileLookup(inputs, downloads)
-                self._queuedTasks[Step.DOWNLOADING].append(tasks.ScriptRunner(self.workingDirs[Step.DOWNLOADING], taskConfig, self.dirLookup, fileLookup))
+                self._queuedTasks[Step.DOWNLOADING].append(tasks.ScriptRunner(self.workingDirs[Step.DOWNLOADING], taskConfig, self.dirLookup, self._getCurrentLookup()))
 
             else:
                 raise Exception(f"Unknown retrieve type '{retrieveType}' specified for {self.name}") from AttributeError
@@ -179,13 +179,8 @@ class Database:
     def _prepareProcessing(self, flags: list[Flag]) -> None:
         processingConfig: list[dict] = self.config.pop(Step.PROCESSING.value, [])
 
-        for idx, processingStep in enumerate(processingConfig):
-            inputs = self._queuedTasks[Step.DOWNLOADING if idx == 0 else Step.PROCESSING][-1].getOutputs()
-            downloads = self._flattenTaskOutputs(self._queuedTasks[Step.DOWNLOADING])
-            processed = self._flattenTaskOutputs(self._queuedTasks[Step.PROCESSING])
-
-            fileLookup = parse.DataFileLookup(inputs, downloads, processed)
-            self._queuedTasks[Step.PROCESSING].append(tasks.ScriptRunner(self.workingDirs[Step.PROCESSING], processingStep, self.dirLookup, fileLookup))
+        for processingStep in processingConfig:
+            self._queuedTasks[Step.PROCESSING].append(tasks.ScriptRunner(self.workingDirs[Step.PROCESSING], processingStep, self.dirLookup, self._getCurrentLookup()))
 
     def _prepareConversion(self, flags: list[Flag]) -> None:
         conversionConfig: dict = self.config.pop(Step.CONVERSION.value, {})
