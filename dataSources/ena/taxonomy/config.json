@@ -1,13 +1,13 @@
 {
-    "datasetID": "ARGA:TL:0002004",
-    "retrieveType": "url",
-    "downloading": [
-        {
-            "url": "https://ftp.ebi.ac.uk/pub/databases/ena/taxonomy/taxonomy.xml.gz",
-            "name": "taxonomy.xml.gz"
-        }
-        
-    ],
+    "downloading": {
+        "retrieveType": "url",
+        "tasks": [
+            {
+                "url": "https://ftp.ebi.ac.uk/pub/databases/ena/taxonomy/taxonomy.xml.gz",
+                "name": "taxonomy.xml.gz"
+            }
+        ]
+    },
     "processing": {
         "linear": [
             {
@@ -32,12 +32,12 @@
         ]
     },
     "conversion": {
+        "datasetID": "ARGA:TL:0002004",
         "mapID": 1058330275
     },
-    "update": {
+    "updating": {
         "type": "weekly",
         "day": "sunday",
-        "time": 9,
-        "repeat": 2
+        "interval": 2
     }
 }
