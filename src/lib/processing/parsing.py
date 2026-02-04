@@ -28,11 +28,11 @@ class DataFileLookup:
             if value is None:
                 self._enumMap[key] = []
 
-    def __len__(self) -> int:
-        return sum(len(value) for value in self._enumMap.values())
+    def __repr__(self) -> str:
+        return str(self)
     
     def __str__(self) -> str:
-        return ", ".join(f"{key.name}: {len(value)}" for key, value in self._enumMap.items())
+        return "\n".join(f"{key.name.lower()}:\n - " + ("\n - ".join([str(file.path) for file in value]) or "None") for key, value in self._enumMap.items()) + "\n"
 
     def getFiles(self, enum: FileSelect) -> list[DataFile]:
         return self._enumMap.get(enum, [])
