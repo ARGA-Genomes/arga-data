@@ -35,6 +35,9 @@ class JsonSynchronizer:
             self._data = json.load(fp)
 
     def _sync(self) -> None:
+        if not self._path.parent.exists():
+            self._path.parent.mkdir(parents=True)
+
         with open(self._path, "w") as fp:
             json.dump(self._data, fp, indent=4)
 

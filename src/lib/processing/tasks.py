@@ -126,7 +126,7 @@ class ScriptRunner(Task):
 
         outputs = config.pop(self._outputs, [])
         if not outputs:
-            raise Exception("No `outputs` specified in script config") from AttributeError        
+            raise Exception("No `outputs` specified in script config") from AttributeError
 
         # Split script if necessary for parallel tasks
         lookups: list[parse.DataFileLookup] = []

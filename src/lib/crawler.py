@@ -99,7 +99,7 @@ class Crawler:
             logging.info(f"Successfully retrieved entry url {entryURL}, crawling subfolders")
 
         while len(metadata[self._metaProgress]) <= maxDepth:
-            folderURLs = [urllib.parse.urljoin(url, folder) for url, urlLinks in metadata[self._metaProgress].items() for folder in urlLinks.get(self._dirStr, [])]
+            folderURLs = [urllib.parse.urljoin(url, folder) for url, urlLinks in metadata[self._metaProgress][-1].items() for folder in urlLinks.get(self._dirStr, [])]
 
             if not folderURLs:
                 break
