@@ -84,7 +84,7 @@ class Database:
             rawConfig = rawConfig.replace("<SUB>", subsection)
 
             if isinstance(self.subsections, dict): # Name provided with subsections
-                 rawConfig = rawConfig.replace("<SUB:NAME>", self.subsections[subsection])
+                 rawConfig = rawConfig.replace("<SUB:VALUE>", self.subsections[subsection])
 
             self.config = json.loads(rawConfig)
 
@@ -167,10 +167,10 @@ class Database:
             if retrieve == Retrieve.URL:
                 self._queuedTasks[Step.DOWNLOADING].append(tasks.UrlRetrieve(self.workingDirs[Step.DOWNLOADING], taskConfig, username, password))
 
-            elif retrieve == Retrieve.CRAWL: # Tasks should be dict
+            elif retrieve == Retrieve.CRAWL:
                 self._queuedTasks[Step.DOWNLOADING].append(tasks.CrawlRetrieve(self.workingDirs[Step.DOWNLOADING], taskConfig, username, password, overwrite))
 
-            elif retrieve == Retrieve.SCRIPT: # Tasks should be dict
+            elif retrieve == Retrieve.SCRIPT:
                 self._queuedTasks[Step.DOWNLOADING].append(tasks.ScriptRunner(self.workingDirs[Step.DOWNLOADING], taskConfig, self.dirLookup, self._getCurrentLookup()))
 
             else:
