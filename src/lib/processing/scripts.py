@@ -62,7 +62,7 @@ class OutputScript(FunctionScript):
         if all(output.exists() for output in self.outputs):
             if not overwrite:
                 logging.info(f"All outputs for function '{self.functionName}' exist and not overwriting, skipping...")
-                return False, None
+                return True, None
             
         if not all(input.exists() for input in self.inputs):
             logging.warning(f"Missing {len(self.inputs)} required file(s) needed to run script {self.functionName}")
