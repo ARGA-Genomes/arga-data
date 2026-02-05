@@ -11,6 +11,7 @@ import time
 from datetime import datetime
 from lib.processing.files import DataFile
 from lib.json import JsonSynchronizer
+import traceback
 
 sourceConfigName = "config.json"
 
@@ -214,6 +215,7 @@ class Database:
                 callback(flags)
             except Exception as e:
                 logging.error(f"Error preparing step \'{stepType.name}\'. Reason: {e}")
+                logging.error(traceback.format_exc())
                 return False
             
             self._lastPrepared = stepType

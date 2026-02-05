@@ -141,24 +141,29 @@ class ScriptRunner(Task):
         self.scripts: list[tuple[OutputScript, list, dict]] = []
         allOutputs = []
         for lookup in lookups:
-            outputs = [DataFile(workingDir / parse.parseArg(output, workingDir, dirLookup, lookup)) for output in outputs]
-            lookup.extend(parse.FileSelect.OUTPUT, outputs)
 
-            args = parse.parseList(config.pop(self._args, []), workingDir, dirLookup, lookup)
-            kwargs = parse.parseDict(config.pop(self._kwargs, {}), workingDir, dirLookup, lookup)
+            parsedOutputs = []
+            for output in outputs:
+                parsed = parse.parseArg(output, workingDir, dirLookup, lookup)
+                parsedOutputs.append(parsed if isinstance(parsed, DataFile) else DataFile(workingDir / parsed))
 
-            self.scripts.append((OutputScript(modulePath, functionName, outputs, lookup.getFiles(parse.FileSelect.INPUT), dirLookup.paths()), args, kwargs))
-            allOutputs.extend(outputs)
+            lookup.extend(parse.FileSelect.OUTPUT, parsedOutputs)
+
+            args = parse.parseList(config.get(self._args, []), workingDir, dirLookup, lookup)
+            kwargs = parse.parseDict(config.get(self._kwargs, {}), workingDir, dirLookup, lookup)
+
+            self.scripts.append((OutputScript(modulePath, functionName, parsedOutputs, lookup.getFiles(parse.FileSelect.INPUT), dirLookup.paths()), args, kwargs))
+            allOutputs.extend(parsedOutputs)
 
         super().__init__(allOutputs)
 
     def run(self, overwrite: bool, verbose: bool) -> bool:
-        allSuccess = True
         for script, args, kwargs in self.scripts:
             success, _ = script.run(overwrite, verbose, args, kwargs)
-            allSuccess = allSuccess and success
+            if not success:
+                return False
 
-        return allSuccess
+        return True
 
 class Conversion(Task):
 
