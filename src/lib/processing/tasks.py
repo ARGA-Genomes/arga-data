@@ -145,7 +145,13 @@ class ScriptRunner(Task):
             parsedOutputs = []
             for output in outputs:
                 parsed = parse.parseArg(output, workingDir, dirLookup, lookup)
-                parsedOutputs.append(parsed if isinstance(parsed, DataFile) else DataFile(workingDir / parsed))
+
+                if isinstance(parsed, Path):
+                    parsedOutputs.append(DataFile(workingDir / parsed.name))
+                elif isinstance(parsed, DataFile):
+                    parsedOutputs.append(parsed.move(workingDir))
+                else:
+                    parsedOutputs.append(DataFile(workingDir / parsed))
 
             lookup.extend(parse.FileSelect.OUTPUT, parsedOutputs)
 

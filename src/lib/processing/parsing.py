@@ -77,12 +77,12 @@ def parseDict(data: dict, relativeDir: Path, dirLookup: DirLookup = None, dataFi
 def parseList(data: list, relativeDir: Path, dirLookup: DirLookup = None, dataFileLookup: DataFileLookup = None) -> list:
     return [parseArg(arg, relativeDir, dirLookup, dataFileLookup) for arg in data]
 
-def parseArg(arg: Any, parentDir: Path, dirLookup: DirLookup = None, dataFileLookup: DataFileLookup = None) -> Path | str:
+def parseArg(arg: Any, relativeDir: Path, dirLookup: DirLookup = None, dataFileLookup: DataFileLookup = None) -> Path | str:
     if not isinstance(arg, str):
         return arg
 
     if arg.startswith("."):
-        return parsePath(arg, parentDir, dirLookup)
+        return parsePath(arg, relativeDir, dirLookup)
     
     if arg.startswith("{") and arg.endswith("}"):
         parsedArg = _parseSelectorArg(arg[1:-1], dataFileLookup)
@@ -93,16 +93,16 @@ def parseArg(arg: Any, parentDir: Path, dirLookup: DirLookup = None, dataFileLoo
 
     return arg
 
-def parsePath(arg: str, parentPath: Path, dirLookup: DirLookup = None) -> Path | Any:
+def parsePath(arg: str, relativeDir: Path, dirLookup: DirLookup = None) -> Path | Any:
     prefix, relPath = arg.split("/", 1)
     if dirLookup is not None and dirLookup.contains(prefix):
         return dirLookup.remap(relPath, prefix)
 
     if prefix == ".":
-        return parentPath / relPath
+        return relativeDir / relPath
         
     if prefix == "..":
-        cwd = parentPath.parent
+        cwd = relativeDir.parent
         while relPath.startswith("../"):
             cwd = cwd.parent
             relPath = relPath[3:]
