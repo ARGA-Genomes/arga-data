@@ -66,6 +66,9 @@ class FileObject:
     def rename(self, newPath: Path) -> None:
         self.path.rename(newPath)
 
+    def move(self, newDir: Path) -> None:
+        self.rename(newDir / self.path.name)
+
 class DataFile(FileObject):
 
     format = DataFormat.UNKNOWN
