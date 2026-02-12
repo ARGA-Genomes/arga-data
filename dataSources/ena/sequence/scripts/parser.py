@@ -39,38 +39,46 @@ from typing import Generator
 #     "XXX": "Unknown"
 # }
 
-def parse(inputPath: Path, outputPath: Path):
+def parse(inputPath: Path, outputPath: Path, rowsPerSubsection: int = 10000):
     extractedFile = zp.extract(inputPath, outputPath.parent)
     if extractedFile is None:
         return
     
-    _parseFile(extractedFile, outputPath)
+    _parseFile(extractedFile, outputPath, rowsPerSubsection)
     extractedFile.unlink()
 
-def _parseFile(filePath: Path, outputPath: Path):
+def _parseFile(filePath: Path, outputPath: Path, rowsPerSubsection: int = 10000):
     logging.info(f"Parsing flat file: {filePath}")
 
-    rowsPerSubsection = 10000
     writer = RecordWriter(outputPath, rowsPerSubsection, subDirName=f"{filePath.stem}_chunks")
     skipSections = writer.writtenRecordCount()
+    logging.info(f"Found {skipSections} previously parsed sections")
 
-    with open(filePath, "rb") as fp:
-        lines = sum(1 for _ in fp)
+    fileSize = filePath.stat().st_size
+    logging.info(f"File Size: {fileSize:,} Bytes")
 
-    def chunkGenerator() -> Generator[str, None, None]:
+    def chunkGenerator() -> Generator[tuple[int, str], None, None]:
         findBytes = b"\n//\n"
+        section = 0
+
         with open(filePath, "rb") as fp:
             with mmap.mmap(fp.fileno(), length=0, access=mmap.ACCESS_READ) as mfp:
                 byteDiff = mfp.find(findBytes)
                 while byteDiff >= 0:
-                    yield mfp.read(byteDiff + len(findBytes)).decode("utf-8")
+                    sectionBytes = byteDiff + len(findBytes)
+
+                    if section < skipSections: # Skip completed sections
+                        mfp.seek(sectionBytes, 1)
+                        yield sectionBytes, ""
+                    else:
+                        yield sectionBytes, mfp.read().decode("utf-8")
+
                     byteDiff = mfp.find(findBytes) - mfp.tell()
+                    section += 1
 
-    # for chunk in chunkGenerator():
-    progress = ProgressBar(lines, tasksPerUpdate=100)
-    for idx, chunk in enumerate(chunkGenerator()):
-        if idx >= skipSections:
-
+    progress = ProgressBar(fileSize)
+    for chunkSize, chunk in chunkGenerator():
+        if chunk:
             recordData = {}
             for sectionData in chunk.replace("\nXX\nXX\n", "\nXX\n").split("\nXX\n"): # Fix double XX line
                 sectionHeader = sectionData[:2]
@@ -88,7 +96,7 @@ def _parseFile(filePath: Path, outputPath: Path):
 
             writer.write(recordData)
 
-        progress.update(chunk.count("\n"))
+        progress.update(chunkSize)
 
     writer.combine(removeParts=True)
 
