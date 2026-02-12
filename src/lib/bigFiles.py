@@ -1,5 +1,5 @@
 from pathlib import Path
-import pandas as pd
+import polars as pl
 import logging
 import lib.processing.files as files
 from lib.processing.files import DataFormat, DataFile, Folder, StackedFile
@@ -19,7 +19,7 @@ class DFWriter:
         self.metadata = JsonSynchronizer(self.workingDir.path / "metadata.json")
 
         self._sectionFiles: list[DataFile] = []
-        self._uniqueColumns: dict[str, None] = {}
+        self._schema = pl.Schema()
 
         if loadOnInit:
             self._loadFiles()
@@ -31,7 +31,7 @@ class DFWriter:
         for fileName in self.metadata.get(self._metaFilenames, []):
             dataFile = DataFile(self.workingDir.path / fileName)
             self._sectionFiles.append(dataFile)
-            self._uniqueColumns |= {column: None for column in dataFile.getColumns()}
+            self._schema.update(dataFile.getSchema())
 
     def _wroteFile(self, name: str) -> None:
         if self.metadata.get(self._metaFilenames) is None:
@@ -43,20 +43,20 @@ class DFWriter:
         return len(self._sectionFiles)
     
     def uniqueColumns(self) -> list[str]:
-        return list(self._uniqueColumns.keys())
+        return list(self._schema.names())
 
-    def write(self, df: pd.DataFrame, fileName: str = "", index: int = -1) -> None:
+    def write(self, df: pl.DataFrame, fileName: str = "", index: int = -1) -> None:
         if not fileName:
             fileName = f"{self._chunkPrefix}_{len(self._sectionFiles) if index < 0 else index}"
             
         subfile = DataFile(self.workingDir.path / (fileName + self._chunkFormat.value))
-        subfile.write(df, index=False)
+        subfile.write(df)
         self._wroteFile(subfile.path.name)
 
         self._sectionFiles.append(subfile)
-        self._uniqueColumns |= {column: None for column in df.columns}
+        self._schema.update(subfile.getSchema())
 
-    def combine(self, readChunkSize: int = 1024, removeParts: bool = False, **kwargs) -> None:
+    def combine(self, removeParts: bool = False, **kwargs) -> None:
         if self.outputFile.exists():
             logging.info(f"Removing old file {self.outputFile.path}")
             self.outputFile.delete()
@@ -70,7 +70,7 @@ class DFWriter:
             files.moveDataFile(self._sectionFiles[0], self.outputFile)
         else:
             logging.info("Combining into one file")
-            self.outputFile.writeIterator(combinedIterator(self._sectionFiles, readChunkSize), list(self._uniqueColumns), **kwargs)
+            self.outputFile.sink(lazyCombine(self._sectionFiles, self._schema), **kwargs)
             logging.info(f"Created a single file at {self.outputFile.path}")
         
         if removeParts:
@@ -94,7 +94,7 @@ class RecordWriter(DFWriter):
             self._loadFiles()
 
     def _writeRecords(self) -> None:
-        super().write(pd.DataFrame.from_records(self._records))
+        super().write(pl.from_records(self._records))
         self._records.clear()
 
     def writtenRecordCount(self) -> int:
@@ -109,28 +109,29 @@ class RecordWriter(DFWriter):
         for record in records:
             self.write(record)
 
-    def combine(self, readChunkSize: int = 1024, removeParts: bool = False, **kwargs) -> None:
+    def combine(self, removeParts: bool = False, **kwargs) -> None:
         if self._records:
             self._writeRecords()
 
-        super().combine(readChunkSize, removeParts, **kwargs)
+        super().combine(removeParts, **kwargs)
 
-def combinedIterator(dataFiles: list[DataFile], chunkSize: int, **kwargs: dict) -> Iterator[pd.DataFrame]:
-    for file in dataFiles:
-        for chunk in file.readIterator(chunkSize, **kwargs):
-            yield chunk
+def lazyCombine(dataFiles: list[DataFile], schema: pl.Schema, **kwargs: dict) -> pl.LazyFrame:
+    return pl.concat([file.scan(**kwargs).sort(schema.names()) for file in dataFiles])
 
-def combineDirectoryFiles(outputFilePath: Path, inputFolderPath: Path, matchPattern: str = "*.*", chunkSize: int = 1024, deleteOld: bool = False, **kwargs: dict) -> None:
+def combineDirectoryFiles(outputFilePath: Path, inputFolderPath: Path, matchPattern: str = "*.*", deleteOld: bool = False, **kwargs: dict) -> None:
     inputDataFiles = [dataFile for dataFile in  [DataFile(path) for path in inputFolderPath.glob(matchPattern)] if dataFile.format != DataFormat.UNKNOWN and dataFile.format != DataFormat.STACKED]
     logging.info(f"Found {len(inputDataFiles)} files to combine")
-    columns = [column for dataFile in inputDataFiles for column in dataFile.getColumns()]
-    combineDataFiles(outputFilePath, inputDataFiles, columns, chunkSize, deleteOld, **kwargs)
+    combineDataFiles(outputFilePath, inputDataFiles, deleteOld, **kwargs)
 
-def combineDataFiles(outputFilePath: Path, dataFiles: list[DataFile], columns: list[str], chunkSize: int = 1024, deleteOld: bool = False, **kwargs: dict) -> None:
+def combineDataFiles(outputFilePath: Path, dataFiles: list[DataFile], deleteOld: bool = False, **kwargs: dict) -> None:
     outputDataFile = DataFile(outputFilePath)
     logging.info(f"Combining into one file at {outputFilePath}")
-    iterator = combinedIterator(dataFiles, chunkSize)
-    outputDataFile.writeIterator(iterator, columns, index=False, **kwargs)
+    
+    schema = pl.Schema()
+    for file in dataFiles:
+        schema.update(file.getSchema())
+
+    outputDataFile.sink(lazyCombine(dataFiles, schema), **kwargs)
     logging.info(f"Successfully combined into a single file")
 
     if deleteOld:
@@ -146,7 +147,7 @@ class StackedDFWriter:
     def uniqueColumns(self, subsection: str) -> list[str]:
         return self._subWriters[subsection].uniqueColumns()
 
-    def write(self, dfSections: dict[str, pd.DataFrame], index: int = -1) -> None:
+    def write(self, dfSections: dict[str, pl.DataFrame], index: int = -1) -> None:
         for sectionName, df in dfSections.items():
             self._subWriters[sectionName].write(df, index=index)
 

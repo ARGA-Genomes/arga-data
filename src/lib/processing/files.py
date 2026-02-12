@@ -1,11 +1,9 @@
-import pandas as pd
+import polars as pl
 import lib.common as cmn
 from pathlib import Path
 from enum import Enum
 import logging
-import pyarrow.parquet as pq
 from typing import Iterator
-import pyarrow as pa
 import shutil
 
 class DataFormat(Enum):
@@ -93,46 +91,36 @@ class DataFile(FileObject):
 
             self.properties[dataProperty.value] = value
 
-    def read(self, **kwargs: dict) -> pd.DataFrame:
+    def read(self, **kwargs: dict) -> pl.DataFrame:
         raise NotImplementedError
     
-    def readIterator(self, chunkSize: int, **kwargs: dict) -> Iterator[pd.DataFrame]:
+    def scan(self, **kwargs: dict) -> pl.LazyFrame:
         raise NotImplementedError
     
-    def write(self, df: pd.DataFrame, **kwargs: dict) -> None:
+    def write(self, df: pl.DataFrame, **kwargs: dict) -> None:
         raise NotImplementedError
     
-    def writeIterator(self, iterator: Iterator[pd.DataFrame], columns: list[str], **kwargs: dict) -> None:
+    def sink(self, lf: pl.LazyFrame, **kwargs: dict) -> None:
         raise NotImplementedError
     
-    def getColumns(self) -> list[str]:
-        raise NotImplementedError
+    def getSchema(self) -> pl.Schema:
+        return self.scan().collect_schema()
     
 class CSVFile(DataFile):
     
     format = DataFormat.CSV
 
-    def read(self, **kwargs: dict) -> pd.DataFrame:
-        return pd.read_csv(self.path, **(self.properties | kwargs))
+    def read(self, **kwargs: dict) -> pl.DataFrame:
+        return pl.read_csv(self.path, **(self.properties | kwargs))
     
-    def readIterator(self, chunkSize: int, **kwargs) -> Iterator[pd.DataFrame]:
-        for chunk in self.read(chunksize=chunkSize, **kwargs):
-            yield chunk
+    def scan(self, **kwargs: dict) -> pl.LazyFrame:
+        return pl.scan_csv(self.path, **(self.properties | kwargs))
     
-    def write(self, df: pd.DataFrame, **kwargs: dict) -> None:
-        df.to_csv(self.path, **kwargs)
+    def write(self, df: pl.DataFrame, **kwargs: dict) -> None:
+        df.write_csv(self.path, **kwargs)
 
-    def writeIterator(self, iterator: Iterator[pd.DataFrame], columns: list[str], **kwargs: dict) -> None:
-        for idx, chunk in enumerate(iterator):
-            chunk = chunk.reindex(columns=columns)
-            print(f"Writing chunk: {idx} | Size: {pd.io.formats.info.DataFrameInfo(chunk, memory_usage='deep').memory_usage_string.strip()}" + " "*20, end="\r")
-            # self.write(chunk, header=columns if idx == 0 else None, mode="a", **kwargs)
-
-    def getColumns(self) -> list[str]:
-        df = self.read(nrows=1)
-        if df is None:
-            return []
-        return list(df.columns)
+    def sink(self, lf: pl.LazyFrame, **kwargs: dict) -> None:
+        lf.sink_csv(self.path, **kwargs)
 
 class TSVFile(CSVFile, DataFile):
     
@@ -145,27 +133,17 @@ class ParquetFile(DataFile):
     
     format = DataFormat.PARQUET
 
-    def read(self, **kwargs: dict) -> pd.DataFrame:
-        return pq.read_table(self.path, **kwargs).to_pandas()
+    def read(self, **kwargs: dict) -> pl.DataFrame:
+        return pl.read_parquet(self.path, **kwargs)
     
-    def readIterator(self, chunkSize: int, **kwargs) -> Iterator[pd.DataFrame]:
-        pf = pq.ParquetFile(self.path, memory_map=True)
-        for batch in pf.iter_batches(chunkSize, **kwargs):
-            yield batch.to_pandas()
+    def scan(self, **kwargs: dict) -> pl.LazyFrame:
+        return pl.scan_parquet(self.path, **kwargs)
+    
+    def write(self, df: pl.DataFrame, **kwargs: dict) -> None:
+        df.write_parquet(self.path, **kwargs)
 
-    def write(self, df: pd.DataFrame, **kwargs: dict) -> None:
-        df.where(pd.notnull(df), "").astype(str).to_parquet(self.path, "pyarrow")
-
-    def writeIterator(self, iterator: Iterator[pd.DataFrame], columns: list[str], **kwargs: dict) -> None:
-        schema = pa.schema([(column, pa.string()) for column in columns])
-        with pq.ParquetWriter(self.path, schema=schema) as writer:
-            for chunk in iterator:
-                chunk = chunk.reindex(columns=columns).astype(str)
-                writer.write_table(pa.Table.from_pandas(chunk))
-
-    def getColumns(self) -> list[str]:
-        pf = pq.read_schema(self.path)
-        return pf.names
+    def sink(self, lf: pl.LazyFrame, **kwargs: dict) -> None:
+        lf.sink_parquet(self.path, **kwargs)
 
 class Folder(FileObject):
     def __init__(self, path: Path, create: bool = False):
@@ -215,19 +193,19 @@ class StackedFile(Folder, DataFile):
     def _getFiles(self) -> list[DataFile]:
         return [dataFile for dataFile in [DataFile(file) for file in self.path.iterdir() if file.is_file()] if dataFile.format == self._sectionFormat]
 
-    def read(self, **kwargs: dict) -> pd.DataFrame:
+    def read(self, **kwargs: dict) -> pl.DataFrame:
         dfs = {file.path.stem: file.read(**kwargs) for file in self._getFiles()}
-        return pd.concat(dfs.values(), axis=1, keys=dfs.keys())
+        return pl.concat(dfs.values(), axis=1, keys=dfs.keys())
     
-    def readIterator(self, chunkSize, **kwargs: dict) -> Iterator[pd.DataFrame]:
+    def readIterator(self, chunkSize, **kwargs: dict) -> Iterator[pl.DataFrame]:
         sections = {file.path.stem: file.readIterator(chunkSize, **kwargs) for file in self._getFiles()}
         while True:
             try:
-                yield pd.concat([next(chunk) for chunk in sections.values()], axis=1, keys=sections.keys())
+                yield pl.concat([next(chunk) for chunk in sections.values()], axis=1, keys=sections.keys())
             except StopIteration:
                 return
             
-    def write(self, df: pd.DataFrame, **kwargs: dict) -> None:
+    def write(self, df: pl.DataFrame, **kwargs: dict) -> None:
         for outerColumn in df.columns.levels[0]:
             dataFile = DataFile(self.path / f"{outerColumn}{self._sectionFormat.value}")
             dataFile.write(df[outerColumn])
