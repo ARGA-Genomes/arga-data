@@ -115,8 +115,8 @@ class RecordWriter(DFWriter):
 
         super().combine(removeParts, **kwargs)
 
-def lazyCombine(dataFiles: list[DataFile], schema: pl.Schema, **kwargs: dict) -> pl.LazyFrame:
-    return pl.concat([file.scan(**kwargs).sort(schema.names()) for file in dataFiles])
+def lazyCombine(dataFiles: list[DataFile], **kwargs: dict) -> pl.LazyFrame:
+    return pl.concat([file.scan(**kwargs) for file in dataFiles], how="diagonal")
 
 def combineDirectoryFiles(outputFilePath: Path, inputFolderPath: Path, matchPattern: str = "*.*", deleteOld: bool = False, **kwargs: dict) -> None:
     inputDataFiles = [dataFile for dataFile in  [DataFile(path) for path in inputFolderPath.glob(matchPattern)] if dataFile.format != DataFormat.UNKNOWN and dataFile.format != DataFormat.STACKED]
@@ -126,12 +126,8 @@ def combineDirectoryFiles(outputFilePath: Path, inputFolderPath: Path, matchPatt
 def combineDataFiles(outputFilePath: Path, dataFiles: list[DataFile], deleteOld: bool = False, **kwargs: dict) -> None:
     outputDataFile = DataFile(outputFilePath)
     logging.info(f"Combining into one file at {outputFilePath}")
-    
-    schema = pl.Schema()
-    for file in dataFiles:
-        schema.update(file.getSchema())
 
-    outputDataFile.sink(lazyCombine(dataFiles, schema), **kwargs)
+    outputDataFile.sink(lazyCombine(dataFiles), **kwargs)
     logging.info(f"Successfully combined into a single file")
 
     if deleteOld:
