@@ -70,7 +70,7 @@ class DFWriter:
             files.moveDataFile(self._sectionFiles[0], self.outputFile)
         else:
             logging.info("Combining into one file")
-            self.outputFile.sink(lazyCombine(self._sectionFiles, self._schema), **kwargs)
+            self.outputFile.sink(lazyCombine(self._sectionFiles), **kwargs)
             logging.info(f"Created a single file at {self.outputFile.path}")
         
         if removeParts:
@@ -116,7 +116,7 @@ class RecordWriter(DFWriter):
         super().combine(removeParts, **kwargs)
 
 def lazyCombine(dataFiles: list[DataFile], **kwargs: dict) -> pl.LazyFrame:
-    return pl.concat([file.scan(**kwargs) for file in dataFiles], how="diagonal")
+    return pl.concat([file.scan(**kwargs) for file in dataFiles], how="diagonal_relaxed")
 
 def combineDirectoryFiles(outputFilePath: Path, inputFolderPath: Path, matchPattern: str = "*.*", deleteOld: bool = False, **kwargs: dict) -> None:
     inputDataFiles = [dataFile for dataFile in  [DataFile(path) for path in inputFolderPath.glob(matchPattern)] if dataFile.format != DataFormat.UNKNOWN and dataFile.format != DataFormat.STACKED]
