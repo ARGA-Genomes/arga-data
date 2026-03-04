@@ -5,7 +5,6 @@ from lib.bigFiles import RecordWriter
 from pathlib import Path
 import lib.zipping as zp
 import mmap
-import concurrent.futures as cf
 from typing import Generator
 
 # dataClass = {
@@ -52,7 +51,7 @@ def _parseFile(filePath: Path, outputPath: Path, rowsPerSubsection: int = 10000)
 
     writer = RecordWriter(outputPath, rowsPerSubsection, subDirName=f"{filePath.stem}_chunks")
     skipSections = writer.writtenRecordCount()
-    logging.info(f"Found {skipSections} previously parsed sections")
+    logging.info(f"Found {skipSections} previously parsed records")
 
     fileSize = filePath.stat().st_size
     logging.info(f"File Size: {fileSize:,} Bytes")
@@ -71,7 +70,7 @@ def _parseFile(filePath: Path, outputPath: Path, rowsPerSubsection: int = 10000)
                         mfp.seek(sectionBytes, 1)
                         yield sectionBytes, ""
                     else:
-                        yield sectionBytes, mfp.read().decode("utf-8")
+                        yield sectionBytes, mfp.read(sectionBytes).decode("utf-8")
 
                     byteDiff = mfp.find(findBytes) - mfp.tell()
                     section += 1
@@ -94,11 +93,13 @@ def _parseFile(filePath: Path, outputPath: Path, rowsPerSubsection: int = 10000)
                 else:
                     recordData |= parsedData
 
+            recordData["sequence_link"] = f"https://www.ebi.ac.uk/ena/browser/api/fasta/{recordData['accession']}"
+
             writer.write(recordData)
 
         progress.update(chunkSize)
 
-    writer.combine(removeParts=True)
+    writer.combine(removeParts=True, compression="brotli", compression_level=7)
 
 def _parseSection(header: str, data: str) -> dict:
     def flattenNoHeader(content: str, spacer: str = " ") -> str:
@@ -123,7 +124,7 @@ def _parseSection(header: str, data: str) -> dict:
     if header == "ID":
         accession, _, topology, mol_type, dataClass, tax_division, base_count = data.split("   ",  1)[-1].rstrip("\n").split("; ")
         return {
-            "sequence": accession,
+            "accession": accession,
             "topology": topology,
             "mol_type": mol_type,
             "dataclass": dataClass,
@@ -244,7 +245,14 @@ def _parseSection(header: str, data: str) -> dict:
         return {"features_genes": str(features)}
 
     elif header == "SQ":
-        return {"sequence_info": data}
+        sequenceInfo, _ = data.split("\n", 1)
+
+        letterCounts = {}
+        for letterCount in sequenceInfo.split(";")[1:-1]:
+            count, letter = letterCount.strip().split()
+            letterCounts[letter] = count
+
+        return {"sequence_letter_counts": str(letterCounts)}
 
     else:
         print(f"UNHANDLED header: {header}")
