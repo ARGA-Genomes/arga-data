@@ -34,7 +34,7 @@
             "args": [
                 "{IN-PATH}",
                 "{OUT-PATH}",
-                10000
+                1000
             ],
             "outputs": [
                 "{IN-PATH..parquet}"
