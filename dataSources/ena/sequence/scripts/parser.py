@@ -59,6 +59,9 @@ def _parseFile(filePath: Path, outputPath: Path, rowsPerSubsection: int = 10000)
     fastaDir = outputPath.parent / "fasta"
     fastaDir.mkdir(exist_ok=True)
 
+    fastaLoc = fastaDir / filePath.stem
+    fastaLoc.mkdir(exist_ok=True)
+
     def chunkGenerator() -> Generator[tuple[int, str], None, None]:
         findBytes = b"\n//\n"
         section = 0
@@ -96,7 +99,7 @@ def _parseFile(filePath: Path, outputPath: Path, rowsPerSubsection: int = 10000)
                 else:
                     recordData |= parsedData
 
-            _createFasta(fastaDir, recordData) # Modifies the dictionary to remove sequence
+            _createFasta(fastaLoc, recordData) # Modifies the dictionary to remove sequence
             writer.write(recordData)
 
         progress.update(chunkSize)
@@ -127,7 +130,7 @@ def _parseSection(header: str, data: str) -> dict:
         accession, subVersion, topology, mol_type, dataClass, tax_division, base_count = data.split("   ",  1)[-1].rstrip("\n").split("; ")
         return {
             "accession": accession,
-            "subVersion": subVersion,
+            "subVersion": int(subVersion[2:]), # Cleav off "SV "
             "topology": topology,
             "mol_type": mol_type,
             "dataclass": dataClass,
