@@ -56,6 +56,9 @@ def _parseFile(filePath: Path, outputPath: Path, rowsPerSubsection: int = 10000)
     fileSize = filePath.stat().st_size
     logging.info(f"File Size: {fileSize:,} Bytes")
 
+    fastaDir = outputPath.parent / "fasta"
+    fastaDir.mkdir(exist_ok=True)
+
     def chunkGenerator() -> Generator[tuple[int, str], None, None]:
         findBytes = b"\n//\n"
         section = 0
@@ -93,8 +96,7 @@ def _parseFile(filePath: Path, outputPath: Path, rowsPerSubsection: int = 10000)
                 else:
                     recordData |= parsedData
 
-            recordData["sequence_link"] = f"https://www.ebi.ac.uk/ena/browser/api/fasta/{recordData['accession']}"
-
+            _createFasta(fastaDir, recordData) # Modifies the dictionary to remove sequence
             writer.write(recordData)
 
         progress.update(chunkSize)
@@ -122,14 +124,16 @@ def _parseSection(header: str, data: str) -> dict:
         return res
 
     if header == "ID":
-        accession, _, topology, mol_type, dataClass, tax_division, base_count = data.split("   ",  1)[-1].rstrip("\n").split("; ")
+        accession, subVersion, topology, mol_type, dataClass, tax_division, base_count = data.split("   ",  1)[-1].rstrip("\n").split("; ")
         return {
             "accession": accession,
+            "subVersion": subVersion,
             "topology": topology,
             "mol_type": mol_type,
             "dataclass": dataClass,
             "tax_division": tax_division,
-            "base_count": int(base_count[:-4]) # Clean off " BP."
+            "base_count": int(base_count[:-4]), # Clean off " BP."
+            "sequence_link": f"https://www.ebi.ac.uk/ena/browser/api/fasta/{accession}"
         }
 
     elif header == "PR":
@@ -151,7 +155,7 @@ def _parseSection(header: str, data: str) -> dict:
         return {"description": flattenNoHeader(data)}
 
     elif header == "OS":
-        splitData = data.split("OG   ")
+        splitData = data.split("OG")
         scientificName, lineage = splitData[0].split("\n", 1)
         taxonData = {
             "scientific_name": scientificName[5:],
@@ -159,7 +163,7 @@ def _parseSection(header: str, data: str) -> dict:
         }
 
         if len(splitData) > 1: # OG section exists
-            taxonData["sample"] = splitData[1]
+            taxonData["sample"] = splitData[1].strip()
 
         return taxonData
 
@@ -191,7 +195,7 @@ def _parseSection(header: str, data: str) -> dict:
             else:
                 dataReferences[refName].append(value[:-1])
 
-        return {"data_references": dataReferences}
+        return {"data_references": str(dataReferences)}
 
     elif header == "FH":
         def parseLine(line: str) -> tuple[str, str]:
@@ -245,14 +249,36 @@ def _parseSection(header: str, data: str) -> dict:
         return {"features_genes": str(features)}
 
     elif header == "SQ":
-        sequenceInfo, _ = data.split("\n", 1)
+        sequenceInfo, sequence = data.split("\n", 1)
 
         letterCounts = {}
         for letterCount in sequenceInfo.split(";")[1:-1]:
             count, letter = letterCount.strip().split()
             letterCounts[letter] = count
 
-        return {"sequence_letter_counts": str(letterCounts)}
+        seqLines = []
+        for line in sequence.split("\n")[:-2]:
+            seqLines.append(line.rsplit(" ", 1)[0].replace(" ", "").upper())
+
+        return {"sequence_letter_counts": str(letterCounts), "sequence": seqLines}
 
     else:
         print(f"UNHANDLED header: {header}")
+
+def _createFasta(fileDir: Path, recordData: dict) -> None:
+    accession = recordData["accession"]
+    subVersion = recordData["subVersion"]
+    description = recordData["description"]
+    sequence = recordData.pop("sequence", "")
+
+    if not sequence:
+        return
+
+    accessionVersion = f"{accession}.{subVersion}"
+    outputFile = fileDir / f"{accessionVersion}.fasta"
+
+    if outputFile.exists():
+        return
+
+    with open(outputFile, "w") as fp:
+        fp.write(f">ENA|{accession}|{accessionVersion} {description}\n" + "\n".join(sequence) + "\n")
