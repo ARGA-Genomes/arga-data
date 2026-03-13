@@ -58,9 +58,7 @@ def _parseFile(filePath: Path, outputPath: Path, rowsPerSubsection: int = 10000)
 
     fastaDir = outputPath.parent / "fasta"
     fastaDir.mkdir(exist_ok=True)
-
-    fastaLoc = fastaDir / filePath.stem
-    fastaLoc.mkdir(exist_ok=True)
+    fastaClump = fastaDir / f"{filePath.stem}.fasta"
 
     def chunkGenerator() -> Generator[tuple[int, str], None, None]:
         findBytes = b"\n//\n"
@@ -99,7 +97,7 @@ def _parseFile(filePath: Path, outputPath: Path, rowsPerSubsection: int = 10000)
                 else:
                     recordData |= parsedData
 
-            _createFasta(fastaLoc, recordData) # Modifies the dictionary to remove sequence
+            _appendFasta(fastaClump, recordData) # Modifies the dictionary to remove sequence
             writer.write(recordData)
 
         progress.update(chunkSize)
@@ -158,7 +156,8 @@ def _parseSection(header: str, data: str) -> dict:
         return {"description": flattenNoHeader(data)}
 
     elif header == "OS":
-        splitData = data.split("OG")
+        splitData = data.split("OG   ")
+
         scientificName, lineage = splitData[0].split("\n", 1)
         taxonData = {
             "scientific_name": scientificName[5:],
@@ -268,7 +267,7 @@ def _parseSection(header: str, data: str) -> dict:
     else:
         print(f"UNHANDLED header: {header}")
 
-def _createFasta(fileDir: Path, recordData: dict) -> None:
+def _appendFasta(filePath: Path, recordData: dict) -> None:
     accession = recordData["accession"]
     subVersion = recordData["subVersion"]
     description = recordData["description"]
@@ -278,10 +277,6 @@ def _createFasta(fileDir: Path, recordData: dict) -> None:
         return
 
     accessionVersion = f"{accession}.{subVersion}"
-    outputFile = fileDir / f"{accessionVersion}.fasta"
 
-    if outputFile.exists():
-        return
-
-    with open(outputFile, "w") as fp:
+    with open(filePath, "a") as fp:
         fp.write(f">ENA|{accession}|{accessionVersion} {description}\n" + "\n".join(sequence) + "\n")
