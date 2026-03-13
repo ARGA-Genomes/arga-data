@@ -47,6 +47,7 @@
                 "{OUT-PATH}",
                 "{IN-DIR}",
                 "*.parquet",
+                1024,
                 false
             ],
             "kwargs": {
