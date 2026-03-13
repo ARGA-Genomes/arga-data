@@ -125,8 +125,7 @@ class CSVFile(DataFile):
     def writeIterator(self, iterator: Iterator[pd.DataFrame], columns: list[str], **kwargs: dict) -> None:
         for idx, chunk in enumerate(iterator):
             chunk = chunk.reindex(columns=columns)
-            print(f"Writing chunk: {idx} | Size: {pd.io.formats.info.DataFrameInfo(chunk, memory_usage='deep').memory_usage_string.strip()}" + " "*20, end="\r")
-            # self.write(chunk, header=columns if idx == 0 else None, mode="a", **kwargs)
+            self.write(chunk, header=columns if idx == 0 else None, mode="a", **kwargs)
 
     def getColumns(self) -> list[str]:
         df = self.read(nrows=1)
