@@ -13,7 +13,7 @@
     },
     "processing": [
         {
-            "path": ".llib/sharedProcessing.py",
+            "path": "./lib.py",
             "function": "getStats",
             "args": [
                 "{IN-FILE}",
@@ -24,7 +24,7 @@
             ]
         },
         {
-            "path": ".llib/sharedProcessing.py",
+            "path": "./lib.py",
             "function": "merge",
             "args": [
                 "{D0-FILE}",
@@ -36,7 +36,7 @@
             ]
         },
             {
-                "path": ".llib/sharedProcessing.py",
+                "path": "./lib.py",
                 "function": "cleanData",
                 "args": [
                     "{IN-PATH}",

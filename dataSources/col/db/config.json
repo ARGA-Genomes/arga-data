@@ -21,7 +21,7 @@
             ]
         },
         {
-            "path": "./processing.py",
+            "path": "./db.py",
             "function": "process",
             "args": [
                 "{IN-PATH}",

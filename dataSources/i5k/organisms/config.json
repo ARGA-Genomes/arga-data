@@ -3,7 +3,7 @@
         "retrieveType": "script",
         "tasks": [
             {
-                "path": "./processing.py",
+                "path": "./organisms.py",
                 "function": "retrieve",
                 "args": [
                     "{OUT-PATH}"

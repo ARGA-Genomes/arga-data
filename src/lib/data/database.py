@@ -92,9 +92,8 @@ class Database:
         # Local storage and libraries
         self.exampleDir = self.subsectionDir / "examples" # Data sample storage location
         self.dirLookup = parse.DirLookup({
-            ".": self.databaseDir / "scripts",
-            ".lib": settings.rootDir / "src" / "lib",
-            ".llib": self.locationDir / "llib"
+            ".": settings.scriptsDir / self.locationName(),
+            ".lib": settings.libDir,
         })
 
         # Local settings

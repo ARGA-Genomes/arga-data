@@ -3,7 +3,7 @@
         "retrieveType": "script",
         "tasks": [
             {
-                "path": "./processing.py",
+                "path": "./bulk.py",
                 "function": "retrieve",
                 "args": [
                     "{OUT-PATH}"
@@ -27,7 +27,7 @@
             ]
         },
         {
-            "path": "./processing.py",
+            "path": "./bulk.py",
             "function": "combine",
             "args": [
                 "{IN-PATH}",

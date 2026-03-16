@@ -10,7 +10,7 @@
     },
     "processing": [
         {
-            "path": ".llib/processing.py",
+            "path": "./lib.py",
             "function": "addName",
             "args": [
                 "{IN-PATH}",

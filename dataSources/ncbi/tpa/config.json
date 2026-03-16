@@ -27,7 +27,7 @@
         },
         {
             "parallel": true,
-            "path": ".llib/flatFileParser.py",
+            "path": "./flatFileParser.py",
             "function": "parseFlatfile",
             "args": [
                 "{IN-PATH}"

@@ -10,7 +10,7 @@
     },
     "processing": [
         {
-            "path": "./processing.py",
+            "path": "./apc.py",
             "function": "denormalize",
             "args": [
                 "{IN-PATH}",
@@ -21,7 +21,7 @@
             ]
         },
         {
-            "path": "./processing.py",
+            "path": "./apc.py",
             "function": "cleanup",
             "args": [
                 "{IN-PATH}",

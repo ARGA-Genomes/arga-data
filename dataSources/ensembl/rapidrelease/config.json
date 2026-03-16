@@ -10,7 +10,7 @@
     },
     "processing": [
         {
-            "path": "./processing.py",
+            "path": "./rapidrelease.py",
             "function": "convert",
             "args": [
                 "{IN-PATH}",

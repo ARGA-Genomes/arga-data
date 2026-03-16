@@ -14,7 +14,7 @@
     },
     "processing": [
         {
-            "path": "./processing.py",
+            "path": "./aws.py",
             "function": "clean",
             "args": [
                 "{IN-PATH}",
