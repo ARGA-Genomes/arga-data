@@ -123,14 +123,24 @@ def combinedIterator(dataFiles: list[DataFile], chunkSize: int, **kwargs: dict) 
 def combineDirectoryFiles(outputFilePath: Path, inputFolderPath: Path, matchPattern: str = "*.*", chunkSize: int = 1024, deleteOld: bool = False, **kwargs: dict) -> None:
     inputDataFiles = [dataFile for dataFile in  [DataFile(path) for path in inputFolderPath.glob(matchPattern)] if dataFile.format != DataFormat.UNKNOWN and dataFile.format != DataFormat.STACKED]
     logging.info(f"Found {len(inputDataFiles)} files to combine")
-    columns = [column for dataFile in inputDataFiles for column in dataFile.getColumns()]
-    combineDataFiles(outputFilePath, inputDataFiles, columns, chunkSize, deleteOld, **kwargs)
+    combineDataFiles(outputFilePath, inputDataFiles, chunkSize, deleteOld, **kwargs)
 
-def combineDataFiles(outputFilePath: Path, dataFiles: list[DataFile], columns: list[str], chunkSize: int = 1024, deleteOld: bool = False, **kwargs: dict) -> None:
+def combineDataFiles(outputFilePath: Path, dataFiles: list[DataFile], chunkSize: int = 1024, deleteOld: bool = False, **kwargs: dict) -> None:
     outputDataFile = DataFile(outputFilePath)
+
+    columns = []
+    for dataFile in dataFiles:
+        columns.extend([column for column in dataFile.getColumns() if column not in columns])
+
     logging.info(f"Combining into one file at {outputFilePath}")
     outputDataFile.writeIterator(combinedIterator(dataFiles, chunkSize), columns, index=False, **kwargs)
     logging.info(f"Successfully combined into a single file")
+
+    if not outputDataFile.exists():
+        logging.warning("Error creating single file")
+        return
+
+    logging.info("Successfully combined into a single file")
 
     if deleteOld:
         logging.info(f"Cleaning up old sections of combined file")
