@@ -3,6 +3,9 @@ from pathlib import Path
 
 rootDir = Path(__file__).parents[2]
 dataSourcesDir = rootDir / "dataSources"
+srcDir = rootDir / "src"
+libDir = srcDir / "lib"
+scriptsDir = srcDir / "scripts"
 settingsPath = rootDir / "settings.toml"
 
 class Settings(TomlLoader):
