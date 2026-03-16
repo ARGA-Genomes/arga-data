@@ -3,7 +3,7 @@
         "retrieveType": "script",
         "tasks": [
             {
-                "path": "./processing.py",
+                "path": "./dap.py",
                 "function": "getPortalData",
                 "args": [
                     "{OUT-PATH}"

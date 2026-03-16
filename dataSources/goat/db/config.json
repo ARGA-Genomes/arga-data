@@ -3,7 +3,7 @@
         "retrieveType": "script",
         "tasks": [
             {
-                "path": "./processing.py",
+                "path": "./db.py",
                 "function": "build",
                 "args": [
                     "{OUT-PATH}"
@@ -17,7 +17,7 @@
     "processing": [
         {
             "parallel": true,
-            "path": "./processing.py",
+            "path": "./db.py",
             "function": "clean",
             "args": [
                 "{IN-PATH}",

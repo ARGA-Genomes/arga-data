@@ -33,7 +33,7 @@
             ]
         },
         {
-            "path": "./processing.py",
+            "path": "./biosample.py",
             "function": "splitLatLong",
             "args": [
                 "{IN-PATH}",

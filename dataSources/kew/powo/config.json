@@ -21,7 +21,7 @@
             ]
         },
         {
-            "path": "./processing.py",
+            "path": "./powo.py",
             "function": "combine",
             "args": [
                 "{IN-PATH}",

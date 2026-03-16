@@ -18,7 +18,7 @@
     },
     "processing": [
         {
-            "path": "./processing.py",
+            "path": "./biocollections.py",
             "function": "compile",
             "args": [
                 "{IN-DIR}",

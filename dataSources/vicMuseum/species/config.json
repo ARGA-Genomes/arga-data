@@ -3,7 +3,7 @@
         "retrieveType": "script",
         "tasks": [
             {
-                "path": ".llib/processing.py",
+                "path": "./lib.py",
                 "function": "retrieve",
                 "args": [
                     "species",
@@ -18,7 +18,7 @@
     },
     "processing": [
         {
-            "path": ".llib/processing.py",
+            "path": "./lib.py",
             "function": "expandTaxa",
             "args": [
                 "{IN-PATH}",

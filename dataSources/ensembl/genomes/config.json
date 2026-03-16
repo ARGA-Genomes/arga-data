@@ -20,7 +20,7 @@
     },
     "processing": [
         {
-            "path": "./processing.py",
+            "path": "./genomes.py",
             "function": "flatten",
             "args": [
                 "{D0-PATH}",
@@ -31,7 +31,7 @@
             ]
         },
         {
-            "path": "./processing.py",
+            "path": "./genomes.py",
             "function": "enrich",
             "args": [
                 "{D1-PATH}",
@@ -43,7 +43,7 @@
             ]
         },
         {
-            "path": "./processing.py",
+            "path": "./genomes.py",
             "function": "combine",
             "args": [
                 "{P0-PATH}",

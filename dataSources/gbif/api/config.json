@@ -3,7 +3,7 @@
         "retrieveType": "script",
         "tasks": [
             {
-                "path": "./processing.py",
+                "path": "./api.py",
                 "function": "collect",
                 "args": [
                     "{OUT-PATH}"

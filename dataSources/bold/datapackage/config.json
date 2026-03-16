@@ -3,7 +3,7 @@
         "retrieveType": "script",
         "tasks": [
             {
-                "path": "./processing.py",
+                "path": "./datapackage.py",
                 "function": "retrieve",
                 "outputs": [
                     "datapackage.tar.gz"
@@ -24,7 +24,7 @@
             ]
         },
         {
-            "path": "./processing.py",
+            "path": "./datapackage.py",
             "function": "cleanUp",
             "args": [
                 "{IN-PATH}"

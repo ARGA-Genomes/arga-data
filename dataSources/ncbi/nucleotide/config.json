@@ -32,7 +32,7 @@
     "processing": [
         {
             "mode": "individual",
-            "path": "./processing.py",
+            "path": "./nucleotide.py",
             "function": "parse",
             "args": [
                 "{IN-PATH}",

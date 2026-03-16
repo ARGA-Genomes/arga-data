@@ -21,7 +21,7 @@
             ]
         },
         {
-            "path": "./processing.py",
+            "path": "./taxonomy.py",
             "function": "parse",
             "args": [
                 "{IN-PATH}",

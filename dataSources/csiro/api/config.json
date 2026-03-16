@@ -7,7 +7,7 @@
         "retrieveType": "script",
         "tasks": [
             {
-                "path": "./processing.py",
+                "path": "./api.py",
                 "function": "build",
                 "args": [
                     "<SUB>",

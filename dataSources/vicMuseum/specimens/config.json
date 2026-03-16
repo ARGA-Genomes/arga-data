@@ -3,7 +3,7 @@
         "retrieveType": "script",
         "tasks": [
             {
-                "path": ".llib/processing.py",
+                "path": "./lib.py",
                 "function": "retrieve",
                 "args": [
                     "specimens",

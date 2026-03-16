@@ -3,7 +3,7 @@
         "retrieveType": "script",
         "tasks": [
             {
-                "path": "./processing.py",
+                "path": "./portal.py",
                 "function": "build",
                 "args": [
                     "{OUT-PATH}"

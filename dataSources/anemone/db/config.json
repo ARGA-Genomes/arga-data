@@ -24,7 +24,7 @@
         },
         {
             "parallel": true,
-            "path": "./processing.py",
+            "path": "./db.py",
             "function": "splitHaploType",
             "args": [
                 "{IN-PATH}"

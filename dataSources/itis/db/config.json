@@ -21,7 +21,7 @@
             ]
         },
         {
-            "path": "./processing.py",
+            "path": "./db.py",
             "function": "unpack",
             "args": [
                 "{IN-PATH}",
@@ -32,7 +32,7 @@
             ]
         },
         {
-            "path": "./processing.py",
+            "path": "./db.py",
             "function": "combine",
             "args": [
                 "{IN-PATH}",
