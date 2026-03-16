@@ -136,6 +136,12 @@ def combineDataFiles(outputFilePath: Path, dataFiles: list[DataFile], chunkSize:
     outputDataFile.writeIterator(combinedIterator(dataFiles, chunkSize), columns, index=False, **kwargs)
     logging.info(f"Successfully combined into a single file")
 
+    if not outputDataFile.exists():
+        logging.warning("Error creating single file")
+        return
+
+    logging.info("Successfully combined into a single file")
+
     if deleteOld:
         logging.info(f"Cleaning up old sections of combined file")
         for dataFile in dataFiles:
