@@ -47,6 +47,7 @@ class Crawler:
     _metaSettingURL = "url"
     _metaSettingRegex = "regex"
     _metaSettingDepth = "maxDepth"
+    _metaSkipFolders = "skipFolders"
     _metaProgress = "progress"
 
     _dirStr = "directories"
@@ -61,7 +62,7 @@ class Crawler:
         self.session = None
         self.data = []
 
-    def run(self, entryURL: str, fileRegex: str = None, maxDepth: int = -1, ignoreProgress: bool = False):
+    def run(self, entryURL: str, fileRegex: str = None, maxDepth: int = -1, skipFolders: list[str] = [], ignoreProgress: bool = False):
         if not self.outputDir.exists():
             self.outputDir.mkdir(parents=True)
 
@@ -78,7 +79,8 @@ class Crawler:
         currentSettings = {
             self._metaSettingURL: entryURL,
             self._metaSettingRegex: fileRegex,
-            self._metaSettingDepth: maxDepth
+            self._metaSettingDepth: maxDepth,
+            self._metaSkipFolders: skipFolders
         }
 
         for setting, value in currentSettings.items():
@@ -99,7 +101,14 @@ class Crawler:
             logging.info(f"Successfully retrieved entry url {entryURL}, crawling subfolders")
 
         while len(metadata[self._metaProgress]) <= maxDepth:
-            folderURLs = [urllib.parse.urljoin(url, folder) for url, urlLinks in metadata[self._metaProgress].items() for folder in urlLinks.get(self._dirStr, [])]
+
+            folderURLs = []
+            for url, urlLinks in metadata[self._metaProgress][-1].items():
+                for folder in urlLinks.get(self._dirStr, []):
+                    if (folder not in skipFolders) and (folder.rstrip("/") not in skipFolders):
+                        folderURLs.append(urllib.parse.urljoin(url, folder))
+                        
+            # folderURLs = [urllib.parse.urljoin(url, folder) for url, urlLinks in metadata[self._metaProgress][-1].items() for folder in urlLinks.get(self._dirStr, [])]
 
             if not folderURLs:
                 break

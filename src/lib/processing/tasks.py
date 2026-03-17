@@ -59,10 +59,12 @@ class UrlRetrieve(Task):
 
 class CrawlRetrieve(Task):
 
-    _url = "url"
-    _regex = "regex"
+    _url = Crawler._metaSettingURL
+    _regex = Crawler._metaSettingRegex
+    _maxDepth = Crawler._metaSettingDepth
+    _skipFolders = Crawler._metaSkipFolders
+
     _link = "link"
-    _maxDepth = "maxDepth"
     _properties = "properties"
     _filenameURLParts = "urlPrefix"
 
@@ -76,10 +78,11 @@ class CrawlRetrieve(Task):
         link = config.pop(self._link, "")
         maxDepth = config.pop(self._maxDepth, -1)
         filenameURLParts = config.pop(self._filenameURLParts, 1)
+        skipFolders = config.pop(self._skipFolders, [])
         properties = config.pop(self._properties, {})
 
         crawler = Crawler(self.workingDir, dl.buildAuth(self.username, self.password))
-        crawler.run(url, regex, maxDepth, overwrite)
+        crawler.run(url, regex, maxDepth, skipFolders, overwrite)
         urlList = crawler.getFileURLs(link)
 
         self.downloads: list[tuple[str, DataFile]] = []
