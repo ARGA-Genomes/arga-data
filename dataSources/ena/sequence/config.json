@@ -22,7 +22,10 @@
             {
                 "url": "https://ftp.ebi.ac.uk/pub/databases/ena/sequence/con-std_latest/",
                 "regex": "[A-Z]{3}_<SUB:VALUE>_\\d+\\.dat\\.gz",
-                "maxDepth": 1
+                "maxDepth": 1,
+                "skipFolders": [
+                    "con"
+                ]
             }
         ]
     },
