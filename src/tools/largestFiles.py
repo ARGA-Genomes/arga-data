@@ -1,6 +1,6 @@
 from pathlib import Path
 import argparse
-from lib.settings import dataSourcesDir
+import lib.settings as settings
 
 def getLargest(directory: Path, amountToReturn: int, includeFolders: bool, depth: int = 0) -> list[tuple[int, Path]]:
     largest = []
@@ -44,7 +44,8 @@ if __name__ == "__main__":
         print("Largest item amount must be a positive number")
         exit()
 
-    baseDir: Path = dataSourcesDir
+    globalSettings = settings.load()
+    baseDir: Path = globalSettings.storage.data
     largestFiles = getLargest(baseDir, args.count, args.folders)
     
     print("Largest Files")
