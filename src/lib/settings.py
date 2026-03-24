@@ -1,73 +1,73 @@
-from lib.toml import TomlLoader
+import toml
 from pathlib import Path
-from enum import Enum
-from typing import Any
+import lib.processing.parsing as parsing
 
-rootDir = Path(__file__).parents[2]
-dataSourcesDir = rootDir / "dataSources"
-srcDir = rootDir / "src"
-libDir = srcDir / "lib"
-scriptsDir = srcDir / "scripts"
-settingsPath = rootDir / "settings.toml"
+class Settings:
 
-class Settings(Enum):
-
-    class _Folders(Enum):
+    class Folders:
         LOGS = "./logs"
 
-    class _Storage(Enum):
+    class Storage:
         DATA = ""
         PACKAGE = ""
 
-    class _Files(Enum):
+    class Files:
         SECRETS = "./secrets.toml"
 
-    class _Logging(Enum):
+    class Logging:
         LOG_TO_CONSOLE = True
-        LOG_LEVEL = "info" # Log levels: debug, info, warning, error, critical
+        LOG_LEVEL = "info" 
 
-    FOLDERS = _Folders
-    STORAGE = _Storage
-    FILES = _Files
-    LOGGING = _Logging
+    def __init__(self, loadVariables: bool = True):
+        self.rootDir = Path(__file__).parents[2]
+        self.dataSourcesDir = self.rootDir / "dataSources"
+        self.srcDir = self.rootDir / "src"
+        self.libDir = self.srcDir / "lib"
+        self.scriptsDir = self.srcDir / "scripts"
+        self.settingsPath = self.rootDir / "settings.toml"
 
-# class SettingsFile(TomlLoader):
-#     def parse(self, value: any) -> Any:
-#         if isinstance(value, str):
-#             if value.startswith("./"):
-#                 return self._path.parent / value[2:]
+        if loadVariables:
+            self._load()
 
-#             if value.startswith("/") or value[1:].startswith(":/"):
-#                 return Path(value)
-        
-#         return value
+    def _generate(self):
+        comments = {
+            "LOGS": "Location of all logging files, cannot overwrite with local config files",
+            "DATA": "Location overwrite for source data including downloading/processing/conversion, leave blank to keep in respective dataSource location, new location will have dataSources folder structure",
+            "PACKAGE": "Location overwrite for packaged files to be put in, leave blank to leave in respective dataSource location",
+            "SECRETS": "Secrets file for storing sensitive information",
+            "LOG_LEVEL": "Log levels: debug, info, warning, error, critical"
+        }
 
-# def generate() -> None:
-#     _defaultSettings = """
-#         [folders]
-#         logs = "./logs" # Location of all logging files, cannot overwrite with local config files
+        with open(self.settingsPath, "w") as fp:
+            for item in (self.Folders, self.Storage, self.Files, self.Logging):
 
-#         [storage]
-#         data = "" # Location overwrite for source data including downloading/processing/conversion, leave blank to keep in respective dataSource location, new location will have dataSources folder structure
-#         package = "" # Location overwrite for packaged files to be put in, leave blank to leave in respective dataSource location
+                fp.write(f"[{item.__name__.lower()}]\n")
 
-#         [files]
-#         secrets = "./secrets.toml" # Secrets file for storing sensitive information
+                for property in vars(item):
+                    if not property.isupper():
+                        continue
 
-#         [logging]
-#         logToConsole = true
-#         logLevel = "info" 
-#     """
+                    value = getattr(item, property)
+                    comment = comments.get(property, "")
 
-#     if not settingsPath.exists():
-#         with open(settingsPath, "w") as fp:
-#             fp.write("\n".join(line.strip() for line in _defaultSettings.split("\n")[1:]))
+                    fp.write(f"{property.lower()} = ")
+                    fp.write(str(value).lower() if not isinstance(value, str) else f"\"{value}\"")
+                             
+                    if comment:
+                        fp.write(f"# {comment}")
 
-# def load(generateFile: bool = False) -> Settings:
-#     if generateFile:
-#         generate()
+                    fp.write("\n")
+                
+                fp.write("\n")
 
-#     return Settings(settingsPath)
+    def _load(self) -> None:
+        if not self.settingsPath.exists():
+            return self._generate() 
 
-# def exists() -> bool:
-#     return settingsPath.exists()
+        with open(self.settingsPath) as fp:
+            data = toml.load(fp)
+
+        for key, pair in data.items():
+            for variable, value in pair.items():
+                subClass = getattr(self, key.capitalize())
+                setattr(subClass, variable.upper(), parsing.parseArg(value, self.rootDir))
