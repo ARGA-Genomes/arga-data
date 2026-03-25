@@ -1,4 +1,4 @@
-import lib.settings as settings
+from lib.settings import Settings
 
 if __name__ == "__main__":
-    settings.generate()
+    settings = Settings()

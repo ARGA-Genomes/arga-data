@@ -2,13 +2,14 @@ from lib.settings import Settings
 import logging
 from typing import Any
 import toml
+from enum import Enum
 
 class Property(Enum):
     EMAIL = "email"
     ID = "id"
     USERNAME = "username"
     PASSWORD = "password"
-    API_KEY = "api"
+    API_KEY = "key"
 
 class Secrets:
     def __init__(self):

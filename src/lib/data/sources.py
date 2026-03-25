@@ -1,5 +1,5 @@
 import json
-from lib.settings import dataSourcesDir
+from lib.settings import Settings
 from pathlib import Path
 from lib.data.database import Database
 import logging
@@ -11,8 +11,8 @@ class SourceManager:
     def __init__(self):
         self.locations: dict[str, Location] = {}
 
-        dataSourcesFolder: Path = dataSourcesDir
-        for locationFolder in dataSourcesFolder.iterdir():
+        settings = Settings(False)
+        for locationFolder in settings.dataSourcesDir.iterdir():
             if locationFolder.is_file():
                 continue
 

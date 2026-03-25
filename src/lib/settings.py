@@ -62,12 +62,15 @@ class Settings:
 
     def _load(self) -> None:
         if not self.settingsPath.exists():
-            return self._generate() 
+            return self._generate()
+        
+        self.update(self.settingsPath)
 
-        with open(self.settingsPath) as fp:
+    def update(self, path: Path) -> None:
+        with open(path) as fp:
             data = toml.load(fp)
 
         for key, pair in data.items():
             for variable, value in pair.items():
                 subClass = getattr(self, key.capitalize())
-                setattr(subClass, variable.upper(), parsing.parseArg(value, self.rootDir))
+                setattr(subClass, variable.upper(), parsing.parseArg(value, path.parent))

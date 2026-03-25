@@ -1,6 +1,6 @@
 import json
 import logging
-import lib.settings as settings
+from lib.settings import Settings
 import lib.secrets as scr
 from enum import Enum
 from pathlib import Path
@@ -90,6 +90,8 @@ class Database:
             self.config = json.loads(rawConfig)
 
         # Local storage and libraries
+        settings = Settings()
+
         self.exampleDir = self.subsectionDir / "examples" # Data sample storage location
         self.dirLookup = parse.DirLookup({
             ".": settings.scriptsDir / self.locationName(),
@@ -97,16 +99,15 @@ class Database:
         })
 
         # Local settings
-        self.settings = settings.load()
         for dir in (self.locationDir, self.databaseDir, self.subsectionDir):
             subdirConfig = Path(dir / "settings.toml")
             if subdirConfig.exists():
-                self.settings = self.settings.createChild(subdirConfig)
+                settings.update(subdirConfig)
 
         # Data storage
         self.dataDir = self.subsectionDir / "data" # Default data location
-        if self.settings.storage.data: # Overwrite data location
-            self.dataDir: Path = self.settings.storage.data / self.dataDir.relative_to(self.locationDir.parent) # Change parent of locationDir (dataSources folder) to storage dir
+        if settings.Storage.DATA: # Overwrite data location
+            self.dataDir: Path = settings.Storage.DATA / self.dataDir.relative_to(self.locationDir.parent) # Change parent of locationDir (dataSources folder) to storage dir
 
         self.workingDirs = {step: self.dataDir / step.value for step in Step}
 
