@@ -4,15 +4,15 @@ import pandas as pd
 from lib.bigFiles import RecordWriter
 import time
 import lib.dataframes as dff
-import lib.secrets as scr
+from lib.secrets import Secrets, SecretProperty
 
 def retrieve(outputFilePath: Path):
-    secrets = scr.load()
+    secrets = Secrets()
 
     baseURL = "https://api.iucnredlist.org/api/v4"
     headers = {
         "accept": "application/json",
-        "Authorization": secrets.iucn.key
+        "Authorization": secrets.get(SecretProperty.API_KEY, "iucn")
     }
 
     session = requests.Session()

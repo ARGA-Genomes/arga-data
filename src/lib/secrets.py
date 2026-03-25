@@ -4,7 +4,7 @@ from typing import Any
 import toml
 from enum import Enum
 
-class Property(Enum):
+class SecretProperty(Enum):
     EMAIL = "email"
     ID = "id"
     USERNAME = "username"
@@ -15,9 +15,9 @@ class Secrets:
     def __init__(self):
         self._path = None
 
-    def get(self, property: Property, location: str = "") -> Any:
+    def get(self, property: SecretProperty, location: str = "", defaultValue: Any = None) -> Any:
         if not self._path:
-            self._resolvePath()
+            self._resovlePath()
 
         data = self._load()
 
@@ -26,12 +26,10 @@ class Secrets:
         
         subsection = data.get(location, None)
         if subsection is None:
-            logging.warning(f"No location found '{location}'")
-            return None
+            return defaultValue
         
         if property.value not in subsection:
-            logging.warning(f"Location '{location}' has no property '{property.value}'")
-            return None
+            return defaultValue
         
         return subsection[property.value]
 

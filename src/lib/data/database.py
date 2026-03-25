@@ -1,7 +1,7 @@
 import json
 import logging
 from lib.settings import Settings
-import lib.secrets as scr
+from lib.secrets import Secrets, SecretProperty
 from enum import Enum
 from pathlib import Path
 from lib.processing import tasks
@@ -156,10 +156,9 @@ class Database:
             raise Exception(f"No download tasks specified in download config for {self.name}") from AttributeError
 
         # Get username/password for url/crawl downloads
-        secrets = scr.load()
-        sourceSecrets = secrets[self.locationDir.name]
-        username = sourceSecrets.username if sourceSecrets is not None else ""
-        password = sourceSecrets.password if sourceSecrets is not None else ""
+        secrets = Secrets()
+        username = secrets.get(SecretProperty.USERNAME, self.locationDir.name, "")
+        password = secrets.get(SecretProperty.PASSWORD, self.locationDir.name, "")
 
         overwrite = Flag.REPREPARE in flags
 
