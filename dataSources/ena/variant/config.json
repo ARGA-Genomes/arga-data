@@ -11,7 +11,7 @@
     "processing": {
         "linear": [
             {
-                "path": "./processing.py",
+                "path": "./variant.py",
                 "function": "combine",
                 "args": [
                     "{IN-DIR}",
