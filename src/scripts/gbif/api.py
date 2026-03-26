@@ -1,10 +1,10 @@
 from pathlib import Path
 import lib.downloading as dl
-from lib.secrets import Secrets, SecretProperty
+from lib.secrets import Secrets
 import requests
 
 def collect(outputFilePath: Path) -> None:
-    secrets = Secrets()
+    secrets = Secrets("gbif")
 
     baseURL = "https://api.gbif.org/v1"
     requestEndpoint = "/occurrence/download/request"
@@ -15,9 +15,9 @@ def collect(outputFilePath: Path) -> None:
     }
 
     formData = {
-        "creator": secrets.get(SecretProperty.USERNAME, "gbif"),
+        "creator": secrets.username,
         "notificationAddresses": [
-            secrets.get(SecretProperty.EMAIL)
+            secrets.email
         ],
         "sendNotification": "false",
         "format": "SIMPLE_CSV",
@@ -61,7 +61,7 @@ def collect(outputFilePath: Path) -> None:
     }
 
     strFormData = str(formData).replace(" ", "").replace("'", '"')
-    response = requests.post(f"{baseURL}{requestEndpoint}", headers=headers, data=strFormData, auth=dl.buildAuth(secrets.get(SecretProperty.EMAIL), secrets.get(SecretProperty.PASSWORD, "gbif")))
+    response = requests.post(f"{baseURL}{requestEndpoint}", headers=headers, data=strFormData, auth=dl.buildAuth(secrets.email, secrets.password))
     requestID = response.text
 
     statusURL = f"{baseURL}{statusEndpoint}/{requestID}"

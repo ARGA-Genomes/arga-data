@@ -1,42 +1,43 @@
 from lib.settings import Settings
 import logging
-from typing import Any
 import toml
-from enum import Enum
-
-class SecretProperty(Enum):
-    EMAIL = "email"
-    ID = "id"
-    USERNAME = "username"
-    PASSWORD = "password"
-    API_KEY = "key"
+from typing import Any
 
 class Secrets:
-    def __init__(self):
-        self._path = None
+    def __init__(self, location: str = ""):
+        self.email = ""
+        self.id = ""
+        self.username = ""
+        self.password = ""
+        self.key = ""
 
-    def get(self, property: SecretProperty, location: str = "", defaultValue: Any = None) -> Any:
-        if not self._path:
-            self._resovlePath()
+        self._location = location
 
-        data = self._load()
+        self._loadFromFile(location)
 
-        if not location:
-            return data.get(property.value, None)
-        
-        subsection = data.get(location, None)
-        if subsection is None:
-            return defaultValue
-        
-        if property.value not in subsection:
-            return defaultValue
-        
-        return subsection[property.value]
-
-    def _resovlePath(self):
+    def _loadFromFile(self, location: str) -> None:
         settings = Settings()
-        self._path = settings.Files.SECRETS
 
-    def _load(self):
-        with open(self._path) as fp:
-            return toml.load(fp)
+        with open(settings.Files.SECRETS) as fp:
+            data = toml.load(fp)
+        
+        locationData = {}
+        if location:
+            if location not in data or not isinstance(data[location], dict):
+                logging.error(f"No secrets found for: {location}")
+                return
+            
+            locationData: dict = data.pop(location)
+
+        data: dict = {key: value for key, value in data.items() if not isinstance(value, dict)} | locationData
+
+        for key, value in data.items():
+            setattr(self, key, value)
+
+    def __getattribute__(self, name) -> Any:
+        value = super().__getattribute__(name)
+
+        if name in ("email", "id", "username", "password", "key") and not value:
+            logging.warning(f"No secret property '{name}' found" + f" for location '{self._location}'" if self._location else "")
+
+        return value

@@ -1,7 +1,7 @@
 import json
 import logging
 from lib.settings import Settings
-from lib.secrets import Secrets, SecretProperty
+from lib.secrets import Secrets
 from enum import Enum
 from pathlib import Path
 from lib.processing import tasks
@@ -154,21 +154,19 @@ class Database:
         downloadTaskConfig = downloadConfig.pop("tasks", None)
         if downloadTaskConfig is None:
             raise Exception(f"No download tasks specified in download config for {self.name}") from AttributeError
+        
+        overwrite = Flag.REPREPARE in flags
 
         # Get username/password for url/crawl downloads
-        secrets = Secrets()
-        username = secrets.get(SecretProperty.USERNAME, self.locationDir.name, "")
-        password = secrets.get(SecretProperty.PASSWORD, self.locationDir.name, "")
-
-        overwrite = Flag.REPREPARE in flags
+        secrets = Secrets(self.locationDir.name)
 
         retrieve = Retrieve._value2member_map_.get(retrieveType, None)
         for taskConfig in downloadTaskConfig:
             if retrieve == Retrieve.URL:
-                self._queuedTasks[Step.DOWNLOADING].append(tasks.UrlRetrieve(self.workingDirs[Step.DOWNLOADING], taskConfig, username, password))
+                self._queuedTasks[Step.DOWNLOADING].append(tasks.UrlRetrieve(self.workingDirs[Step.DOWNLOADING], taskConfig, secrets.username, secrets.password))
 
             elif retrieve == Retrieve.CRAWL:
-                self._queuedTasks[Step.DOWNLOADING].append(tasks.CrawlRetrieve(self.workingDirs[Step.DOWNLOADING], taskConfig, username, password, overwrite))
+                self._queuedTasks[Step.DOWNLOADING].append(tasks.CrawlRetrieve(self.workingDirs[Step.DOWNLOADING], taskConfig, secrets.username, secrets.password, overwrite))
 
             elif retrieve == Retrieve.SCRIPT:
                 self._queuedTasks[Step.DOWNLOADING].append(tasks.ScriptRunner(self.workingDirs[Step.DOWNLOADING], taskConfig, self.dirLookup, self._getCurrentLookup()))

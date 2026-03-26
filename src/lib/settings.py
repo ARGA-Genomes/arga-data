@@ -24,6 +24,7 @@ class Settings:
         self.srcDir = self.rootDir / "src"
         self.libDir = self.srcDir / "lib"
         self.scriptsDir = self.srcDir / "scripts"
+        self.logsDir = self.srcDir / "logs"
         self.settingsPath = self.rootDir / "settings.toml"
 
         if loadVariables:

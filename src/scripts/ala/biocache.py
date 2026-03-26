@@ -2,14 +2,14 @@ import requests
 from pathlib import Path
 import lib.downloading as dl
 import logging
-from lib.secrets import Secrets, SecretProperty
+from lib.secrets import Secrets
 import lib.bigFiles as bf
 
 def collectBiocache(queryParamters: dict, outputFilePath: Path) -> None:
     secrets = Secrets()
 
     paramters = {
-        "email": secrets.get(SecretProperty.EMAIL, defaultValue=""),
+        "email": secrets.email,
         "emailNotify": False
     }
 

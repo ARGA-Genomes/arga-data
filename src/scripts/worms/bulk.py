@@ -1,14 +1,14 @@
 from pathlib import Path
-from lib.secrets import Secrets, SecretProperty
+from lib.secrets import Secrets
 import requests
 import lib.downloading as dl
 from bs4 import BeautifulSoup
 import pandas as pd
 
 def retrieve(outputFilePath: Path):
-    secrets = Secrets()
+    secrets = Secrets("worms")
 
-    auth = dl.buildAuth(secrets.get(SecretProperty.EMAIL), secrets.get(SecretProperty.PASSWORD, "worms"))
+    auth = dl.buildAuth(secrets.email, secrets.password)
     response = requests.get("https://www.marinespecies.org/download/", auth=auth)
     soup = BeautifulSoup(response.content, "html.parser")
     dlTable = soup.find("table")

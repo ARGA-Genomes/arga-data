@@ -4,15 +4,15 @@ import pandas as pd
 import json
 import lib.dataframes as dff
 from lib.progressBar import ProgressBar
-from lib.secrets import Secrets, SecretProperty
+from lib.secrets import Secrets
 import logging
 
 def build(outputFile: Path) -> None:
-    secrets = Secrets()
+    secrets = Secrets("algaebase")
     entriesPerCall = 1000
     
     headers = {
-        "abapikey": secrets.get(SecretProperty.API_KEY, "algaebase")
+        "abapikey": secrets.key
     }
 
     def getApiPage(page: int) -> dict:
