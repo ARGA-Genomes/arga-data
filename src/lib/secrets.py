@@ -1,18 +1,43 @@
-from lib.tomlFiles import TomlLoader
-import lib.settings as settings
-from pathlib import Path
+from lib.settings import Settings
 import logging
+import toml
+from typing import Any
 
-def load() -> TomlLoader:
-    globalSettings = settings.load()
-    filePath = globalSettings.files.secrets
-    
-    if not isinstance(filePath, Path):
-        logging.error(f"Invalid secrets filepath: {filePath}")
-        exit()
+class Secrets:
+    def __init__(self, location: str = ""):
+        self.email = ""
+        self.id = ""
+        self.username = ""
+        self.password = ""
+        self.key = ""
 
-    if not filePath.exists():
-        logging.error(f"No secrets file found at {filePath}")
-        exit()
+        self._location = location
 
-    return TomlLoader(globalSettings.files.secrets)
+        self._loadFromFile(location)
+
+    def _loadFromFile(self, location: str) -> None:
+        settings = Settings()
+
+        with open(settings.Files.SECRETS) as fp:
+            data = toml.load(fp)
+        
+        locationData = {}
+        if location:
+            if location not in data or not isinstance(data[location], dict):
+                logging.error(f"No secrets found for: {location}")
+                return
+            
+            locationData: dict = data.pop(location)
+
+        data: dict = {key: value for key, value in data.items() if not isinstance(value, dict)} | locationData
+
+        for key, value in data.items():
+            setattr(self, key, value)
+
+    def __getattribute__(self, name) -> Any:
+        value = super().__getattribute__(name)
+
+        if name in ("email", "id", "username", "password", "key") and not value:
+            logging.warning(f"No secret property '{name}' found" + f" for location '{self._location}'" if self._location else "")
+
+        return value

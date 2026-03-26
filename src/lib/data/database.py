@@ -1,7 +1,7 @@
 import json
 import logging
-import lib.settings as settings
-import lib.secrets as scr
+from lib.settings import Settings
+from lib.secrets import Secrets
 from enum import Enum
 from pathlib import Path
 from lib.processing import tasks
@@ -90,6 +90,8 @@ class Database:
             self.config = json.loads(rawConfig)
 
         # Local storage and libraries
+        settings = Settings()
+
         self.exampleDir = self.subsectionDir / "examples" # Data sample storage location
         self.dirLookup = parse.DirLookup({
             ".": settings.scriptsDir / self.locationName(),
@@ -97,16 +99,15 @@ class Database:
         })
 
         # Local settings
-        self.settings = settings.load()
         for dir in (self.locationDir, self.databaseDir, self.subsectionDir):
             subdirConfig = Path(dir / "settings.toml")
             if subdirConfig.exists():
-                self.settings = self.settings.createChild(subdirConfig)
+                settings.update(subdirConfig)
 
         # Data storage
         self.dataDir = self.subsectionDir / "data" # Default data location
-        if self.settings.storage.data: # Overwrite data location
-            self.dataDir: Path = self.settings.storage.data / self.dataDir.relative_to(self.locationDir.parent) # Change parent of locationDir (dataSources folder) to storage dir
+        if settings.Storage.DATA: # Overwrite data location
+            self.dataDir: Path = settings.Storage.DATA / self.dataDir.relative_to(self.locationDir.parent) # Change parent of locationDir (dataSources folder) to storage dir
 
         self.workingDirs = {step: self.dataDir / step.value for step in Step}
 
@@ -153,22 +154,19 @@ class Database:
         downloadTaskConfig = downloadConfig.pop("tasks", None)
         if downloadTaskConfig is None:
             raise Exception(f"No download tasks specified in download config for {self.name}") from AttributeError
+        
+        overwrite = Flag.REPREPARE in flags
 
         # Get username/password for url/crawl downloads
-        secrets = scr.load()
-        sourceSecrets = secrets[self.locationDir.name]
-        username = sourceSecrets.username if sourceSecrets is not None else ""
-        password = sourceSecrets.password if sourceSecrets is not None else ""
-
-        overwrite = Flag.REPREPARE in flags
+        secrets = Secrets(self.locationDir.name)
 
         retrieve = Retrieve._value2member_map_.get(retrieveType, None)
         for taskConfig in downloadTaskConfig:
             if retrieve == Retrieve.URL:
-                self._queuedTasks[Step.DOWNLOADING].append(tasks.UrlRetrieve(self.workingDirs[Step.DOWNLOADING], taskConfig, username, password))
+                self._queuedTasks[Step.DOWNLOADING].append(tasks.UrlRetrieve(self.workingDirs[Step.DOWNLOADING], taskConfig, secrets.username, secrets.password))
 
             elif retrieve == Retrieve.CRAWL:
-                self._queuedTasks[Step.DOWNLOADING].append(tasks.CrawlRetrieve(self.workingDirs[Step.DOWNLOADING], taskConfig, username, password, overwrite))
+                self._queuedTasks[Step.DOWNLOADING].append(tasks.CrawlRetrieve(self.workingDirs[Step.DOWNLOADING], taskConfig, secrets.username, secrets.password, overwrite))
 
             elif retrieve == Retrieve.SCRIPT:
                 self._queuedTasks[Step.DOWNLOADING].append(tasks.ScriptRunner(self.workingDirs[Step.DOWNLOADING], taskConfig, self.dirLookup, self._getCurrentLookup()))

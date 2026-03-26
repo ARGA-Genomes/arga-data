@@ -1,4 +1,4 @@
-from lib.settings import dataSourcesDir
+from lib.settings import Settings
 import argparse
 from lib.data.sources import sourceConfigName
 from pathlib import Path
@@ -32,9 +32,11 @@ if __name__ == "__main__":
     parser.add_argument("type", choices=list(Retrieve._value2member_map_), help="Type of database to set up")
     args = parser.parse_args()
 
-    locationFolder: Path = dataSourcesDir / args.location
-    databaseFolder: Path = locationFolder / args.database
-    configFilePath: Path = databaseFolder / sourceConfigName
+    settings = Settings(False)
+
+    locationFolder = settings.dataSourcesDir / args.location
+    databaseFolder = locationFolder / args.database
+    configFilePath = databaseFolder / sourceConfigName
 
     if databaseFolder.exists():
         print(f"Database {args.location}-{args.database} already exists, exiting...")

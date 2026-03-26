@@ -2,7 +2,7 @@ import logging
 import pandas as pd
 from pathlib import Path
 from multiprocessing import Process, Queue
-import lib.secrets as scr
+from lib.secrets import Secrets
 from lib.bigFiles import RecordWriter
 from lib.progressBar import ProgressBar
 from lib.processing.files import DataFile
@@ -10,10 +10,9 @@ from llib.apiWorker import apiWorker
 import numpy as np
 
 def getStats(summaryFile: DataFile, outputPath: Path):
-    secrets = scr.load()
+    secrets = Secrets("ncbi")
 
-    apiKey = secrets.ncbi.key
-    if not isinstance(apiKey, str):
+    if not secrets.key:
         logging.error("No API key found in secrets file, and is required to access NCBI api. Please update 'secrets.toml' with 'key' field under 'ncbi'.")
         return
     
@@ -37,7 +36,7 @@ def getStats(summaryFile: DataFile, outputPath: Path):
         start = startingAccession + (processNumber * accessionsPerProcess)
         end = start + accessionsPerProcess
         accessions = df[accessionCol].iloc[start:end].tolist()
-        p = Process(target=apiWorker, args=(queue, processNumber, apiKey, recordsPerCall, accessions), daemon=True)
+        p = Process(target=apiWorker, args=(queue, processNumber, secrets.key, recordsPerCall, accessions), daemon=True)
         p.start()
         processList.append(p)
     logging.info(f"Started {len(processList)} workers")

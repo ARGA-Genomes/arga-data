@@ -1,5 +1,5 @@
 import logging
-import lib.settings as settings
+from lib.settings import Settings
 from pathlib import Path
 from datetime import datetime
 import sys
@@ -14,36 +14,27 @@ logLevelLookup = {
 
 def createLogger() -> logging.Logger:
     logger = logging.getLogger()
+    settings = Settings()
 
-    if settings.exists():
-        globalSettings = settings.load()
-        logToConsole = globalSettings.logging.logToConsole
-        logLevel = globalSettings.logging.logLevel
-        logFolder = globalSettings.folders.logs
-    else: # Default logging config
-        logToConsole = True
-        logLevel = "debug"
-        logFolder = settings.rootDir / "logs"
-
-    level = logLevelLookup.get(logLevel, None)
+    level = logLevelLookup.get(settings.Logging.LOG_LEVEL, None)
     if level is None:
-        raise Exception(f"Invalid logging level '{logLevel}', please adjust to one of [{', '.join(logLevelLookup.keys())}] in config.toml")
+        raise Exception(f"Invalid logging level '{level}', please adjust to one of [{', '.join(logLevelLookup.keys())}] in config.toml")
 
     logger.setLevel(level)
 
     formatter = logging.Formatter("[%(asctime)s] %(levelname)s: %(message)s", "%H:%M:%S")
 
-    logFolder.mkdir(parents=True, exist_ok=True)
+    settings.logsDir.mkdir(parents=True, exist_ok=True)
 
     logFileName = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-    logFilePath = logFolder / f"{logFileName}.log"
+    logFilePath = settings.logsDir / f"{logFileName}.log"
 
     fileHandler = logging.FileHandler(filename=logFilePath)
     fileHandler.setFormatter(formatter)
     fileHandler.setLevel(logging.INFO)
     logger.addHandler(fileHandler)
 
-    if logToConsole:
+    if settings.Logging.LOG_TO_CONSOLE:
         streamHandler = logging.StreamHandler(sys.stdout)
         streamHandler.setFormatter(formatter)
         logger.addHandler(streamHandler)

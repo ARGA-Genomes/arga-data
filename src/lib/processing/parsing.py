@@ -81,7 +81,7 @@ def parseArg(arg: Any, relativeDir: Path, dirLookup: DirLookup = None, dataFileL
     if not isinstance(arg, str):
         return arg
 
-    if arg.startswith("."):
+    if "/" in arg:
         return parsePath(arg, relativeDir, dirLookup)
     
     if arg.startswith("{") and arg.endswith("}"):
@@ -97,6 +97,9 @@ def parsePath(arg: str, relativeDir: Path, dirLookup: DirLookup = None) -> Path 
     prefix, relPath = arg.split("/", 1)
     if dirLookup is not None and dirLookup.contains(prefix):
         return dirLookup.remap(relPath, prefix)
+    
+    if len(prefix) == 2 and prefix[0].isupper() and prefix[1] == ":":
+        return Path(arg)
 
     if prefix == ".":
         return relativeDir / relPath

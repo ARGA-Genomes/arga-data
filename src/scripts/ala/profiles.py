@@ -1,7 +1,7 @@
 import requests
 import pandas as pd
 from pathlib import Path
-import lib.secrets as scr
+from lib.secrets import Secrets
 import lib.downloading as dl
 from lib.progressBar import ProgressBar
 import logging
@@ -9,13 +9,13 @@ import lib.dataframes as dff
 
 def collect(outputDir: Path, profile: str) -> None:
     session = requests.session()
-    secrets = scr.load()
+    secrets = Secrets("ala")
 
     response = session.post(
         "https://auth.ala.org.au/cas/oidc/oidcAccessToken",
         headers={"Content-Type": "application/x-www-form-urlencoded"},
         data="grant_type=client_credentials&scope=openid email profile roles",
-        auth=dl.buildAuth(secrets.ala.id, secrets.ala.secret)
+        auth=dl.buildAuth(secrets.id, secrets.key)
     )
 
     accessToken = response.json()["access_token"]
