@@ -7,6 +7,7 @@ from lib.crawler import Crawler
 from lib.converting import Converter
 from datetime import date
 import lib.processing.parsing as parse
+from lib.secrets import Secrets
 
 class Task:
     def __init__(self, outputs: list[DataFile] = []):
@@ -30,11 +31,11 @@ class UrlRetrieve(Task):
     _url = "url"
     _name = "name"
     _properties = "properties"
+    _auth = "auth"
 
-    def __init__(self, workingDir: Path, config: dict, username: str, password: str):
+    def __init__(self, workingDir: Path, config: dict, secretLocation: str):
         self.workingDir = workingDir
-        self.username = username
-        self.password = password
+        self.auth = None
 
         self.url = config.get(self._url, None)
         if self.url is None:
@@ -43,6 +44,11 @@ class UrlRetrieve(Task):
         fileName = config.get(self._name, None)
         if fileName is None:
             raise Exception("No filename provided to download to") from AttributeError
+        
+        auth = config.get(self._auth, False)
+        if auth:
+            secrets = Secrets(secretLocation)
+            self.auth = secrets.getAuth()
     
         properties = config.get(self._properties, {})
         self.file = DataFile(self.workingDir / fileName, properties)
@@ -55,7 +61,7 @@ class UrlRetrieve(Task):
             return False
         
         self.file.delete()
-        return dl.download(self.url, self.file.path, verbose=verbose, auth=dl.buildAuth(self.username, self.password))
+        return dl.download(self.url, self.file.path, verbose=verbose, auth=self.auth)
 
 class CrawlRetrieve(Task):
 
@@ -67,11 +73,11 @@ class CrawlRetrieve(Task):
     _link = "link"
     _properties = "properties"
     _filenameURLParts = "urlPrefix"
+    _auth = "auth"
 
-    def __init__(self, workingDir: Path, config: dict, username: str, password: str, overwrite: bool):
+    def __init__(self, workingDir: Path, config: dict, secretLocation: str, overwrite: bool):
         self.workingDir = workingDir
-        self.username = username
-        self.password = password
+        self.auth = None
 
         url = config.pop(self._url, None)
         regex = config.pop(self._regex, None)
@@ -80,8 +86,13 @@ class CrawlRetrieve(Task):
         filenameURLParts = config.pop(self._filenameURLParts, 1)
         skipFolders = config.pop(self._skipFolders, [])
         properties = config.pop(self._properties, {})
+        auth = config.pop(self._auth, False)
 
-        crawler = Crawler(self.workingDir, dl.buildAuth(self.username, self.password))
+        if auth:
+            secrets = Secrets(secretLocation)
+            self.auth = secrets.getAuth()
+
+        crawler = Crawler(self.workingDir, self.auth)
         crawler.run(url, regex, maxDepth, skipFolders, overwrite)
         urlList = crawler.getFileURLs(link)
 
@@ -99,7 +110,7 @@ class CrawlRetrieve(Task):
                 continue
 
             downloadFile.delete()
-            dl.download(downloadURL, downloadFile.path, auth=dl.buildAuth(self.username, self.password), verbose=verbose)
+            dl.download(downloadURL, downloadFile.path, auth=self.auth, verbose=verbose)
             downloadsRun = True
 
         return downloadsRun

@@ -1,7 +1,6 @@
 import json
 import logging
 from lib.settings import Settings
-from lib.secrets import Secrets
 from enum import Enum
 from pathlib import Path
 from lib.processing import tasks
@@ -155,18 +154,13 @@ class Database:
         if downloadTaskConfig is None:
             raise Exception(f"No download tasks specified in download config for {self.name}") from AttributeError
         
-        overwrite = Flag.REPREPARE in flags
-
-        # Get username/password for url/crawl downloads
-        secrets = Secrets(self.locationDir.name)
-
         retrieve = Retrieve._value2member_map_.get(retrieveType, None)
         for taskConfig in downloadTaskConfig:
             if retrieve == Retrieve.URL:
-                self._queuedTasks[Step.DOWNLOADING].append(tasks.UrlRetrieve(self.workingDirs[Step.DOWNLOADING], taskConfig, secrets.username, secrets.password))
+                self._queuedTasks[Step.DOWNLOADING].append(tasks.UrlRetrieve(self.workingDirs[Step.DOWNLOADING], taskConfig, self.locationDir.name))
 
             elif retrieve == Retrieve.CRAWL:
-                self._queuedTasks[Step.DOWNLOADING].append(tasks.CrawlRetrieve(self.workingDirs[Step.DOWNLOADING], taskConfig, secrets.username, secrets.password, overwrite))
+                self._queuedTasks[Step.DOWNLOADING].append(tasks.CrawlRetrieve(self.workingDirs[Step.DOWNLOADING], taskConfig, self.locationDir.name, Flag.REPREPARE in flags))
 
             elif retrieve == Retrieve.SCRIPT:
                 self._queuedTasks[Step.DOWNLOADING].append(tasks.ScriptRunner(self.workingDirs[Step.DOWNLOADING], taskConfig, self.dirLookup, self._getCurrentLookup()))

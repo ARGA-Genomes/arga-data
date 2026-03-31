@@ -4,7 +4,8 @@
         "tasks": [
             {
                 "url": "http://v4.boldsystems.org/index.php/API_Public/combined?geo=Australia&format=xml",
-                "name": "bold_data.xml"
+                "name": "bold_data.xml",
+                "auth": true
             }
         ]
     },

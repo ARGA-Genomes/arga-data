@@ -5,7 +5,8 @@
             {
                 "url": "https://db.anemone.bio/dist/",
                 "regex": ".*\\.tsv\\.xz",
-                "urlPrefix": 2
+                "urlPrefix": 2,
+                "auth": true
             }
         ]
     },
