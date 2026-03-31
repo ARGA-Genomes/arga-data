@@ -2,6 +2,7 @@ from lib.settings import Settings
 import logging
 import toml
 from typing import Any
+from requests.auth import HTTPBasicAuth
 
 class Secrets:
     def __init__(self, location: str = ""):
@@ -41,3 +42,6 @@ class Secrets:
             logging.warning(f"No secret property '{name}' found" + f" for location '{self._location}'" if self._location else "")
 
         return value
+
+    def getAuth(self) -> HTTPBasicAuth:
+        return HTTPBasicAuth(self.username, self.password)

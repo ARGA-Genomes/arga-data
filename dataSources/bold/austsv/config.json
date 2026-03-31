@@ -5,6 +5,7 @@
             {
                 "url": "http://v4.boldsystems.org/index.php/API_Public/combined?geo=Australia&format=tsv",
                 "name": "bold_data.tsv",
+                "auth": true,
                 "properties": {
                     "encoding": "iso-8859-1"
                 }
