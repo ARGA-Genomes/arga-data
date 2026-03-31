@@ -78,11 +78,8 @@ def clearFolder(folderPath: Path, delete: bool = False) -> None:
         return
     
     for item in folderPath.iterdir():
-        if item.is_file():
-            item.unlink()
-        else:
-            clearFolder(item, True)
-    
+        item.unlink() if item.is_file() else clearFolder(item, True)
+
     if delete:
         folderPath.rmdir()
 

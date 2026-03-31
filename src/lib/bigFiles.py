@@ -56,26 +56,32 @@ class DFWriter:
         self._sectionFiles.append(subfile)
         self._uniqueColumns |= {column: None for column in df.columns}
 
-    def combine(self, readChunkSize: int = 1024, removeParts: bool = False, **kwargs) -> None:
+    def combine(self, readChunkSize: int = 1024, removeParts: bool = False, verbose: bool = True, **kwargs) -> None:
         if self.outputFile.exists():
-            logging.info(f"Removing old file {self.outputFile.path}")
+            if verbose:
+                logging.info(f"Removing old file {self.outputFile.path}")
             self.outputFile.delete()
 
         if len(self._sectionFiles) == 0:
-            logging.warning(f"No files written, unable to create output file")
+            if verbose:
+                logging.warning(f"No files written, unable to create output file")
             return
 
         if len(self._sectionFiles) == 1:
-            logging.info(f"Only single subfile, moving {self._sectionFiles[0].path} to {self.outputFile.path}")
+            if verbose:
+                logging.info(f"Only single subfile, moving {self._sectionFiles[0].path} to {self.outputFile.path}")
             files.moveDataFile(self._sectionFiles[0], self.outputFile)
         else:
-            logging.info("Combining into one file")
+            if verbose:
+                logging.info("Combining into one file")
             self.outputFile.writeIterator(combinedIterator(self._sectionFiles, readChunkSize), list(self._uniqueColumns), **kwargs)
-            logging.info(f"Created a single file at {self.outputFile.path}")
+
+            if verbose:
+                logging.info(f"Created a single file at {self.outputFile.path}")
         
         if removeParts:
-            self._sectionFiles.clear()
             self.workingDir.delete()
+            self._sectionFiles.clear()
 
 class RecordWriter(DFWriter):
     
@@ -109,11 +115,11 @@ class RecordWriter(DFWriter):
         for record in records:
             self.write(record)
 
-    def combine(self, readChunkSize: int = 1024, removeParts: bool = False, **kwargs) -> None:
+    def combine(self, readChunkSize: int = 1024, removeParts: bool = False, verbose: bool = True, **kwargs) -> None:
         if self._records:
             self._writeRecords()
 
-        super().combine(readChunkSize, removeParts, **kwargs)
+        super().combine(readChunkSize, removeParts, verbose, **kwargs)
 
 def combinedIterator(dataFiles: list[DataFile], chunkSize: int, **kwargs: dict) -> Iterator[pd.DataFrame]:
     for file in dataFiles:

@@ -8,19 +8,19 @@
             }
         ]
     },
-    "processing": {
-        "linear": [
-            {
-                "path": "./variant.py",
-                "function": "combine",
-                "args": [
-                    "{IN-DIR}",
-                    "{OUT-PATH}"
-                ],
-                "output": "eva.csv"
-            }
-        ]
-    },
+    "processing": [
+        {
+            "path": "./variant.py",
+            "function": "combine",
+            "args": [
+                "{IN-DIR}",
+                "{OUT-PATH}"
+            ],
+            "outputs": [
+                "eva.csv"
+            ]
+        }
+    ],
     "conversion": {
         "datasetID": "ARGA:TL:0002007",
         "mapID": 1058330275
