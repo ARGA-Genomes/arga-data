@@ -31,12 +31,12 @@ def _parseVCF(filePath: Path, outputDir: Path) -> None:
                 elif line.startswith("##reference="):
                     for item in line[len("##reference=<"):-len(">")].split(","):
                         key, value = item.split("=", 1)
-                        reference[key.lower()] = value
+                        reference[f"REFERENCE_{key.upper()}"] = value
 
     for df in pd.read_csv(filePath, header=rows, sep="\t", chunksize=500000, na_values=["."], low_memory=False):
         df: pd.DataFrame = df.fillna("")
 
-        df["#CHROM"] = df["#CHROM"].map(contigs)
+        df["CONTIG"] = df["#CHROM"].map(contigs)
         for key, value in reference.items():
             df[key] = value
 
