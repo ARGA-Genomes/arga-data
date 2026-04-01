@@ -4,12 +4,12 @@ import urllib.parse
 from bs4 import BeautifulSoup
 import concurrent.futures as cf
 from pathlib import Path
-import json
 import logging
 import lib.downloading as dl
 import time
 from lib.progressBar import ProgressBar
 from lib.json import JsonSynchronizer
+from requests.adapters import HTTPAdapter, Retry
 
 
 class PageData:
@@ -62,11 +62,14 @@ class Crawler:
         self.session = None
         self.data = []
 
-    def run(self, entryURL: str, fileRegex: str = None, maxDepth: int = -1, skipFolders: list[str] = [], ignoreProgress: bool = False):
+    def run(self, entryURL: str, fileRegex: str = None, maxDepth: int = -1, skipFolders: list[str] = [], ignoreProgress: bool = False, retries: bool = 5):
         if not self.outputDir.exists():
             self.outputDir.mkdir(parents=True)
 
         self.session = requests.Session()
+        retries = Retry(total=retries, backoff_factor=0.1)
+        self.session.mount("https://", HTTPAdapter(max_retries=retries))
+
         pattern = re.compile(fileRegex) if fileRegex is not None else None
         if maxDepth < 0:
             maxDepth = self._depthLimit
@@ -137,19 +140,12 @@ class Crawler:
 
         return data
 
-    def _getPageLinks(self, url: str, filePattern: re.Pattern = None, retries: int = 5) -> dict[str, dict[str, list[str]]]:
+    def _getPageLinks(self, url: str, filePattern: re.Pattern = None) -> dict[str, dict[str, list[str]]]:
         if self.session is None:
             raise Exception("No session started") from ValueError
 
-        for _ in range(retries):
-            try:
-                response = self.session.get(url, auth=self.auth)
-                break
-            except (ConnectionError, requests.exceptions.ConnectionError):
-                time.sleep(0.5)
-        else:
-            return
-        
+        response = self.session.get(url, auth=self.auth)
+
         dirLinks = []
         fileLinks = []
 
