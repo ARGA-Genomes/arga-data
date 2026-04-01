@@ -8,4 +8,4 @@ if __name__ == '__main__':
 
     sources, flags, args = parser.parseArgs()
     for source in sources:
-        source.create(Step.DOWNLOADING, flags)
+        source.create(Step.DOWNLOADING, flags, -1)

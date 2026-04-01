@@ -108,7 +108,7 @@ class Database:
         if settings.Storage.DATA: # Overwrite data location
             self.dataDir: Path = settings.Storage.DATA / self.dataDir.relative_to(self.locationDir.parent) # Change parent of locationDir (dataSources folder) to storage dir
 
-        self.workingDirs = {step: self.dataDir / step.value for step in Step}
+        self.workingDirs = {}
 
         # Tasks
         self._queuedTasks: dict[Step, list[tasks.Task]] = {step: [] for step in Step}
@@ -269,7 +269,29 @@ class Database:
         self.updateTotalTime(time.perf_counter() - startTime, allSucceeded)
         return allSucceeded
     
-    def create(self, fileStep: Step, flags: list[Flag]) -> None:
+    def _generateWorkingDirs(self, historicFolderNum) -> bool:
+
+        def _generate(folder: Path) -> None:
+            self.workingDirs = {step: folder / step.value for step in Step}
+
+        todaysDataDir = self.dataDir / str(datetime.now().date())   
+        if historicFolderNum == -1: # Force today
+            _generate(todaysDataDir)
+            return True
+
+        historicFolders = sorted(item for item in self.dataDir.iterdir() if item.is_dir())
+        if historicFolderNum > (len(historicFolders) - 1):
+            logging.error(f"Unable to select historic folder #{historicFolderNum} as there are only {len(historicFolders)}")
+            return False
+        
+        _generate(historicFolders[historicFolderNum])
+        return True
+
+    def create(self, fileStep: Step, flags: list[Flag], historicFolderNum: int = 0) -> None:
+        success = self._generateWorkingDirs(historicFolderNum)
+        if not success:
+            return
+
         try:
             success = self._prepare(fileStep, flags)
             if not success:
