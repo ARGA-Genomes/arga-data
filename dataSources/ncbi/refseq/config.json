@@ -53,7 +53,7 @@
     },
     "updating": {
         "type": "weekly",
-        "repeatDay": "sunday",
-        "repeatFreq": 1
+        "day": "sunday",
+        "interval": 1
     }
 }
