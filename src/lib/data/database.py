@@ -79,10 +79,10 @@ class Database:
         settings = Settings()
 
         self.exampleDir = self.subsectionDir / "examples" # Data sample storage location
-        self.dirLookup = parse.DirLookup({
+        self.dirLookup = {
             ".": settings.scriptsDir / self.locationName(),
             ".lib": settings.libDir,
-        })
+        }
 
         # Local settings
         for dir in (self.locationDir, self.databaseDir, self.subsectionDir):
@@ -120,13 +120,6 @@ class Database:
 
     def _flattenTaskOutputs(self, taskList: list[tasks.Task]) -> list[DataFile]:
         return [output for task in taskList for output in task.getOutputs()]
-    
-    def _getCurrentLookup(self) -> parse.DataFileLookup:
-        inputs = self._flattenTaskOutputs(self._queuedTasks[Step.PROCESSING][-1:] or self._queuedTasks[Step.DOWNLOADING][-1:])
-        downloads = self._flattenTaskOutputs(self._queuedTasks[Step.DOWNLOADING])
-        processed = self._flattenTaskOutputs(self._queuedTasks[Step.PROCESSING])
-
-        return parse.DataFileLookup(inputs, downloads, processed)
 
     def _prepareDownload(self, flags: list[Flag]) -> None:
         downloadConfig: dict = self.config.pop(Step.DOWNLOADING.value, {})
@@ -167,11 +160,6 @@ class Database:
             raise Exception(f"No conversion config specified as required for {self.name}") from AttributeError
 
         overwrite = Flag.REPREPARE in flags
-        if self._queuedTasks[Step.PROCESSING]:
-            inputFile = self._queuedTasks[Step.PROCESSING][-1].getOutputs()[0] # Last processed file for conversion
-        else:
-            inputFile = self._queuedTasks[Step.DOWNLOADING][-1].getOutputs()[0]
-
         self._queuedTasks[Step.CONVERSION].append(tasks.Conversion(self.workingDirs[Step.CONVERSION], self.databaseDir, conversionConfig, self.locationName(), self.name, self.subsection, overwrite))
 
     def _prepare(self, fileStep: Step, flags: list[Flag]) -> bool:

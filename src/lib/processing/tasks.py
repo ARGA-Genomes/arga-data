@@ -23,15 +23,16 @@ class Metadata(Enum):
     LAST_SUCCESS_DURATION = "last success duration"
     TOTAL_DURATION = "total duration"
     LAST_SUCCESS_TOTAL_DURATION = "last success total duration"
+    TASK_COMPONENTS = "task components"
     CUSTOM = ""
 
 class Task:
     def __init__(self, workingDir: Path):
         self.workingDir = workingDir
-        self._subTasks = []
+        self._subTasks: list['Task'] = []
 
     @staticmethod
-    def fromVars(cls: Task, workingDir: Path, **kwargs: dict):
+    def fromVars(cls: 'Task', workingDir: Path, **kwargs: dict):
         oldInit = cls.__init__
         cls.__init__ = lambda *args, **kwargs: None
 
@@ -44,7 +45,7 @@ class Task:
 
         return instance
     
-    def addSubTask(self, subTask: Task) -> None:
+    def addSubTask(self, subTask: 'Task') -> None:
         self._subTasks.append(subTask)
 
     def _execute(self, overwrite: bool, verbose: bool) -> tuple[bool, dict]:
@@ -64,9 +65,6 @@ class Task:
         
         outputs = [item for item in self.workingDir.iterdir() if item not in workingDirFiles]
 
-        duration = time.perf_counter() - startTime
-        endDate = datetime.now().isoformat()
-
         metadata = {
             Metadata.OUTPUTS: outputs,
             Metadata.SUCCESS: success,
@@ -76,7 +74,32 @@ class Task:
             Metadata.CUSTOM: extraMetadata
         }
 
-        if success:
+        if not self._subTasks:
+            duration = time.perf_counter() - startTime
+            endDate = datetime.now().isoformat()
+
+            if success:
+                metadata |= {
+                    Metadata.LAST_SUCCESS_START: startDate,
+                    Metadata.LAST_SUCCESS_END: endDate,
+                    Metadata.LAST_SUCCESS_DURATION: duration
+                }
+
+            return metadata
+        
+        # Subtasks were generated during execution, run those now
+        metadata[Metadata.TASK_COMPONENTS] = []
+        for subTask in self._subTasks:
+            subTaskMetadata = subTask.run(overwrite, verbose)
+
+            metadata[Metadata.OUTPUTS] = metadata[Metadata.OUTPUTS] + subTaskMetadata[Metadata.OUTPUTS]
+            metadata[Metadata.SUCCESS] = metadata[Metadata.SUCCESS] & subTaskMetadata[Metadata.SUCCESS]
+            metadata[Metadata.TASK_COMPONENTS].append(subTaskMetadata)
+
+        duration = time.perf_counter() - startTime
+        endDate = datetime.now().isoformat()
+
+        if metadata[Metadata.SUCCESS]:
             metadata |= {
                 Metadata.LAST_SUCCESS_START: startDate,
                 Metadata.LAST_SUCCESS_END: endDate,

@@ -74,4 +74,4 @@ class Settings:
         for key, pair in data.items():
             for variable, value in pair.items():
                 subClass = getattr(self, key.capitalize())
-                setattr(subClass, variable.upper(), parsing.parseArg(value, path.parent))
+                setattr(subClass, variable.upper(), parsing.parsePath(value, path.parent, {}))

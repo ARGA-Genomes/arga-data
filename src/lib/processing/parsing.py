@@ -5,6 +5,12 @@ from lib.processing.files import DataFile
 from typing import Any
 
 def parsePath(arg: str, relativeDir: Path, dirLookup: dict[str, Path]) -> Path | Any:
+    if not isinstance(arg, str):
+        return arg
+    
+    if "/" not in arg:
+        return arg
+
     prefix, relPath = arg.split("/", 1)
     if prefix in dirLookup:
         return dirLookup[prefix] / relPath
