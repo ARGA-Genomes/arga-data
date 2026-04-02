@@ -132,15 +132,14 @@ class ScriptRunner(Task):
         if not modulePath:
             raise Exception("No `path` specified in script config") from AttributeError
 
-        modulePath = parse.parseArg(modulePath, workingDir, dirLookup, fileLookup)
+        modulePath = parse.parsePath(modulePath, workingDir, dirLookup, fileLookup)
 
         functionName = config.pop(self._functionName, "")
         if not functionName:
             raise Exception("No `function` specified in script config") from AttributeError
 
-        outputs = config.pop(self._outputs, [])
-        if not outputs:
-            raise Exception("No `outputs` specified in script config") from AttributeError        
+        inputs = config.pop(self._inputs, [])
+        inputs = parse.parseInputs(inputs, )
 
         # Split script if necessary for parallel tasks
         lookups: list[parse.DataFileLookup] = []

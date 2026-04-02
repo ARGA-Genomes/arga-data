@@ -8,14 +8,12 @@
                 "args": [
                     "{OUT-PATH}",
                     1000
-                ],
-                "outputs": [
-                    "bpa.csv"
                 ]
             }
         ]
     },
     "conversion": {
+        "input": "{D0}",
         "datasetID": "ARGA:TL:0005000",
         "mapColumnName": "BPA mappings",
         "entityColumn": "canonical_name"

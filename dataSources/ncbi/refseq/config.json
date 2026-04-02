@@ -15,39 +15,28 @@
         {
             "path": "./lib.py",
             "function": "getStats",
-            "args": [
-                "{IN-FILE}",
-                "{OUT-PATH}"
-            ],
-            "outputs": [
-                "apiData.csv"
+            "inputs": [
+                "{D^|0-PATH}"
             ]
         },
         {
             "path": "./lib.py",
             "function": "merge",
-            "args": [
-                "{D0-FILE}",
-                "{IN-PATH}",
-                "{OUT-PATH}"
-            ],
-            "outputs": [
-                "refseq.csv"
+            "inputs": [
+                "{D^|0}",
+                "{P^|0}"
             ]
         },
-            {
-                "path": "./lib.py",
-                "function": "cleanData",
-                "args": [
-                    "{IN-PATH}",
-                    "{OUT-PATH}"
-                ],
-                "outputs": [
-                    "cleanRefseq.csv"
-                ]
-            }
+        {
+            "path": "./lib.py",
+            "function": "cleanData",
+            "inputs": [
+                "{P^|0}"
+            ]
+        }
     ],
     "conversion": {
+        "input": "{P^|0}",
         "datasetID": "ARGA:TL:0002002",
         "mapID": 2003682060
     },
