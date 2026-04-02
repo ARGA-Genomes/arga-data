@@ -5,26 +5,18 @@ from lib.processing.scripts import OutputScript
 import lib.downloading as dl
 from lib.crawler import Crawler
 from lib.converting import Converter
-from datetime import date
 import lib.processing.parsing as parse
 from lib.secrets import Secrets
 
 class Task:
-    def __init__(self, outputs: list[DataFile] = []):
-        self._runMetadata = {}
-        self._outputs = outputs
+    def __init__(self, workingDir: Path):
+        self.workingDir = workingDir
 
-    def getOutputs(self) -> list[DataFile]:
-        return self._outputs
-
-    def run(self, overwrite: bool, verbose: bool) -> bool:
+    def _execute(self, overwrite: bool, verbose: bool):
         return True
-    
-    def setAdditionalMetadata(self, metadata: dict) -> None:
-        self._runMetadata.update(metadata)
 
-    def getMetadata(self) -> dict:
-        return self._runMetadata
+    def run(self, overwrite: bool, verbose: bool, lastOutputs: list[DataFile] = []) -> bool:
+        return self._execute(overwrite, verbose, lastOutputs)            
 
 class UrlRetrieve(Task):
 
@@ -34,34 +26,24 @@ class UrlRetrieve(Task):
     _auth = "auth"
 
     def __init__(self, workingDir: Path, config: dict, secretLocation: str):
-        self.workingDir = workingDir
-        self.auth = None
+        super().__init__(workingDir)
 
         self.url = config.get(self._url, None)
         if self.url is None:
             raise Exception("No url provided for source") from AttributeError
 
-        fileName = config.get(self._name, None)
-        if fileName is None:
+        self.fileName = config.get(self._name, None)
+        if self.fileName is None:
             raise Exception("No filename provided to download to") from AttributeError
-        
-        auth = config.get(self._auth, False)
+
+        self.auth # Default value
+        auth = config.get(self._auth, False) # True/False flag
         if auth:
             secrets = Secrets(secretLocation)
             self.auth = secrets.getAuth()
-    
-        properties = config.get(self._properties, {})
-        self.file = DataFile(self.workingDir / fileName, properties)
-
-        super().__init__([self.file])
 
     def run(self, overwrite: bool, verbose: bool) -> bool:
-        if not overwrite and self.file.exists():
-            logging.info(f"Output file {self.file.path} already exists")
-            return False
-        
-        self.file.delete()
-        return dl.download(self.url, self.file.path, verbose=verbose, auth=self.auth)
+        return dl.download(self.url, self.workingDir / self.fileName, verbose=verbose, auth=self.auth)
 
 class CrawlRetrieve(Task):
 
@@ -75,45 +57,34 @@ class CrawlRetrieve(Task):
     _filenameURLParts = "urlPrefix"
     _auth = "auth"
 
-    def __init__(self, workingDir: Path, config: dict, secretLocation: str, overwrite: bool):
-        self.workingDir = workingDir
+    def __init__(self, workingDir: Path, config: dict, secretLocation: str):
+        super().__init__(workingDir)
+
+        self.url = config.pop(self._url, None)
+        self.regex = config.pop(self._regex, None)
+        self.link = config.pop(self._link, "")
+        self.maxDepth = config.pop(self._maxDepth, -1)
+        self.filenameURLParts = config.pop(self._filenameURLParts, 1)
+        self.skipFolders = config.pop(self._skipFolders, [])
+        
         self.auth = None
-
-        url = config.pop(self._url, None)
-        regex = config.pop(self._regex, None)
-        link = config.pop(self._link, "")
-        maxDepth = config.pop(self._maxDepth, -1)
-        filenameURLParts = config.pop(self._filenameURLParts, 1)
-        skipFolders = config.pop(self._skipFolders, [])
-        properties = config.pop(self._properties, {})
         auth = config.pop(self._auth, False)
-
         if auth:
             secrets = Secrets(secretLocation)
             self.auth = secrets.getAuth()
 
-        crawler = Crawler(self.workingDir, self.auth)
-        crawler.run(url, regex, maxDepth, skipFolders, overwrite)
-        urlList = crawler.getFileURLs(link)
-
-        self.downloads: list[tuple[str, DataFile]] = []
-        for url in urlList:
-            fileName = "_".join(url.split("/")[-filenameURLParts:])
-            self.downloads.append((url, DataFile(self.workingDir / fileName, properties)))
-
-        super().__init__([downloadFile for _, downloadFile in self.downloads])
-
     def run(self, overwrite: bool, verbose: bool) -> bool:
-        downloadsRun = False
-        for downloadURL, downloadFile in self.downloads:
-            if not overwrite and downloadFile.exists():
-                continue
+        crawler = Crawler(self.workingDir, self.auth)
+        crawler.run(self.url, self.regex, self.maxDepth, self.skipFolders, overwrite)
+        urlList = crawler.getFileURLs(self.link)
 
-            downloadFile.delete()
-            dl.download(downloadURL, downloadFile.path, auth=self.auth, verbose=verbose)
-            downloadsRun = True
+        allSuccess = True
+        for url in urlList:
+            fileName = "_".join(url.split("/")[-self.filenameURLParts:])
+            success = dl.download(url, self.workingDir / fileName, auth=self.auth, verbose=verbose)
+            allSuccess &= success
 
-        return downloadsRun
+        return allSuccess
 
 class ScriptRunner(Task):
 
@@ -126,6 +97,8 @@ class ScriptRunner(Task):
     _outputs = "outputs"
 
     def __init__(self, workingDir: Path, config: dict, dirLookup: dict[str, Path], downloaded: list[list[DataFile]], processed: list[list[DataFile]]):
+        super().__init__(workingDir)
+
         modulePath = config.pop(self._modulePath, "")
         if not modulePath:
             raise Exception("No `path` specified in script config") from AttributeError
@@ -162,42 +135,47 @@ class Conversion(Task):
     _datasetID = "datasetID"
     _mapID = "mapID"
     _mapColumnName = "mapColumnName"
+    _input = "input"
     _entityEvent = "entityEvent"
     _entityColumn = "entityColumn"
     _chunkSize = "chunkSize"
 
-    def __init__(self, workingDir: Path, mapDir: Path, config: dict, inputFile: DataFile, prefix: str, name: str, subsection: str, retrieveMap: bool):
-        self.workingDir = workingDir
+    def __init__(self, workingDir: Path, mapDir: Path, config: dict, prefix: str, name: str, subsection: str, downloaded: list[list[DataFile]], processed: list[list[DataFile]]):
+        super().__init__(workingDir)
 
-        datasetID = config.pop(self._datasetID, "")
-        if isinstance(datasetID, dict):
-            datasetID = datasetID.get(subsection, "")
+        self.datasetID = config.pop(self._datasetID, "")
+        if isinstance(self.datasetID, dict):
+            self.datasetID = self.datasetID.get(subsection, "")
 
-        if not datasetID:
+        if not self.datasetID:
             error = "No `datasetID` specified"
             if subsection:
                 error += f" for subsection `{subsection}`"
 
             raise Exception(error) from AttributeError
 
-        mapID = config.pop(self._mapID, "")
-        mapColumnName = config.pop(self._mapColumnName, "")
-        if not mapID and not mapColumnName:
+        self.mapID = config.pop(self._mapID, "")
+        self.mapColumnName = config.pop(self._mapColumnName, "")
+        if not self.mapID and not self.mapColumnName:
             raise Exception(f"No `mapID` or `mapColumnName` specified") from AttributeError
+        
+        self.input = config.pop(self._input, "")
+        if not self.input:
+            raise Exception(f"No `input` specified") from AttributeError
+        
+        self.input = parse.parseInput(self.input, downloaded, processed)[0] # Singular input
 
-        entityEvent = config.pop(self._entityEvent, "collection")
-        entityColumn = config.pop(self._entityColumn, "scientific_name")
+        self.entityEvent = config.pop(self._entityEvent, "collection")
+        self.entityColumn = config.pop(self._entityColumn, "scientific_name")
+        self.chunkSize = config.pop(self._chunkSize, 1024)
 
-        outputFile = StackedFile(self.workingDir / name)
-
-        chunkSize = config.pop(self._chunkSize, 1024)
-
-        self.converter = Converter(mapDir, inputFile, outputFile, prefix, datasetID, (entityEvent, entityColumn), chunkSize)
-        self.converter.loadMap(mapID, mapColumnName, retrieveMap)
-
-        super().__init__([outputFile])
+        self.mapDir = mapDir
+        self.prefix = prefix
+        self.name = name
+        self.subsection = subsection
 
     def run(self, overwrite: bool, verbose: bool) -> bool:
-        success, metadata = self.converter.convert(overwrite, verbose)
-        self.setAdditionalMetadata(metadata)
+        converter = Converter(self.mapDir, self.input, self.workingDir / self.name, self.prefix, self.datasetID, (self.entityEvent, self.entityColumn), self.chunkSize)
+        converter.loadMap(self.mapID, self.mapColumnName, overwrite)
+        success, metadata = converter.convert(overwrite, verbose)
         return success

@@ -185,7 +185,7 @@ class Database:
         else:
             inputFile = self._queuedTasks[Step.DOWNLOADING][-1].getOutputs()[0]
 
-        self._queuedTasks[Step.CONVERSION].append(tasks.Conversion(self.workingDirs[Step.CONVERSION], self.databaseDir, conversionConfig, inputFile, self.locationName(), self.name, self.subsection, overwrite))
+        self._queuedTasks[Step.CONVERSION].append(tasks.Conversion(self.workingDirs[Step.CONVERSION], self.databaseDir, conversionConfig, self.locationName(), self.name, self.subsection, overwrite))
 
     def _prepare(self, fileStep: Step, flags: list[Flag]) -> bool:
         stepMap = {
