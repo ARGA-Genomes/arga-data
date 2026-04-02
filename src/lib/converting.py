@@ -62,7 +62,7 @@ class Converter:
         dfEvents[self._entityIDEvent][self._entityIDLabel] = dfEvents[self._entityIDEvent][self._datasetIDLabel] + dfEvents[self.entityEvent][self.entityColumn]
         return dfEvents
 
-    def convert(self, overwrite: bool, verbose: bool) -> tuple[bool, dict]:
+    def convert(self, verbose: bool) -> tuple[bool, dict]:
         logging.info("Processing chunks for conversion")
         writer = StackedDFWriter(self.outputFile, self.map.events)
 

@@ -52,45 +52,16 @@ class FunctionScript:
         return True, retVal
 
 class OutputScript(FunctionScript):
-    def __init__(self, modulePath: Path, functionName: str, expectedOutputs: list[DataFile], inputs: list[DataFile] = [], libraryDirs: list[Path] = []):
+    def __init__(self, modulePath: Path, functionName: str, inputs: list[DataFile] = [], libraryDirs: list[Path] = []):
         super().__init__(modulePath, functionName, libraryDirs)
 
-        self.expectedOutputs = expectedOutputs
         self.inputs = inputs
 
-    def run(self, overwrite: bool, verbose: bool, args: list = [], kwargs: dict = {}) -> tuple[bool, any]:
-        if all(output.exists() for output in self.expectedOutputs):
-            if not overwrite:
-                logging.info(f"All outputs for function '{self.functionName}' exist and not overwriting, skipping...")
-                return True, None
-            
+    def run(self, verbose: bool, args: list = [], kwargs: dict = {}) -> tuple[bool, any]:
         if not all(input.exists() for input in self.inputs):
-            logging.warning(f"Missing {len(self.inputs)} required file(s) needed to run script {self.functionName}")
+            if verbose:
+                logging.warning(f"Missing {len(self.inputs)} required file(s) needed to run script {self.functionName}")
+
             return False, None
-            
-        # All files don't exist and forced rerun OR overwriting
-        for output in self.expectedOutputs:
-            if output.exists():
-                output.backUp(True)
 
-        success, retVal = super().run(verbose, args, kwargs)
-
-        if not success:
-            for output in self.expectedOutputs:
-                output.restoreBackUp()
-
-            return False, retVal
-        
-        if not all(output.exists() for output in self.expectedOutputs):
-            logging.warning(f"Output {self.expectedOutputs[0]} was not created" if len(self.expectedOutputs) == 1 else f"Failed to create all {len(self.expectedOutputs)} files")
-
-            for output in self.expectedOutputs:
-                output.restoreBackUp()
-
-            return False, retVal
-        
-        logging.info(f"Created file {self.expectedOutputs[0]}" if len(self.expectedOutputs) == 1 else f"Created all {len(self.expectedOutputs)} files")
-        for output in self.expectedOutputs:
-            output.deleteBackup()
-
-        return True, retVal
+        return super().run(verbose, args, kwargs)

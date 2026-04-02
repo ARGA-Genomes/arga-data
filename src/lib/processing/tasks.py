@@ -7,16 +7,83 @@ from lib.crawler import Crawler
 from lib.converting import Converter
 import lib.processing.parsing as parse
 from lib.secrets import Secrets
+import time
+from datetime import datetime
+from enum import Enum
+from requests.auth import HTTPBasicAuth
+
+class Metadata(Enum):
+    OUTPUTS = "outputs"
+    SUCCESS = "success"
+    TASK_START = "task started"
+    TASK_END = "task completed"
+    TASK_DURATION = "duration"
+    LAST_SUCCESS_START = "last success started"
+    LAST_SUCCESS_END = "last success completed"
+    LAST_SUCCESS_DURATION = "last success duration"
+    TOTAL_DURATION = "total duration"
+    LAST_SUCCESS_TOTAL_DURATION = "last success total duration"
+    CUSTOM = ""
 
 class Task:
     def __init__(self, workingDir: Path):
         self.workingDir = workingDir
+        self._subTasks = []
 
-    def _execute(self, overwrite: bool, verbose: bool):
-        return True
+    @staticmethod
+    def fromVars(cls: Task, workingDir: Path, **kwargs: dict):
+        oldInit = cls.__init__
+        cls.__init__ = lambda *args, **kwargs: None
 
-    def run(self, overwrite: bool, verbose: bool, lastOutputs: list[DataFile] = []) -> bool:
-        return self._execute(overwrite, verbose, lastOutputs)            
+        instance = cls()
+        super(instance).__init__(workingDir)
+
+        cls.__init__ = oldInit
+        for key, value in kwargs.items():
+            setattr(cls, key, value)
+
+        return instance
+    
+    def addSubTask(self, subTask: Task) -> None:
+        self._subTasks.append(subTask)
+
+    def _execute(self, overwrite: bool, verbose: bool) -> tuple[bool, dict]:
+        return True, {}
+
+    def run(self, overwrite: bool, verbose: bool) -> dict:
+        startTime = time.perf_counter()
+        startDate = datetime.now().isoformat()
+
+        workingDirFiles = [item for item in self.workingDir.iterdir()]
+
+        try:
+            success, extraMetadata = self._execute(overwrite, verbose)
+        except KeyboardInterrupt:
+            logging.info("Cancelling task execution early")
+            return
+        
+        outputs = [item for item in self.workingDir.iterdir() if item not in workingDirFiles]
+
+        duration = time.perf_counter() - startTime
+        endDate = datetime.now().isoformat()
+
+        metadata = {
+            Metadata.OUTPUTS: outputs,
+            Metadata.SUCCESS: success,
+            Metadata.TASK_START: startDate,
+            Metadata.TASK_END: endDate,
+            Metadata.TASK_DURATION: duration,
+            Metadata.CUSTOM: extraMetadata
+        }
+
+        if success:
+            metadata |= {
+                Metadata.LAST_SUCCESS_START: startDate,
+                Metadata.LAST_SUCCESS_END: endDate,
+                Metadata.LAST_SUCCESS_DURATION: duration
+            }
+
+        return metadata
 
 class UrlRetrieve(Task):
 
@@ -42,8 +109,8 @@ class UrlRetrieve(Task):
             secrets = Secrets(secretLocation)
             self.auth = secrets.getAuth()
 
-    def run(self, overwrite: bool, verbose: bool) -> bool:
-        return dl.download(self.url, self.workingDir / self.fileName, verbose=verbose, auth=self.auth)
+    def _execute(self, overwrite: bool, verbose: bool) -> tuple[bool, dict]:
+        return dl.download(self.url, self.workingDir / self.fileName, verbose=verbose, auth=self.auth), {}
 
 class CrawlRetrieve(Task):
 
@@ -73,18 +140,16 @@ class CrawlRetrieve(Task):
             secrets = Secrets(secretLocation)
             self.auth = secrets.getAuth()
 
-    def run(self, overwrite: bool, verbose: bool) -> bool:
-        crawler = Crawler(self.workingDir, self.auth)
+    def _execute(self, overwrite: bool, verbose: bool) -> tuple[bool, dict]:
+        crawler = Crawler(self.workingDir, self.workingDir.parent, self.auth)
         crawler.run(self.url, self.regex, self.maxDepth, self.skipFolders, overwrite)
         urlList = crawler.getFileURLs(self.link)
 
-        allSuccess = True
         for url in urlList:
             fileName = "_".join(url.split("/")[-self.filenameURLParts:])
-            success = dl.download(url, self.workingDir / fileName, auth=self.auth, verbose=verbose)
-            allSuccess &= success
+            self.addSubTask(UrlRetrieve.fromVars(self.workingDir, {"url": url, "fileName": fileName, "auth": self.auth}))
 
-        return allSuccess
+        return True, {}
 
 class ScriptRunner(Task):
 
@@ -116,19 +181,16 @@ class ScriptRunner(Task):
         self.kwargs = config.get(self._kwargs, {})
         self.parallel = config.pop(self._parallel, False)
 
-    def run(self, overwrite: bool, verbose: bool, lastOutputs: list[Path] = []) -> bool:
+    def _execute(self, overwrite: bool, verbose: bool) -> tuple[bool, dict]:
         if not self.parallel:
-            script = OutputScript(self.modulePath, self.functionName, lastOutputs, self.inputs)
-            success, _ = script.run(overwrite, verbose, self.args, self.kwargs)
-            return success
+            script = OutputScript(self.modulePath, self.functionName, self.inputs)
+            success, _ = script.run(verbose, self.args, self.kwargs)
+            return success, {}
 
-        allSuccess = True
-        for input, lastOutput in zip(self.inputs, lastOutputs):
-            script = OutputScript(self.modulePath, self.functionName, lastOutput, input)
-            success, _ = script.run(overwrite, verbose, self.args, self.kwargs)
-            allSuccess &= success
+        for input in self.inputs:
+            self.addSubTask(ScriptRunner.fromVars(self.workingDir, {"modulePath": self.modulePath, "functionName": self.functionName, "inputs": [input], "args": self.args, "kwargs": self.kwargs, "parallel": False}))
 
-        return allSuccess
+        return True, {}
 
 class Conversion(Task):
 
@@ -174,8 +236,8 @@ class Conversion(Task):
         self.name = name
         self.subsection = subsection
 
-    def run(self, overwrite: bool, verbose: bool) -> bool:
+    def _execute(self, overwrite: bool, verbose: bool) -> tuple[bool, dict]:
         converter = Converter(self.mapDir, self.input, self.workingDir / self.name, self.prefix, self.datasetID, (self.entityEvent, self.entityColumn), self.chunkSize)
         converter.loadMap(self.mapID, self.mapColumnName, overwrite)
-        success, metadata = converter.convert(overwrite, verbose)
-        return success
+        success, metadata = converter.convert(verbose)
+        return success, metadata

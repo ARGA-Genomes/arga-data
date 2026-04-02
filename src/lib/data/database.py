@@ -34,19 +34,6 @@ class Updates(Enum):
     WEEKLY = "weekly"
     MONTHLY = "monthly"
 
-class Metadata(Enum):
-    OUTPUTS = "outputs"
-    SUCCESS = "success"
-    TASK_START = "task started"
-    TASK_END = "task completed"
-    TASK_DURATION = "duration"
-    LAST_SUCCESS_START = "last success started"
-    LAST_SUCCESS_END = "last success completed"
-    LAST_SUCCESS_DURATION = "last success duration"
-    TOTAL_DURATION = "total duration"
-    LAST_SUCCESS_TOTAL_DURATION = "last success total duration"
-    CUSTOM = ""
-
 class Database:
     _metadataFileName = "metadata.json"
 
