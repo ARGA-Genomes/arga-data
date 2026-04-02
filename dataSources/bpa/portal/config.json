@@ -6,7 +6,6 @@
                 "path": "./portal.py",
                 "function": "build",
                 "args": [
-                    "{OUT-PATH}",
                     1000
                 ]
             }

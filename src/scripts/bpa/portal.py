@@ -3,7 +3,7 @@ import requests
 import pandas as pd
 from lib.progressBar import ProgressBar
 
-def build(outputFilePath: Path, entriesPerPage: int) -> None:
+def build(outputDir: Path, entriesPerPage: int) -> None:
     url = "https://data.bioplatforms.com/api/3/action/package_search?q=*:*&rows="
 
     initialRequest = requests.get(f"{url}{0}")
@@ -31,4 +31,4 @@ def build(outputFilePath: Path, entriesPerPage: int) -> None:
 
     df = pd.DataFrame.from_records(entries)
     df["bpa_url"] = "https://data.bioplatforms.com/" + df["type"] + "/" + df["id"]
-    df.to_csv(outputFilePath, index=False, encoding='utf-8')
+    df.to_csv(outputDir / "bpa.csv", index=False, encoding='utf-8')

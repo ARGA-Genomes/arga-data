@@ -8,4 +8,4 @@ if __name__ == '__main__':
 
     sources, flags, args = parser.parseArgs()
     for source in sources:
-        source.create(Step.CONVERSION, flags, args.select)
+        source.convert(flags, args.select)

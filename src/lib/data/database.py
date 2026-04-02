@@ -95,10 +95,7 @@ class Database:
         if settings.Storage.DATA: # Overwrite data location
             self.dataDir: Path = settings.Storage.DATA / self.dataDir.relative_to(self.locationDir.parent) # Change parent of locationDir (dataSources folder) to storage dir
 
-        self.workingDirs = {}
-
-        # Tasks
-        self._queuedTasks: dict[Step, list[tasks.Task]] = {step: [] for step in Step}
+        self.workingDirs: dict[Step, Path] = {}
         self._metadata = JsonSynchronizer(self.subsectionDir / self._metadataFileName)
 
         # Updating
@@ -118,132 +115,6 @@ class Database:
         for property in config:
             logging.debug(f"{self.name} unknown{f' {sectionName}' if sectionName else ''} config item: {property}")
 
-    def _flattenTaskOutputs(self, taskList: list[tasks.Task]) -> list[DataFile]:
-        return [output for task in taskList for output in task.getOutputs()]
-
-    def _prepareDownload(self, flags: list[Flag]) -> None:
-        downloadConfig: dict = self.config.pop(Step.DOWNLOADING.value, {})
-        if not downloadConfig:
-            raise Exception(f"No download config specified as required for {self.name}") from AttributeError
-
-        retrieveType = downloadConfig.pop("retrieveType", None)
-        if retrieveType is None:
-            raise Exception(f"No retrieve type specified in download config for {self.name}") from AttributeError
-        
-        downloadTaskConfig = downloadConfig.pop("tasks", None)
-        if downloadTaskConfig is None:
-            raise Exception(f"No download tasks specified in download config for {self.name}") from AttributeError
-        
-        retrieve = Retrieve._value2member_map_.get(retrieveType, None)
-        for taskConfig in downloadTaskConfig:
-            if retrieve == Retrieve.URL:
-                self._queuedTasks[Step.DOWNLOADING].append(tasks.UrlRetrieve(self.workingDirs[Step.DOWNLOADING], taskConfig, self.locationDir.name))
-
-            elif retrieve == Retrieve.CRAWL:
-                self._queuedTasks[Step.DOWNLOADING].append(tasks.CrawlRetrieve(self.workingDirs[Step.DOWNLOADING], taskConfig, self.locationDir.name, Flag.REPREPARE in flags))
-
-            elif retrieve == Retrieve.SCRIPT:
-                self._queuedTasks[Step.DOWNLOADING].append(tasks.ScriptRunner(self.workingDirs[Step.DOWNLOADING], taskConfig, self.dirLookup, self._getCurrentLookup()))
-
-            else:
-                raise Exception(f"Unknown retrieve type '{retrieveType}' specified for {self.name}") from AttributeError
-
-    def _prepareProcessing(self, flags: list[Flag]) -> None:
-        processingConfig: list[dict] = self.config.pop(Step.PROCESSING.value, [])
-
-        for processingStep in processingConfig:
-            self._queuedTasks[Step.PROCESSING].append(tasks.ScriptRunner(self.workingDirs[Step.PROCESSING], processingStep, self.dirLookup, self._getCurrentLookup()))
-
-    def _prepareConversion(self, flags: list[Flag]) -> None:
-        conversionConfig: dict = self.config.pop(Step.CONVERSION.value, {})
-        if not conversionConfig:
-            raise Exception(f"No conversion config specified as required for {self.name}") from AttributeError
-
-        overwrite = Flag.REPREPARE in flags
-        self._queuedTasks[Step.CONVERSION].append(tasks.Conversion(self.workingDirs[Step.CONVERSION], self.databaseDir, conversionConfig, self.locationName(), self.name, self.subsection, overwrite))
-
-    def _prepare(self, fileStep: Step, flags: list[Flag]) -> bool:
-        stepMap = {
-            Step.DOWNLOADING: (None, self._prepareDownload),
-            Step.PROCESSING: (Step.DOWNLOADING, self._prepareProcessing),
-            Step.CONVERSION: (Step.PROCESSING, self._prepareConversion)
-        }
-
-        if fileStep not in stepMap:
-            raise Exception(f"Unknown step to prepare: {fileStep}")
-
-        for stepType, (requirement, callback) in stepMap.items():
-            if self._lastPrepared != requirement:
-                continue
-
-            logging.info(f"Preparing {self} step '{stepType.name}' with flags: {self._printFlags(flags)}")
-            try:
-                callback(flags)
-            except Exception as e:
-                logging.error(f"Error preparing step \'{stepType.name}\'. Reason: {e}")
-                logging.error(traceback.format_exc())
-                return False
-            
-            self._lastPrepared = stepType
-            if fileStep is stepType:
-                break
-            
-        return True
-    
-    def _execute(self, step: Step, flags: list[Flag]) -> bool:
-        overwrite = Flag.OVERWRITE in flags
-        verbose = Flag.VERBOSE in flags
-        logging.info(f"Executing {self} step '{step.name}' with flags: {self._printFlags(flags)}")
-
-        evaluationTasks = self._queuedTasks.get(step, [])
-        if not evaluationTasks:
-            logging.info(f"No tasks to evaluate for step {step.value}")
-            return True
-
-        workingDir = self.workingDirs[step]
-        workingDir.mkdir(parents=True, exist_ok=True)
-
-        allSucceeded = False
-        startTime = time.perf_counter()
-        for idx, task in enumerate(evaluationTasks):
-            taskStartTime = time.perf_counter()
-            taskStartDate = datetime.now().isoformat()
-
-            try:
-                success = task.run(overwrite, verbose)
-            except KeyboardInterrupt:
-                logging.info("Cancelling task execution early")
-                return
-
-            duration = time.perf_counter() - taskStartTime
-            taskEndDate = datetime.now().isoformat()
-
-            packet = {
-                Metadata.OUTPUTS: [t.path.name for t in task.getOutputs()],
-                Metadata.SUCCESS: success,
-                Metadata.TASK_START: taskStartDate,
-                Metadata.TASK_END: taskEndDate,
-                Metadata.TASK_DURATION: duration,
-            }
-
-            # Task can set metadata on itself during run
-            extraMetadata = task.getMetadata()
-            if extraMetadata:
-                packet[Metadata.CUSTOM] = extraMetadata
-
-            if success:
-                packet |= {
-                    Metadata.LAST_SUCCESS_START: taskStartDate,
-                    Metadata.LAST_SUCCESS_END: taskEndDate,
-                    Metadata.LAST_SUCCESS_DURATION: duration
-                }
-
-            self.updateMetadata(step, idx, packet)
-            allSucceeded = allSucceeded and success
-
-        self.updateTotalTime(time.perf_counter() - startTime, allSucceeded)
-        return allSucceeded
-    
     def _generateWorkingDirs(self, historicFolderNum) -> bool:
 
         def _generate(folder: Path) -> None:
@@ -262,23 +133,90 @@ class Database:
         _generate(historicFolders[historicFolderNum])
         return True
 
-    def create(self, fileStep: Step, flags: list[Flag], historicFolderNum: int = 0) -> None:
-        success = self._generateWorkingDirs(historicFolderNum)
-        if not success:
+    def _getDownloaded(self) -> list[list[DataFile]]:
+        ...
+
+    def _getProcessed(self) -> list[list[DataFile]]:
+        ...
+
+    def download(self, flags: list[Flag]) -> None:
+        downloadConfig: dict = self.config.pop(Step.DOWNLOADING.value, {})
+        if not downloadConfig:
+            raise Exception(f"No download config specified as required for {self.name}") from AttributeError
+
+        retrieveType = downloadConfig.pop("retrieveType", None)
+        if retrieveType is None:
+            raise Exception(f"No retrieve type specified in download config for {self.name}") from AttributeError
+        
+        downloadTaskConfig = downloadConfig.pop("tasks", None)
+        if downloadTaskConfig is None:
+            raise Exception(f"No download tasks specified in download config for {self.name}") from AttributeError
+        
+        if not self._generateWorkingDirs(-1):
+            return
+        
+        downloadTasks = []
+        retrieve = Retrieve._value2member_map_.get(retrieveType)
+        for taskConfig in downloadTaskConfig:
+            if retrieve == Retrieve.URL:
+                downloadTasks.append(tasks.UrlRetrieve(self.workingDirs[Step.DOWNLOADING], taskConfig, self.locationDir.name))
+
+            elif retrieve == Retrieve.CRAWL:
+                downloadTasks.append(tasks.CrawlRetrieve(self.workingDirs[Step.DOWNLOADING], taskConfig, self.locationDir.name, Flag.REPREPARE in flags))
+
+            elif retrieve == Retrieve.SCRIPT:
+                downloadTasks.append(tasks.ScriptRunner(self.workingDirs[Step.DOWNLOADING], taskConfig, self.dirLookup, self._getDownloaded(), []))
+
+            else:
+                raise Exception(f"Unknown retrieve type '{retrieveType}' specified for {self.name}") from AttributeError
+            
+        self._execute(Step.DOWNLOADING, downloadTasks, flags)
+
+    def process(self, flags: list[Flag], historicFolderNum: int) -> None:
+        if not self._generateWorkingDirs(historicFolderNum):
+            return
+        
+        processingConfig: list[dict] = self.config.pop(Step.PROCESSING.value, [])
+
+        processTasks = []
+        for processingStep in processingConfig:
+            processTasks.append(tasks.ScriptRunner(self.workingDirs[Step.PROCESSING], processingStep, self.dirLookup, self._getDownloaded(), self._getProcessed()))
+
+        self._execute(Step.PROCESSING, processTasks, flags)
+
+    def convert(self, flags: list[Flag], historicFolderNum) -> None:
+        conversionConfig: dict = self.config.pop(Step.CONVERSION.value, {})
+        if not conversionConfig:
+            raise Exception(f"No conversion config specified as required for {self.name}") from AttributeError
+        
+        if not self._generateWorkingDirs(historicFolderNum):
             return
 
-        try:
-            success = self._prepare(fileStep, flags)
-            if not success:
-                return
-            
-        except KeyboardInterrupt:
-            logging.info(f"Process ended early when attempting to prepare step '{fileStep.name}' for {self.name}")
+        self._execute(Step.PROCESSING, [tasks.Conversion(self.workingDirs[Step.CONVERSION], self.databaseDir, conversionConfig, self.locationName(), self.name, self.subsection, Flag.REPREPARE in flags)], flags)
+    
+    def _execute(self, step: Step, taskList: list[tasks.Task], flags: list[Flag]) -> bool:
+        overwrite = Flag.OVERWRITE in flags
+        verbose = Flag.VERBOSE in flags
 
-        try:
-            self._execute(fileStep, flags)
-        except KeyboardInterrupt:
-            logging.info(f"Process ended early when attempting to execute step '{fileStep.name}' for {self.name}")
+        logging.info(f"Executing {self} step '{step.name}' with flags: {self._printFlags(flags)}")
+
+        if not taskList:
+            logging.info(f"No tasks to evaluate for step {step.value}")
+            return True
+
+        workingDir = self.workingDirs[step]
+        workingDir.mkdir(parents=True, exist_ok=True)
+
+        allSucceeded = True
+        startTime = time.perf_counter()
+        for idx, task in enumerate(taskList):
+            metadata = task.run(overwrite, verbose)
+            self.updateMetadata(step, idx, metadata)
+
+            allSucceeded &= metadata[tasks.Metadata.SUCCESS]
+
+        self.updateTotalTime(time.perf_counter() - startTime, allSucceeded)
+        return allSucceeded
 
     def checkUpdateReady(self) -> bool:
         return self._update.updateReady(self.getLastUpdate(Step.DOWNLOADING))
@@ -290,13 +228,13 @@ class Database:
     def _printFlags(self, flags: list[Flag]) -> str:
         return " | ".join(f"{flag.value}={flag in flags}" for flag in Flag)
 
-    def updateMetadata(self, step: Step, stepIndex: int, metadata: dict[Metadata, any]) -> None:
+    def updateMetadata(self, step: Step, stepIndex: int, metadata: dict[tasks.Metadata, any]) -> None:
         parsedMetadata = {}
         for key, value in metadata.items():
-            if not isinstance(key, Metadata):
+            if not isinstance(key, tasks.Metadata):
                 continue
 
-            if key == Metadata.CUSTOM:
+            if key == tasks.Metadata.CUSTOM:
                 for customKey, customValue in value.items():
                     parsedMetadata[customKey] = customValue
 
@@ -318,17 +256,17 @@ class Database:
         logging.info(f"Updated {step.value} metadata and saved to file")
 
     def updateTotalTime(self, totalTime: float, allSucceeded) -> None:
-        self._metadata[Metadata.TOTAL_DURATION.value] = totalTime
+        self._metadata[tasks.Metadata.TOTAL_DURATION.value] = totalTime
         if allSucceeded:
-            self._metadata[Metadata.LAST_SUCCESS_TOTAL_DURATION.value] = totalTime
+            self._metadata[tasks.Metadata.LAST_SUCCESS_TOTAL_DURATION.value] = totalTime
 
     def getLastUpdate(self, step: Step) -> datetime | None:
-        timestamp = self._metadata[step.value][0][Metadata.LAST_SUCCESS_START.value]
+        timestamp = self._metadata[step.value][0][tasks.Metadata.LAST_SUCCESS_START.value]
         if timestamp is not None:
             return datetime.fromisoformat(timestamp)
 
     def getLastOutputs(self, step: Step) -> list[str]:
-        return self._metadata.get(step.value, [])[-1].get(Metadata.OUTPUTS.value, [])
+        return self._metadata.get(step.value, [])[-1].get(tasks.Metadata.OUTPUTS.value, [])
 
     def _getUpdater(self, config: dict) -> upd.Update:
         updaterTypeValue = config.get("type", None)
