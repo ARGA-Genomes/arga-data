@@ -11,6 +11,7 @@ class ArgParser:
 
         self.addArgument("source", help="Data set to interact with", metavar="SOURCE")
         self.addArgument("-q", f"--{Flag.VERBOSE.value}", action="store_false", help="Suppress output during execution")
+        self.addArgument("-s", f"--select", type=int, default=0, help="Select historic record")
 
         self.addArgument("-p", f"--{Flag.REPREPARE.value}", action="store_true", help=reprepareHelp)
         self.addArgument("-o", f"--{Flag.OVERWRITE.value}", action="store_true", help=overwriteHelp)

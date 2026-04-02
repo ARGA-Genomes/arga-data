@@ -192,7 +192,6 @@ class Conversion(Task):
     _mapColumnName = "mapColumnName"
     _entityEvent = "entityEvent"
     _entityColumn = "entityColumn"
-    _timestamp = "timestamp"
     _chunkSize = "chunkSize"
 
     def __init__(self, workingDir: Path, mapDir: Path, config: dict, inputFile: DataFile, prefix: str, name: str, subsection: str, retrieveMap: bool):
@@ -217,8 +216,7 @@ class Conversion(Task):
         entityEvent = config.pop(self._entityEvent, "collection")
         entityColumn = config.pop(self._entityColumn, "scientific_name")
 
-        timeStamp = config.pop(self._timestamp, True)
-        outputFile = StackedFile(self.workingDir / f"{name}{date.today().strftime('-%Y-%m-%d') if timeStamp else ''}")
+        outputFile = StackedFile(self.workingDir / name)
 
         chunkSize = config.pop(self._chunkSize, 1024)
 
