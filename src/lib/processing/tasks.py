@@ -125,64 +125,37 @@ class ScriptRunner(Task):
     _kwargs = "kwargs"
     _outputs = "outputs"
 
-    def __init__(self, workingDir: Path, config: dict, dirLookup: parse.DirLookup, fileLookup: parse.DataFileLookup):
-        parallel = config.pop(self._parallel, False)
-
+    def __init__(self, workingDir: Path, config: dict, dirLookup: dict[str, Path], downloaded: list[list[DataFile]], processed: list[list[DataFile]]):
         modulePath = config.pop(self._modulePath, "")
         if not modulePath:
             raise Exception("No `path` specified in script config") from AttributeError
 
-        modulePath = parse.parsePath(modulePath, workingDir, dirLookup, fileLookup)
+        self.modulePath = parse.parsePath(modulePath, workingDir, dirLookup)
 
-        functionName = config.pop(self._functionName, "")
-        if not functionName:
+        self.functionName = config.pop(self._functionName, "")
+        if not self.functionName:
             raise Exception("No `function` specified in script config") from AttributeError
 
         inputs = config.pop(self._inputs, [])
-        inputs = parse.parseInputs(inputs, )
+        self.inputs = parse.parseInputList(inputs, downloaded, processed)
 
-        # Split script if necessary for parallel tasks
-        lookups: list[parse.DataFileLookup] = []
-        if parallel:
-            for input in fileLookup.getFiles(parse.FileSelect.INPUT):
-                individualFileLookup = parse.DataFileLookup([input], fileLookup.getFiles(parse.FileSelect.DOWNLOAD), fileLookup.getFiles(parse.FileSelect.PROCESS))
-                lookups.append(individualFileLookup)
-        else:
-            lookups.append(fileLookup)
+        self.args = config.get(self._args, [])
+        self.kwargs = config.get(self._kwargs, {})
+        self.parallel = config.pop(self._parallel, False)
 
-        # Store script objects for run time
-        self.scripts: list[tuple[OutputScript, list, dict]] = []
-        allOutputs = []
-        for lookup in lookups:
+    def run(self, overwrite: bool, verbose: bool, lastOutputs: list[Path] = []) -> bool:
+        if not self.parallel:
+            script = OutputScript(self.modulePath, self.functionName, lastOutputs, self.inputs)
+            success, _ = script.run(overwrite, verbose, self.args, self.kwargs)
+            return success
 
-            parsedOutputs = []
-            for output in outputs:
-                parsed = parse.parseArg(output, workingDir, dirLookup, lookup)
+        allSuccess = True
+        for input, lastOutput in zip(self.inputs, lastOutputs):
+            script = OutputScript(self.modulePath, self.functionName, lastOutput, input)
+            success, _ = script.run(overwrite, verbose, self.args, self.kwargs)
+            allSuccess &= success
 
-                if isinstance(parsed, Path):
-                    parsedOutputs.append(DataFile(workingDir / parsed.name))
-                elif isinstance(parsed, DataFile):
-                    parsedOutputs.append(parsed.move(workingDir))
-                else:
-                    parsedOutputs.append(DataFile(workingDir / parsed))
-
-            lookup.extend(parse.FileSelect.OUTPUT, parsedOutputs)
-
-            args = parse.parseList(config.get(self._args, []), workingDir, dirLookup, lookup)
-            kwargs = parse.parseDict(config.get(self._kwargs, {}), workingDir, dirLookup, lookup)
-
-            self.scripts.append((OutputScript(modulePath, functionName, parsedOutputs, lookup.getFiles(parse.FileSelect.INPUT), dirLookup.paths()), args, kwargs))
-            allOutputs.extend(parsedOutputs)
-
-        super().__init__(allOutputs)
-
-    def run(self, overwrite: bool, verbose: bool) -> bool:
-        for script, args, kwargs in self.scripts:
-            success, _ = script.run(overwrite, verbose, args, kwargs)
-            if not success:
-                return False
-
-        return True
+        return allSuccess
 
 class Conversion(Task):
 

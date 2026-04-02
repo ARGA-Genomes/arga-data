@@ -25,7 +25,7 @@ def parsePath(arg: str, relativeDir: Path, dirLookup: dict[str, Path]) -> Path |
     
     return arg
 
-def parseInput(arg: str, downloaded: list[list[DataFile]], processed: list[list[DataFile]]) -> list[DataFile | Path | str]:
+def parseInput(arg: str, downloaded: list[list[DataFile]], processed: list[list[DataFile]]) -> list[DataFile | Path]:
     asPath = arg.endswith("_") # Return outputs as path insteasd
     fileInfo = arg.rstrip("_")
     
@@ -58,18 +58,19 @@ def parseInput(arg: str, downloaded: list[list[DataFile]], processed: list[list[
         lookup = processed
     else:
         logging.error(f"Invalid lookup selection: {lookupSelection}")
-        return arg
+        return []
 
     # Lookup step parsing
     stepSelection = fileInfo[1:]
-    selectedFile = lookup[-1] if stepSelection == "^" else lookup[int(stepSelection)]
+    selectedFiles = lookup[-1] if stepSelection == "^" else lookup[int(stepSelection)]
 
     # Lookup step output selection
-    outputs = []
-    for number in outputNumbers:
-        outputs.append(selectedFile[number].path if asPath else selectedFile[number])
+    outputs = [selectedFiles[number] for number in outputNumbers] if outputNumbers else selectedFiles
 
+    if asPath:
+        return [output.path for output in outputs]
+    
     return outputs
 
-def parseInputList(inputArgs: list[str], downloads: list[list[DataFile]], processed: list[list[DataFile]]) -> list[DataFile | Path | str]:
-    return [file for arg in inputArgs for file in parseInput(arg, downloads, processed)]
+def parseInputList(inputArgs: list[str], downloaded: list[list[DataFile]], processed: list[list[DataFile]]) -> list[DataFile | Path]:
+    return [file for arg in inputArgs for file in parseInput(arg, downloaded, processed)]
