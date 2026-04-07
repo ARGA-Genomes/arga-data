@@ -65,19 +65,19 @@ class Task:
         
         outputs = [item for item in self.workingDir.iterdir() if item not in workingDirFiles]
 
+        duration = time.perf_counter() - startTime
+        endDate = datetime.now().isoformat()
+
         metadata = {
             Metadata.OUTPUTS: outputs,
             Metadata.SUCCESS: success,
             Metadata.TASK_START: startDate,
-            Metadata.TASK_END: endDate,
             Metadata.TASK_DURATION: duration,
+            Metadata.TASK_END: endDate,
             Metadata.CUSTOM: extraMetadata
         }
 
         if not self._subTasks:
-            duration = time.perf_counter() - startTime
-            endDate = datetime.now().isoformat()
-
             if success:
                 metadata |= {
                     Metadata.LAST_SUCCESS_START: startDate,
@@ -98,6 +98,9 @@ class Task:
 
         duration = time.perf_counter() - startTime
         endDate = datetime.now().isoformat()
+
+        metadata[Metadata.TASK_DURATION] = duration
+        metadata[Metadata.TASK_END] = endDate
 
         if metadata[Metadata.SUCCESS]:
             metadata |= {
@@ -206,7 +209,7 @@ class ScriptRunner(Task):
 
     def _execute(self, overwrite: bool, verbose: bool) -> tuple[bool, dict]:
         if not self.parallel:
-            script = OutputScript(self.modulePath, self.functionName, self.inputs)
+            script = OutputScript(self.modulePath, self.functionName, self.workingDir, self.inputs)
             success, _ = script.run(verbose, self.args, self.kwargs)
             return success, {}
 
