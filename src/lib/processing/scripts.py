@@ -13,21 +13,15 @@ class FunctionScript:
         self.libraryDirs = libraryDirs
 
     def _importFunction(self) -> callable:
+        pathExtension = [str(libraryPath.parent) for libraryPath in self.libraryDirs]
+        sys.path.extend(pathExtension)
+
         spec = importlib.util.spec_from_file_location(self.modulePath.name, self.modulePath)
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)
         return getattr(module, self.functionName)
-
-    def run(self, verbose: bool, args: list = [], kwargs: dict = {}) -> tuple[bool, any]:
-        pathExtension = [str(libraryPath.parent) for libraryPath in self.libraryDirs]
-        sys.path.extend(pathExtension)
-
-        try:
-            processFunction = self._importFunction()
-        except:
-            logging.error(f"Error importing function '{self.functionName}' from path '{self.modulePath}'")
-            return False, None
-
+    
+    def _execute(self, processFunction: callable, verbose: bool, args: list = [], kwargs: dict = {}) -> tuple[bool, any]:
         if verbose:
             msg = f"Running {self.modulePath} function '{self.functionName}'"
             if args:
@@ -51,6 +45,15 @@ class FunctionScript:
             return False, None
                 
         return True, retVal
+
+    def run(self, verbose: bool, args: list = [], kwargs: dict = {}) -> tuple[bool, any]:
+        try:
+            processFunction = self._importFunction()
+        except:
+            logging.error(f"Error importing function '{self.functionName}' from path '{self.modulePath}'")
+            return False, None
+
+        return self._execute(processFunction, verbose, args, kwargs)
 
 class OutputScript(FunctionScript):
     def __init__(self, modulePath: Path, functionName: str, outputDir: Path, inputs: list[DataFile] = [], libraryDirs: list[Path] = []):
@@ -76,7 +79,7 @@ class OutputScript(FunctionScript):
 
         return processFunction
 
-    def run(self, verbose: bool, args: list = [], kwargs: dict = {}) -> tuple[bool, any]:
+    def _execute(self, processFunction: callable, verbose: bool, args: list = [], kwargs: dict = {}) -> tuple[bool, any]:
         io = [self.outputDir]
 
         if self.inputCount > 0: # Injected function requires inputs
@@ -104,13 +107,13 @@ class OutputScript(FunctionScript):
                 io.append(self.inputs)
 
         args = args[:self.ioArgStrt] + io + args[self.ioArgStrt:] # Inject io args at defined position
-        return super().run(verbose, args, kwargs)
+        return super()._execute(processFunction, verbose, args, kwargs)
 
 def importableScript(ioArgStart: int = 0, inputCount: int = 1, separateInputArgs: bool = True):
 
-    def scriptDecorator(func):
+    def scriptDecorator(func: callable):
 
-        @wraps
+        @wraps(func)
         def scriptWrapper(*args, **kwargs):
             return func(*args, **kwargs)
         
