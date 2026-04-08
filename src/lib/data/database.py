@@ -126,7 +126,7 @@ class Database:
             _generate(todaysDataDir)
             return True
 
-        historicFolders = sorted(item for item in self.dataDir.iterdir() if item.is_dir())
+        historicFolders = sorted([item for item in self.dataDir.iterdir() if item.is_dir()], reverse=True)
         if historicFolderNum > (len(historicFolders) - 1):
             logging.error(f"Unable to select historic folder #{historicFolderNum} as there are only {len(historicFolders)}")
             return False
@@ -136,6 +136,7 @@ class Database:
 
     def _getFiles(self, step: Step) -> list[list[DataFile]]:
         files = []
+        
         for stepMetadata in self._metadata.get(step.value, []):
             stepFiles = []
 

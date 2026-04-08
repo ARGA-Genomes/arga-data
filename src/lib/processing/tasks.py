@@ -129,7 +129,7 @@ class UrlRetrieve(Task):
         if self.fileName is None:
             raise Exception("No filename provided to download to") from AttributeError
 
-        self.auth # Default value
+        self.auth = None # Default value
         auth = config.get(self._auth, False) # True/False flag
         if auth:
             secrets = Secrets(secretLocation)
