@@ -96,7 +96,7 @@ class Database:
             self.dataDir: Path = settings.Storage.DATA / self.dataDir.relative_to(self.locationDir.parent) # Change parent of locationDir (dataSources folder) to storage dir
 
         self.workingDirs: dict[Step, Path] = {}
-        self._metadata = JsonSynchronizer(self.subsectionDir / self._metadataFileName)
+        self._metadata: JsonSynchronizer = None
 
         # Updating
         updateConfig: dict = self.config.pop("updating", {})
@@ -119,6 +119,7 @@ class Database:
 
         def _generate(folder: Path) -> None:
             self.workingDirs = {step: folder / step.value for step in Step}
+            self._metadata = JsonSynchronizer(folder / self._metadataFileName)
 
         todaysDataDir = self.dataDir / str(datetime.now().date())   
         if historicFolderNum == -1: # Force today
@@ -133,11 +134,21 @@ class Database:
         _generate(historicFolders[historicFolderNum])
         return True
 
-    def _getDownloaded(self) -> list[list[DataFile]]:
-        ...
+    def _getFiles(self, step: Step) -> list[list[DataFile]]:
+        files = []
+        for stepMetadata in self._metadata.get(step.value, []):
+            stepFiles = []
 
-    def _getProcessed(self) -> list[list[DataFile]]:
-        ...
+            for fileName in stepMetadata.get(tasks.Metadata.OUTPUTS):
+                if fileName is None:
+                    logging.warning(f"Metadata has no recorded outputs from step {step.value}")
+                    continue
+
+                stepFiles.append(DataFile(self.workingDirs[step] / fileName))
+
+            files.append(stepFiles)
+
+        return files
 
     def download(self, flags: list[Flag]) -> None:
         downloadConfig: dict = self.config.pop(Step.DOWNLOADING.value, {})
@@ -165,7 +176,7 @@ class Database:
                 downloadTasks.append(tasks.CrawlRetrieve(self.workingDirs[Step.DOWNLOADING], taskConfig, self.locationDir.name, Flag.REPREPARE in flags))
 
             elif retrieve == Retrieve.SCRIPT:
-                downloadTasks.append(tasks.ScriptRunner(self.workingDirs[Step.DOWNLOADING], taskConfig, self.dirLookup, self._getDownloaded(), []))
+                downloadTasks.append(tasks.ScriptRunner(self.workingDirs[Step.DOWNLOADING], taskConfig, self.dirLookup, self._getFiles(Step.DOWNLOADING), []))
 
             else:
                 raise Exception(f"Unknown retrieve type '{retrieveType}' specified for {self.name}") from AttributeError
@@ -180,7 +191,7 @@ class Database:
 
         processTasks = []
         for processingStep in processingConfig:
-            processTasks.append(tasks.ScriptRunner(self.workingDirs[Step.PROCESSING], processingStep, self.dirLookup, self._getDownloaded(), self._getProcessed()))
+            processTasks.append(tasks.ScriptRunner(self.workingDirs[Step.PROCESSING], processingStep, self.dirLookup, self._getFiles(Step.DOWNLOADING), self._getFiles(Step.PROCESSING)))
 
         self._execute(Step.PROCESSING, processTasks, flags)
 

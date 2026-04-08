@@ -63,7 +63,7 @@ class Task:
             logging.info("Cancelling task execution early")
             return
         
-        outputs = [item for item in self.workingDir.iterdir() if item not in workingDirFiles]
+        outputs = [item.name for item in self.workingDir.iterdir() if item not in workingDirFiles]
 
         duration = time.perf_counter() - startTime
         endDate = datetime.now().isoformat()
