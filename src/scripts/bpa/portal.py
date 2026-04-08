@@ -2,7 +2,9 @@ from pathlib import Path
 import requests
 import pandas as pd
 from lib.progressBar import ProgressBar
+from lib.processing.scripts import importableScript
 
+@importableScript(inputCount=0)
 def build(outputDir: Path, entriesPerPage: int) -> None:
     url = "https://data.bioplatforms.com/api/3/action/package_search?q=*:*&rows="
 
