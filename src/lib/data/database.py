@@ -167,22 +167,21 @@ class Database:
         if not self._generateWorkingDirs(-1):
             return
         
-        downloadTasks = []
         retrieve = Retrieve._value2member_map_.get(retrieveType)
-        for taskConfig in downloadTaskConfig:
+        for idx, taskConfig in enumerate(downloadTaskConfig):
             if retrieve == Retrieve.URL:
-                downloadTasks.append(tasks.UrlRetrieve(self.workingDirs[Step.DOWNLOADING], taskConfig, self.locationDir.name))
-
+                task = tasks.UrlRetrieve(self.workingDirs[Step.DOWNLOADING], taskConfig, self.locationDir.name)
             elif retrieve == Retrieve.CRAWL:
-                downloadTasks.append(tasks.CrawlRetrieve(self.workingDirs[Step.DOWNLOADING], taskConfig, self.locationDir.name, Flag.REPREPARE in flags))
-
+                task = tasks.CrawlRetrieve(self.workingDirs[Step.DOWNLOADING], taskConfig, self.locationDir.name, Flag.REPREPARE in flags)
             elif retrieve == Retrieve.SCRIPT:
-                downloadTasks.append(tasks.ScriptRunner(self.workingDirs[Step.DOWNLOADING], taskConfig, self.dirLookup, self._getFiles(Step.DOWNLOADING), []))
-
+                task = tasks.ScriptRunner(self.workingDirs[Step.DOWNLOADING], taskConfig, self.dirLookup, self._getFiles(Step.DOWNLOADING), [])
             else:
                 raise Exception(f"Unknown retrieve type '{retrieveType}' specified for {self.name}") from AttributeError
             
-        self._execute(Step.DOWNLOADING, downloadTasks, flags)
+            if not self._execute(Step.DOWNLOADING, idx, task, flags):
+                logging.error("Stopped evaluating downloading tasks as previous task failed")
+                break
+            
 
     def process(self, flags: list[Flag], historicFolderNum: int) -> None:
         if not self._generateWorkingDirs(historicFolderNum):
@@ -190,11 +189,12 @@ class Database:
         
         processingConfig: list[dict] = self.config.pop(Step.PROCESSING.value, [])
 
-        processTasks = []
-        for processingStep in processingConfig:
-            processTasks.append(tasks.ScriptRunner(self.workingDirs[Step.PROCESSING], processingStep, self.dirLookup, self._getFiles(Step.DOWNLOADING), self._getFiles(Step.PROCESSING)))
+        for idx, processingStep in enumerate(processingConfig):
+            task = tasks.ScriptRunner(self.workingDirs[Step.PROCESSING], processingStep, self.dirLookup, self._getFiles(Step.DOWNLOADING), self._getFiles(Step.PROCESSING))
 
-        self._execute(Step.PROCESSING, processTasks, flags)
+            if not self._execute(Step.PROCESSING, idx, task, flags):
+                logging.error("Stopped evaluating processing tasks as previous task failed")
+                break
 
     def convert(self, flags: list[Flag], historicFolderNum) -> None:
         conversionConfig: dict = self.config.pop(Step.CONVERSION.value, {})
@@ -204,31 +204,21 @@ class Database:
         if not self._generateWorkingDirs(historicFolderNum):
             return
 
-        self._execute(Step.PROCESSING, [tasks.Conversion(self.workingDirs[Step.CONVERSION], self.databaseDir, conversionConfig, self.locationName(), self.name, self.subsection, Flag.REPREPARE in flags)], flags)
+        task = tasks.Conversion(self.workingDirs[Step.CONVERSION], self.databaseDir, conversionConfig, self.locationName(), self.name, self.subsection, Flag.REPREPARE in flags)
+        self._execute(Step.CONVERSION, 0, task, flags)
     
-    def _execute(self, step: Step, taskList: list[tasks.Task], flags: list[Flag]) -> bool:
+    def _execute(self, step: Step, index: int, task: tasks.Task, flags: list[Flag]) -> bool:
         overwrite = Flag.OVERWRITE in flags
         verbose = Flag.VERBOSE in flags
 
         logging.info(f"Executing {self} step '{step.name}' with flags: {self._printFlags(flags)}")
 
-        if not taskList:
-            logging.info(f"No tasks to evaluate for step {step.value}")
-            return True
-
         workingDir = self.workingDirs[step]
         workingDir.mkdir(parents=True, exist_ok=True)
 
-        allSucceeded = True
-        startTime = time.perf_counter()
-        for idx, task in enumerate(taskList):
-            metadata = task.run(overwrite, verbose)
-            self.updateMetadata(step, idx, metadata)
-
-            allSucceeded &= metadata[tasks.Metadata.SUCCESS]
-
-        # self.updateTotalTime(time.perf_counter() - startTime, allSucceeded)
-        return allSucceeded
+        metadata = task.run(overwrite, verbose)
+        self.updateMetadata(step, index, metadata)
+        return metadata[tasks.Metadata.SUCCESS]
 
     def checkUpdateReady(self) -> bool:
         return self._update.updateReady(self.getLastUpdate(Step.DOWNLOADING))
@@ -265,7 +255,7 @@ class Database:
 
         self._metadata[step.value] = taskMetadata
 
-        logging.info(f"Updated {step.value} metadata and saved to file")
+        # logging.info(f"Updated {step.value} metadata and saved to file")
 
     # def updateTotalTime(self, totalTime: float, allSucceeded) -> None:
     #     self._metadata[tasks.Metadata.TOTAL_DURATION.value] = totalTime
