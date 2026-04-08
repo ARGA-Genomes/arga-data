@@ -84,12 +84,12 @@ class OutputScript(FunctionScript):
 
         if self.inputCount > 0: # Injected function requires inputs
 
-            if self.inputCount > self.inputs:
+            if self.inputCount > len(self.inputs):
                 if verbose:
-                    logging.error(f"Imported function '{self.functionName}' from path '{self.modulePath}' expects {self.inputCount} inputs but only {len(self.inputs)} were passed to it")
+                    logging.error(f"Imported function '{self.functionName}' from path '{self.modulePath}' expects {self.inputCount} inputs but {len(self.inputs)} were passed to it")
                     return False, None
             
-            if self.inputCount < self.inputs:
+            if self.inputCount < len(self.inputs):
                 if verbose:
                     logging.warning(f"Imported function '{self.functionName}' from path '{self.modulePath}' given {len(self.inputs)} inputs while only {self.inputCount} were expected. Running with first {self.inputCount} inputs only.")
 

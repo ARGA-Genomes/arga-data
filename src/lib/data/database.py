@@ -139,7 +139,7 @@ class Database:
         for stepMetadata in self._metadata.get(step.value, []):
             stepFiles = []
 
-            for fileName in stepMetadata.get(tasks.Metadata.OUTPUTS):
+            for fileName in stepMetadata.get(tasks.Metadata.OUTPUTS.value):
                 if fileName is None:
                     logging.warning(f"Metadata has no recorded outputs from step {step.value}")
                     continue
@@ -226,7 +226,7 @@ class Database:
 
             allSucceeded &= metadata[tasks.Metadata.SUCCESS]
 
-        self.updateTotalTime(time.perf_counter() - startTime, allSucceeded)
+        # self.updateTotalTime(time.perf_counter() - startTime, allSucceeded)
         return allSucceeded
 
     def checkUpdateReady(self) -> bool:
@@ -266,10 +266,10 @@ class Database:
 
         logging.info(f"Updated {step.value} metadata and saved to file")
 
-    def updateTotalTime(self, totalTime: float, allSucceeded) -> None:
-        self._metadata[tasks.Metadata.TOTAL_DURATION.value] = totalTime
-        if allSucceeded:
-            self._metadata[tasks.Metadata.LAST_SUCCESS_TOTAL_DURATION.value] = totalTime
+    # def updateTotalTime(self, totalTime: float, allSucceeded) -> None:
+    #     self._metadata[tasks.Metadata.TOTAL_DURATION.value] = totalTime
+    #     if allSucceeded:
+    #         self._metadata[tasks.Metadata.LAST_SUCCESS_TOTAL_DURATION.value] = totalTime
 
     def getLastUpdate(self, step: Step) -> datetime | None:
         timestamp = self._metadata[step.value][0][tasks.Metadata.LAST_SUCCESS_START.value]

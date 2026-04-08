@@ -32,6 +32,11 @@ def parsePath(arg: str, relativeDir: Path, dirLookup: dict[str, Path]) -> Path |
     return arg
 
 def parseInput(arg: str, downloaded: list[list[DataFile]], processed: list[list[DataFile]]) -> list[DataFile | Path]:
+    if not (arg[0] == "{" and arg[-1] == "}"):
+        logging.warning(f"{arg} is not a valid input argument")
+        return
+    
+    arg = arg[1:-1]
     asPath = arg.endswith("_") # Return outputs as path insteasd
     fileInfo = arg.rstrip("_")
     
