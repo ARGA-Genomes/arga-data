@@ -126,7 +126,7 @@ class Database:
             _generate(todaysDataDir)
             return True
 
-        historicFolders = sorted([item for item in self.dataDir.iterdir() if item.is_dir()], reverse=True)
+        historicFolders = sorted([item for item in self.dataDir.iterdir() if item.is_dir() and item.name.replace("-", "").isnumeric()], reverse=True)
         if historicFolderNum > (len(historicFolders) - 1):
             logging.error(f"Unable to select historic folder #{historicFolderNum} as there are only {len(historicFolders)}")
             return False
@@ -148,7 +148,7 @@ class Database:
                 stepFiles.append(DataFile(self.workingDirs[step] / fileName))
 
             files.append(stepFiles)
-
+            
         return files
 
     def download(self, flags: list[Flag]) -> None:
@@ -216,9 +216,43 @@ class Database:
         workingDir = self.workingDirs[step]
         workingDir.mkdir(parents=True, exist_ok=True)
 
+        backupDir = workingDir / "backups"
+        tempFiles: list[DataFile] = [] # List of outputs from previous run
+
+        stepMetadata = self._metadata.get(step.value, [])
+        if index < len(stepMetadata): # Task index has been run previously
+            success: bool = stepMetadata[index].get(tasks.Metadata.SUCCESS.value, False)
+            outputs: list[str] = stepMetadata[index].get(tasks.Metadata.OUTPUTS.value, [])
+
+            if overwrite:
+                if success:
+                    logging.info(f"Task has been run previously and produced outputs '{outputs}'. Skipping as overwrite flag has not been set.")
+                    return True
+                
+                tempFiles.extend([DataFile(workingDir / fileName) for fileName in outputs])
+
+        if tempFiles:
+            backupDir.mkdir()
+
+        for file in tempFiles:
+            file.backUp(backupDir)
+
         metadata = task.run(overwrite, verbose)
         self.updateMetadata(step, index, metadata)
-        return metadata[tasks.Metadata.SUCCESS]
+        runSuccess = metadata[tasks.Metadata.SUCCESS]
+
+        if not runSuccess:
+            for file in tempFiles:
+                file.restoreBackUp()
+
+            if tempFiles:
+                backupDir.rmdir()
+
+        else:
+            for file in tempFiles:
+                file.deleteBackup()
+
+        return runSuccess
 
     def checkUpdateReady(self) -> bool:
         return self._update.updateReady(self.getLastUpdate(Step.DOWNLOADING))
