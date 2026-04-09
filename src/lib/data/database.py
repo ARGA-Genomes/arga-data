@@ -217,24 +217,20 @@ class Database:
         workingDir.mkdir(parents=True, exist_ok=True)
 
         backupDir = workingDir / "backups"
-        tempFiles: list[DataFile] = [] # List of outputs from previous run
+        outputs: list[DataFile] = [] # List of outputs from previous run        
 
         stepMetadata = self._metadata.get(step.value, [])
         if index < len(stepMetadata): # Task index has been run previously
-            success: bool = stepMetadata[index].get(tasks.Metadata.SUCCESS.value, False)
-            outputs: list[str] = stepMetadata[index].get(tasks.Metadata.OUTPUTS.value, [])
+            outputs = [DataFile(workingDir, fileName) for fileName in stepMetadata[index].get(tasks.Metadata.OUTPUTS.value, [])]
 
-            if overwrite:
-                if success:
-                    logging.info(f"Task has been run previously and produced outputs '{outputs}'. Skipping as overwrite flag has not been set.")
-                    return True
-                
-                tempFiles.extend([DataFile(workingDir / fileName) for fileName in outputs])
+            if not overwrite and all(output.exists() for output in outputs):
+                logging.info(f"Task has been run previously and produced outputs: '{', '.join(outputs)}'. Skipping as overwrite flag has not been set.")
+                return True
 
-        if tempFiles:
+        if outputs:
             backupDir.mkdir()
 
-        for file in tempFiles:
+        for file in outputs:
             file.backUp(backupDir)
 
         metadata = task.run(overwrite, verbose)
@@ -242,14 +238,13 @@ class Database:
         runSuccess = metadata[tasks.Metadata.SUCCESS]
 
         if not runSuccess:
-            for file in tempFiles:
-                file.restoreBackUp()
+            if outputs:
+                for file in outputs:
+                    file.restoreBackUp()
 
-            if tempFiles:
                 backupDir.rmdir()
-
         else:
-            for file in tempFiles:
+            for file in outputs:
                 file.deleteBackup()
 
         return runSuccess
