@@ -12,7 +12,7 @@ class SourceManager:
         self.locations: dict[str, Location] = {}
 
         settings = Settings(False)
-        for locationFolder in settings.dataSourcesDir.iterdir():
+        for locationFolder in settings.configDir.iterdir():
             if locationFolder.is_file():
                 continue
 
@@ -74,12 +74,15 @@ class Location:
         self.locationPath = locationPath
         self.databases: dict[str, Database] = {}
 
-        for databaseFolder in locationPath.iterdir():
-            if databaseFolder.is_file() or databaseFolder.name in ("__pycache__", "llib"): # Skip files, cached python folder, and location library
+        for file in locationPath.iterdir():
+            if (not file.is_file()) or (file.suffix != ".json"):
                 continue
 
-            db = Database(databaseFolder)
-            self.databases[db.databaseName()] = db
+            with open(file) as fp:
+                config = json.load(fp)
+
+            db = Database(locationPath.name, file.stem, config)
+            self.databases[db.getDatabaseName()] = db
 
     def getName(self) -> str:
         return self.locationPath.name

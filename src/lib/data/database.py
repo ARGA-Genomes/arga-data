@@ -5,14 +5,9 @@ from enum import Enum
 from pathlib import Path
 from lib.processing import tasks
 import lib.processing.updating as upd
-import lib.processing.parsing as parse
-import time
 from datetime import datetime
 from lib.processing.files import DataFile
 from lib.json import JsonSynchronizer
-import traceback
-
-sourceConfigName = "config.json"
 
 class Flag(Enum):
     VERBOSE   = "quiet" # Verbosity enabled by default, flag is used when silenced
@@ -36,34 +31,27 @@ class Updates(Enum):
 
 class Database:
     _metadataFileName = "metadata.json"
+    _exampleFolderName = "examples"
 
-    def __init__(self, databaseDir: Path):
-        self.databaseDir = databaseDir
-
-        configPath = databaseDir / sourceConfigName
-        if configPath.exists():
-            with open(configPath) as fp:
-                config = json.load(fp)
-        else:
-            config = {}
+    def __init__(self, locationName: str, databaseName: str, config: dict):
+        self.locationName = locationName
+        self.databaseName = databaseName
 
         self.subsections: dict[str, str] | list[str] = config.pop("subsections", {})
         self.config = config
 
-    def locationName(self) -> str:
+    def getLocationName(self) -> str:
         return self.locationDir.name
 
-    def databaseName(self) -> str:
+    def getDatabaseName(self) -> str:
         return self.databaseDir.name
 
-    def listSubsections(self) -> list[str]:
+    def getSubsections(self) -> list[str]:
         return list(self.subsections)
 
     def constuct(self, name: str, subsection: str):
         self.name = name
         self.subsection = subsection # Subsection is verified before construction, so is valid
-        self.subsectionDir = self.databaseDir / subsection # Same as databaseDir if no subsection
-        self.locationDir = self.databaseDir.parent
 
         # Subsection remapping
         if subsection:
@@ -75,35 +63,23 @@ class Database:
 
             self.config = json.loads(rawConfig)
 
-        # Local storage and libraries
-        settings = Settings()
-
-        self.exampleDir = self.subsectionDir / "examples" # Data sample storage location
+        # Local libraries and storage
         self.dirLookup = {
-            ".": settings.scriptsDir / self.locationName(),
+            ".": settings.scriptsDir / self.locationName,
             ".lib": settings.libDir,
         }
+            
+        settings = Settings()
+        self.dataDir = settings.Storage.DATA / self.locationName / self.databaseName / self.subsection
 
-        # Local settings
-        for dir in (self.locationDir, self.databaseDir, self.subsectionDir):
-            subdirConfig = Path(dir / "settings.toml")
-            if subdirConfig.exists():
-                settings.update(subdirConfig)
-
-        # Data storage
-        self.dataDir = self.subsectionDir / "data" # Default data location
-        if settings.Storage.DATA: # Overwrite data location
-            self.dataDir: Path = settings.Storage.DATA / self.dataDir.relative_to(self.locationDir.parent) # Change parent of locationDir (dataSources folder) to storage dir
-
+        # Empty default values, generated based on historic selection
         self.workingDirs: dict[Step, Path] = {}
         self._metadata: JsonSynchronizer = None
+        self.exampleDir: Path = None
 
         # Updating
         updateConfig: dict = self.config.pop("updating", {})
         self._update = self._getUpdater(updateConfig)
-
-        # Preparation Stage
-        self._lastPrepared = None
 
     def __str__(self):
         return self.name
@@ -120,6 +96,7 @@ class Database:
         def _generate(folder: Path) -> None:
             self.workingDirs = {step: folder / step.value for step in Step}
             self._metadata = JsonSynchronizer(folder / self._metadataFileName)
+            self.exampleDir = folder / self._exampleFolderName
 
         todaysDataDir = self.dataDir / str(datetime.now().date())   
         if historicFolderNum == -1: # Force today
@@ -283,13 +260,6 @@ class Database:
             taskMetadata.append(parsedMetadata)
 
         self._metadata[step.value] = taskMetadata
-
-        # logging.info(f"Updated {step.value} metadata and saved to file")
-
-    # def updateTotalTime(self, totalTime: float, allSucceeded) -> None:
-    #     self._metadata[tasks.Metadata.TOTAL_DURATION.value] = totalTime
-    #     if allSucceeded:
-    #         self._metadata[tasks.Metadata.LAST_SUCCESS_TOTAL_DURATION.value] = totalTime
 
     def getLastUpdate(self, step: Step) -> datetime | None:
         timestamp = self._metadata[step.value][0][tasks.Metadata.LAST_SUCCESS_START.value]

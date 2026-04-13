@@ -1,6 +1,7 @@
 import toml
 from pathlib import Path
 import lib.processing.parsing as parsing
+import logging
 
 class Settings:
 
@@ -8,8 +9,8 @@ class Settings:
         LOGS = "./logs"
 
     class Storage:
-        DATA = ""
-        PACKAGE = ""
+        DATA = "./data"
+        PACKAGE = "./dataPackages"
 
     class Files:
         SECRETS = "./secrets.toml"
@@ -20,11 +21,11 @@ class Settings:
 
     def __init__(self, loadVariables: bool = True):
         self.rootDir = Path(__file__).parents[2]
-        self.dataSourcesDir = self.rootDir / "dataSources"
+        self.configDir = self.rootDir / "configs"
         self.srcDir = self.rootDir / "src"
         self.libDir = self.srcDir / "lib"
         self.scriptsDir = self.srcDir / "scripts"
-        self.logsDir = self.srcDir / "logs"
+        self.logsDir = self.rootDir / "logs"
         self.settingsPath = self.rootDir / "settings.toml"
 
         if loadVariables:
@@ -32,9 +33,9 @@ class Settings:
 
     def _generate(self):
         comments = {
-            "LOGS": "Location of all logging files, cannot overwrite with local config files",
-            "DATA": "Location overwrite for source data including downloading/processing/conversion, leave blank to keep in respective dataSource location, new location will have dataSources folder structure",
-            "PACKAGE": "Location overwrite for packaged files to be put in, leave blank to leave in respective dataSource location",
+            "LOGS": "Location of all logging files",
+            "DATA": "Location overwrite for source data including downloading/processing/conversion, leave blank to use repo root directory",
+            "PACKAGE": "Location overwrite for packaged files to be put in, leave blank to leave to use repo root directory",
             "SECRETS": "Secrets file for storing sensitive information",
             "LOG_LEVEL": "Log levels: debug, info, warning, error, critical"
         }
@@ -74,4 +75,10 @@ class Settings:
         for key, pair in data.items():
             for variable, value in pair.items():
                 subClass = getattr(self, key.capitalize())
-                setattr(subClass, variable.upper(), parsing.parsePath(value, path.parent, {}))
+                parsedValue = parsing.parsePath(value, path.parent, "")
+
+                if not parsedValue:
+                    logging.warning(f"Invalid value for {subClass.__name__}.{variable.upper()}: {parsedValue}. Value not set.")
+                    continue
+
+                setattr(subClass, variable.upper(), parsedValue)
