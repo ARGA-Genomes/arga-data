@@ -41,10 +41,10 @@ class Database:
         self.config = config
 
     def getLocationName(self) -> str:
-        return self.locationDir.name
+        return self.locationName
 
     def getDatabaseName(self) -> str:
-        return self.databaseDir.name
+        return self.databaseName
 
     def getSubsections(self) -> list[str]:
         return list(self.subsections)
@@ -63,14 +63,14 @@ class Database:
 
             self.config = json.loads(rawConfig)
 
-        # Local libraries and storage
+        # Local storage and libraries
+        settings = Settings()
+        self.dataDir = settings.Storage.DATA / self.locationName / self.databaseName / self.subsection
+
         self.dirLookup = {
             ".": settings.scriptsDir / self.locationName,
             ".lib": settings.libDir,
         }
-            
-        settings = Settings()
-        self.dataDir = settings.Storage.DATA / self.locationName / self.databaseName / self.subsection
 
         # Empty default values, generated based on historic selection
         self.workingDirs: dict[Step, Path] = {}
@@ -147,9 +147,9 @@ class Database:
         retrieve = Retrieve._value2member_map_.get(retrieveType)
         for idx, taskConfig in enumerate(downloadTaskConfig):
             if retrieve == Retrieve.URL:
-                task = tasks.UrlRetrieve(self.workingDirs[Step.DOWNLOADING], taskConfig, self.locationDir.name)
+                task = tasks.UrlRetrieve(self.workingDirs[Step.DOWNLOADING], taskConfig, self.locationName)
             elif retrieve == Retrieve.CRAWL:
-                task = tasks.CrawlRetrieve(self.workingDirs[Step.DOWNLOADING], taskConfig, self.locationDir.name, Flag.REPREPARE in flags)
+                task = tasks.CrawlRetrieve(self.workingDirs[Step.DOWNLOADING], taskConfig, self.locationName, Flag.REPREPARE in flags)
             elif retrieve == Retrieve.SCRIPT:
                 task = tasks.ScriptRunner(self.workingDirs[Step.DOWNLOADING], taskConfig, self.dirLookup, self._getFiles(Step.DOWNLOADING), [])
             else:
@@ -181,7 +181,7 @@ class Database:
         if not self._generateWorkingDirs(historicFolderNum):
             return
 
-        task = tasks.Conversion(self.workingDirs[Step.CONVERSION], self.databaseDir, conversionConfig, self.locationName(), self.name, self.subsection, Flag.REPREPARE in flags)
+        task = tasks.Conversion(self.workingDirs[Step.CONVERSION], self.databaseDir, conversionConfig, self.locationName, self.name, self.subsection, Flag.REPREPARE in flags)
         self._execute(Step.CONVERSION, 0, task, flags)
     
     def _execute(self, step: Step, index: int, task: tasks.Task, flags: list[Flag]) -> bool:
@@ -198,10 +198,10 @@ class Database:
 
         stepMetadata = self._metadata.get(step.value, [])
         if index < len(stepMetadata): # Task index has been run previously
-            outputs = [DataFile(workingDir, fileName) for fileName in stepMetadata[index].get(tasks.Metadata.OUTPUTS.value, [])]
+            outputs = [DataFile(workingDir / fileName) for fileName in stepMetadata[index].get(tasks.Metadata.OUTPUTS.value, [])]
 
             if not overwrite and all(output.exists() for output in outputs):
-                logging.info(f"Task has been run previously and produced outputs: '{', '.join(outputs)}'. Skipping as overwrite flag has not been set.")
+                logging.info(f"Task has been run previously and produced outputs: '{', '.join([str(outputs) for output in outputs])}'. Skipping as overwrite flag has not been set.")
                 return True
 
         if outputs:

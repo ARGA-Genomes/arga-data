@@ -106,7 +106,7 @@ class Location:
             logging.error(f"Invalid database '{databaseName}' for location '{self.getName()}'")
             return {}
         
-        databaseSubsections = database.listSubsections()
+        databaseSubsections = database.getSubsections()
         if not subsectionName:
             if not databaseSubsections:
                 databaseSubsections = noSubsections
