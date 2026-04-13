@@ -20,6 +20,7 @@
 *.gbff
 *.gz
 *.rar
+*.ttl
 
 # Modifyable files in root directory
 /*.toml

@@ -3,7 +3,7 @@
         "retrieveType": "script",
         "tasks": [
             {
-                "path": "./processing.py",
+                "path": "./compiled.py",
                 "function": "collectFromSheets",
                 "args": [
                     "{OUT-DIR}"
