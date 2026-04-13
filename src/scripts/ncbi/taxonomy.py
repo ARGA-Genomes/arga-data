@@ -1,8 +1,9 @@
 from pathlib import Path
 import pandas as pd
 from enum import Enum
-import logging
 from lib.progressBar import ProgressBar
+from lib.processing.scripts import importableScript
+import lib.zipping as zp
 
 class DumpFile(Enum):
     NODES = "nodes.dmp"
@@ -132,10 +133,13 @@ def flattenNames(df: pd.DataFrame) -> pd.DataFrame:
 
     return pd.DataFrame.from_dict(data, orient="index")
 
-def parse(dumpFolder: Path, outputFile: Path) -> None:
+
+@importableScript()
+def parse(outputDir: Path, inputPath: Path) -> None:
+    extractedFolder = zp.extract(inputPath, outputDir)
 
     def loadDF(dumpFile: DumpFile) -> pd.DataFrame:
-        with open(dumpFolder / dumpFile.value) as fp:
+        with open(extractedFolder / dumpFile.value) as fp:
             records = [line.strip("\t|\n").split("\t|\t") for line in fp.readlines()]
 
         return pd.DataFrame.from_records(records, columns=headings[dumpFile])
@@ -197,4 +201,4 @@ def parse(dumpFolder: Path, outputFile: Path) -> None:
 
     df = df.drop(["in-part"], axis=1)
     df = df.rename({col: col.replace(" ", "_") for col in df.columns}, axis=1)
-    df.to_csv(outputFile, index=False)
+    df.to_csv(outputDir / "ncbiTaxonomy.csv", index=False)

@@ -4,10 +4,7 @@
         "tasks": [
             {
                 "url": "https://ftp.ncbi.nih.gov/genomes/refseq/assembly_summary_refseq.txt",
-                "name": "assembly_summary_refseq.tsv",
-                "properties": {
-                    "header": 1
-                }
+                "name": "assembly_summary_refseq.tsv"
             }
         ]
     },
@@ -16,27 +13,33 @@
             "path": "./lib.py",
             "function": "getStats",
             "inputs": [
-                "{D^|0-PATH}"
+                "{D^}"
             ]
         },
         {
             "path": "./lib.py",
             "function": "merge",
             "inputs": [
-                "{D^|0}",
-                "{P^|0}"
+                "{D^}",
+                "{P^}"
+            ],
+            "args": [
+                "refseq"
             ]
         },
         {
             "path": "./lib.py",
             "function": "cleanData",
             "inputs": [
-                "{P^|0}"
+                "{P^}"
+            ],
+            "args": [
+                "refseq"
             ]
         }
     ],
     "conversion": {
-        "input": "{P^|0}",
+        "input": "{P^}",
         "datasetID": "ARGA:TL:0002002",
         "mapID": 2003682060
     },

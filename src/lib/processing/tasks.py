@@ -1,6 +1,6 @@
 from pathlib import Path
 import logging
-from lib.processing.files import DataFile, StackedFile
+from lib.processing.files import DataFile
 from lib.processing.scripts import OutputScript
 import lib.downloading as dl
 from lib.crawler import Crawler
@@ -10,7 +10,7 @@ from lib.secrets import Secrets
 import time
 from datetime import datetime
 from enum import Enum
-from requests.auth import HTTPBasicAuth
+from lib.processing.mapping import Map
 
 class Metadata(Enum):
     OUTPUTS = "outputs"
@@ -228,7 +228,7 @@ class Conversion(Task):
     _entityColumn = "entityColumn"
     _chunkSize = "chunkSize"
 
-    def __init__(self, workingDir: Path, mapDir: Path, config: dict, prefix: str, name: str, subsection: str, downloaded: list[list[DataFile]], processed: list[list[DataFile]]):
+    def __init__(self, workingDir: Path, config: dict, prefix: str, name: str, subsection: str, downloaded: list[list[DataFile]], processed: list[list[DataFile]]):
         super().__init__(workingDir)
 
         self.datasetID = config.pop(self._datasetID, "")
@@ -263,7 +263,9 @@ class Conversion(Task):
         self.subsection = subsection
 
     def _execute(self, overwrite: bool, verbose: bool) -> tuple[bool, dict]:
-        converter = Converter(self.mapDir, self.input, self.workingDir / self.name, self.prefix, self.datasetID, (self.entityEvent, self.entityColumn), self.chunkSize)
+        
+
+        converter = Converter(self.input, self.workingDir / self.name, self.prefix, self.datasetID, (self.entityEvent, self.entityColumn), self.chunkSize)
         converter.loadMap(self.mapID, self.mapColumnName, overwrite)
         success, metadata = converter.convert(verbose)
         return success, metadata
