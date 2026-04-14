@@ -7,9 +7,4 @@ if __name__ == '__main__':
     
     sources, flags, args = parser.parseArgs()
     for source in sources:
-        if not source.checkUpdateReady() and not args.force:
-            logging.info(f"Data source '{source}' is not ready for update.")
-            continue
-
-        source.update(flags)
-        outputFile = source.package()
+        source.update()

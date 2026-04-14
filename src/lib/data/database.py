@@ -56,10 +56,6 @@ class Database:
         self._metadata: JsonSynchronizer = None
         self._dataDate: str = ""
 
-        # Updating
-        updateConfig: dict = self.config.get("updating", {})
-        self._update = self._getUpdater(updateConfig)
-
     def __str__(self):
         return self.name
 
@@ -69,6 +65,9 @@ class Database:
     def _reportLeftovers(self, config: dict, sectionName: str) -> None:
         for property in config:
             logging.debug(f"{self.name} unknown{f' {sectionName}' if sectionName else ''} config item: {property}")
+
+    def _getHistoricFolders(self) -> list[Path]:
+        return sorted([item for item in self.dataDir.iterdir() if item.is_dir() and item.name.replace("-", "").isnumeric()], reverse=True)
 
     def _generateWorkingDirs(self, historicFolderNum: int) -> bool:
 
@@ -84,7 +83,7 @@ class Database:
             _generate(todaysDataDir)
             return True
 
-        historicFolders = sorted([item for item in self.dataDir.iterdir() if item.is_dir() and item.name.replace("-", "").isnumeric()], reverse=True)
+        historicFolders = self._getHistoricFolders()
         if historicFolderNum > (len(historicFolders) - 1):
             logging.error(f"Unable to select historic folder #{historicFolderNum} as there are only {len(historicFolders)}")
             return False
@@ -153,7 +152,7 @@ class Database:
                 logging.error("Stopped evaluating processing tasks as previous task failed")
                 break
 
-    def convert(self, flags: list[Flag], historicFolderNum) -> None:
+    def convert(self, flags: list[Flag], historicFolderNum: int) -> None:
         conversionConfig: dict = self.config.get(Step.CONVERSION.value, {})
         if not conversionConfig:
             raise Exception(f"No conversion config specified as required for {self.name}") from AttributeError
@@ -163,6 +162,44 @@ class Database:
 
         task = tasks.Conversion(self.workingDirs[Step.CONVERSION], conversionConfig, self.name, self._dataDate, self.locationName, self._getFiles(Step.DOWNLOADING), self._getFiles(Step.PROCESSING))
         self._execute(Step.CONVERSION, 0, task, flags)
+
+    def update(self) -> None:
+        updateConfig: dict = self.config.get("updating", {})
+        if not updateConfig:
+            raise Exception(f"No update config specified as required for {self.name}")
+        
+        updaterTypeValue = updateConfig.get("type", None)
+        if updaterTypeValue is None:
+            raise Exception("No 'type' specified in update config") from AttributeError
+
+        updaterType = Updates._value2member_map_.get(updaterTypeValue, None)
+        if updaterType is None:
+            raise Exception(f"Unknown update type: {updaterTypeValue}") from AttributeError
+    
+        if updaterType == Updates.DAILY:
+            updater = upd.DailyUpdate(updateConfig)
+        elif updaterType == Updates.WEEKLY:
+            updater = upd.WeeklyUpdate(updateConfig)
+        elif updaterType == Updates.MONTHLY:
+            updater = upd.MonthlyUpdate(updateConfig)
+        else:
+            raise Exception(f"Unhandled updater type: {updaterType}") from AttributeError
+        
+        lastUpdate = None
+        for folder in self._getHistoricFolders():
+            historicMetadata = JsonSynchronizer(folder / self._metadataFileName)
+            lastSuccess = historicMetadata[Step.DOWNLOADING][0].get(tasks.Metadata.LAST_SUCCESS_START, None)
+
+            if lastSuccess is not None:
+                lastUpdate = datetime.fromisoformat(lastSuccess)
+
+        if (lastUpdate is not None) and (updater.updateReady(lastUpdate)):
+            logging.info(f"Data source '{self.name}' is not ready for update.")
+            return
+
+        self.download()
+        self.process()
+        self.convert()
     
     def _execute(self, step: Step, index: int, task: tasks.Task, flags: list[Flag]) -> bool:
         overwrite = Flag.OVERWRITE in flags
@@ -206,13 +243,6 @@ class Database:
 
         return runSuccess
 
-    def checkUpdateReady(self) -> bool:
-        return self._update.updateReady(self.getLastUpdate(Step.DOWNLOADING))
-    
-    def update(self, flags: list[Flag]) -> bool:
-        for fileStep in (Step.DOWNLOADING, Step.PROCESSING):
-            self.create(fileStep, list(set(flags).add(Flag.OVERWRITE)))
-
     def _printFlags(self, flags: list[Flag]) -> str:
         return " | ".join(f"{flag.value}={flag in flags}" for flag in Flag)
 
@@ -240,34 +270,6 @@ class Database:
             taskMetadata.append(parsedMetadata)
 
         self._metadata[step.value] = taskMetadata
-
-    def getLastUpdate(self, step: Step) -> datetime | None:
-        timestamp = self._metadata[step.value][0][tasks.Metadata.LAST_SUCCESS_START.value]
-        if timestamp is not None:
-            return datetime.fromisoformat(timestamp)
-
-    def getLastOutputs(self, step: Step) -> list[str]:
-        return self._metadata.get(step.value, [])[-1].get(tasks.Metadata.OUTPUTS.value, [])
-
-    def _getUpdater(self, config: dict) -> upd.Update:
-        updaterTypeValue = config.get("type", None)
-        if updaterTypeValue is None:
-            raise Exception("No update config specified") from AttributeError
-
-        updaterType = Updates._value2member_map_.get(updaterTypeValue, None)
-        if updaterType is None:
-            raise Exception(f"Unknown update type: {updaterTypeValue}") from AttributeError
-    
-        if updaterType == Updates.DAILY:
-            return upd.DailyUpdate(config)
-
-        if updaterType == Updates.WEEKLY:
-            return upd.WeeklyUpdate(config)
-        
-        if updaterType == Updates.MONTHLY:
-            return upd.MonthlyUpdate(config)
-        
-        raise Exception(f"Unknown updater type: {updaterType}") from AttributeError
 
 class DatabaseFactory:
     def __init__(self, locationName: str, databaseName: str, config: dict):

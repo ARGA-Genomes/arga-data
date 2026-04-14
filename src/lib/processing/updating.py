@@ -83,7 +83,7 @@ class MonthlyUpdate(Update):
 
         self._date = self._getAndAssert(self._repeatDate, int)
 
-    def updateReady(self, lastUpdate: datetime) -> date:
+    def updateReady(self, lastUpdate: datetime) -> bool:
         today = datetime.today()
         daysThisMonth = self._monthDays[today.month]
 
