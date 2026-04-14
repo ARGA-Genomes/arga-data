@@ -228,19 +228,14 @@ class Conversion(Task):
     _entityColumn = "entityColumn"
     _chunkSize = "chunkSize"
 
-    def __init__(self, workingDir: Path, config: dict, prefix: str, name: str, subsection: str, downloaded: list[list[DataFile]], processed: list[list[DataFile]]):
+    _localMapName = "map.json"
+
+    def __init__(self, workingDir: Path, config: dict, name: str, dataDate: str, unmappedPrefix: str, downloaded: list[list[DataFile]], processed: list[list[DataFile]]):
         super().__init__(workingDir)
 
         self.datasetID = config.pop(self._datasetID, "")
-        if isinstance(self.datasetID, dict):
-            self.datasetID = self.datasetID.get(subsection, "")
-
         if not self.datasetID:
-            error = "No `datasetID` specified"
-            if subsection:
-                error += f" for subsection `{subsection}`"
-
-            raise Exception(error) from AttributeError
+            raise Exception("No `datasetID` specified") from AttributeError
 
         self.mapID = config.pop(self._mapID, "")
         self.mapColumnName = config.pop(self._mapColumnName, "")
@@ -257,15 +252,27 @@ class Conversion(Task):
         self.entityColumn = config.pop(self._entityColumn, "scientific_name")
         self.chunkSize = config.pop(self._chunkSize, 1024)
 
-        self.mapDir = mapDir
-        self.prefix = prefix
         self.name = name
-        self.subsection = subsection
+        self.dataDate = dataDate
+        self.unmappedPrefix = unmappedPrefix
 
     def _execute(self, overwrite: bool, verbose: bool) -> tuple[bool, dict]:
-        
+        mapDir = self.workingDir.parent
+        localMapFile = mapDir / self._localMapName
 
-        converter = Converter(self.input, self.workingDir / self.name, self.prefix, self.datasetID, (self.entityEvent, self.entityColumn), self.chunkSize)
-        converter.loadMap(self.mapID, self.mapColumnName, overwrite)
-        success, metadata = converter.convert(verbose)
-        return success, metadata
+        if not localMapFile.exists() and not overwrite:
+            if self.mapColumnName:
+                logging.info("Using updated mapping sheet")
+                map = Map.fromModernSheet(self.mapColumnName, localMapFile)
+            elif self.mapID:
+                logging.info("Using original mapping sheet")
+                map = Map.fromSheets(self.mapID, localMapFile)
+            else: # Should never land here as mapID and mapColumnName are verified to exist in init
+                logging.warning("No mapping found")
+                return False, {}
+        else:
+            logging.info(f"Using local map file {localMapFile}")
+            map = Map().fromFile(localMapFile, self.unmappedPrefix)
+
+        converter = Converter(self.input, self.workingDir / self.fileName)
+        return converter.convert(map, self.chunkSize, self.datasetID, self.entityEvent, self.entityColumn, verbose)

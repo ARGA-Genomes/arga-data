@@ -37,7 +37,11 @@ class Database:
         self.locationName = locationName
         self.databaseName = databaseName
 
-        self.subsections: dict[str, str] | list[str] = config.pop("subsections", {})
+        self.subsections: dict[str, list[str]]
+        for subsectionInfo in config.pop("subsections", []):
+            sections = subsectionInfo.split(",")
+            self.subsections[sections[:1]] = [section.strip() for section in sections[1:]] # Strip comma separated values to allow optional whitespacing
+
         self.config = config
 
     def getLocationName(self) -> str:
@@ -49,19 +53,22 @@ class Database:
     def getSubsections(self) -> list[str]:
         return list(self.subsections)
 
-    def constuct(self, name: str, subsection: str):
-        self.name = name
-        self.subsection = subsection # Subsection is verified before construction, so is valid
-
-        # Subsection remapping
+    def constuct(self, name: str, subsection: str) -> None:
         if subsection:
-            rawConfig = json.dumps(self.config)
-            rawConfig = rawConfig.replace("<SUB>", subsection)
+            if subsection not in self.subsections:
+                logging.error(f"Invalid subsection {subsection}, must be one of {self.getSubsections()}")
+                return
 
-            if isinstance(self.subsections, dict): # Name provided with subsections
-                 rawConfig = rawConfig.replace("<SUB:VALUE>", self.subsections[subsection])
+            rawConfig = json.dumps(self.config)
+            rawConfig = rawConfig.replace("<S>", subsection)
+
+            for idx, extraValue in enumerate([subsection] + self.subsections[subsection]): # Add subsection as 0th element to allow <S:0> as valid subsection selector
+                rawConfig = rawConfig.replace(f"<S:{idx}", extraValue)
 
             self.config = json.loads(rawConfig)
+
+        self.name = name
+        self.subsection = subsection # Subsection is verified before construction, so is valid
 
         # Local storage and libraries
         settings = Settings()
@@ -74,8 +81,10 @@ class Database:
 
         # Empty default values, generated based on historic selection
         self.workingDirs: dict[Step, Path] = {}
-        self._metadata: JsonSynchronizer = None
         self.exampleDir: Path = None
+
+        self._metadata: JsonSynchronizer = None
+        self._dataDate: str = ""
 
         # Updating
         updateConfig: dict = self.config.pop("updating", {})
@@ -91,12 +100,14 @@ class Database:
         for property in config:
             logging.debug(f"{self.name} unknown{f' {sectionName}' if sectionName else ''} config item: {property}")
 
-    def _generateWorkingDirs(self, historicFolderNum) -> bool:
+    def _generateWorkingDirs(self, historicFolderNum: int) -> bool:
 
         def _generate(folder: Path) -> None:
             self.workingDirs = {step: folder / step.value for step in Step}
-            self._metadata = JsonSynchronizer(folder / self._metadataFileName)
             self.exampleDir = folder / self._exampleFolderName
+
+            self._metadata = JsonSynchronizer(folder / self._metadataFileName)
+            self._dataDate = folder.name
 
         todaysDataDir = self.dataDir / str(datetime.now().date())   
         if historicFolderNum == -1: # Force today
@@ -181,7 +192,7 @@ class Database:
         if not self._generateWorkingDirs(historicFolderNum):
             return
 
-        task = tasks.Conversion(self.workingDirs[Step.CONVERSION], self.databaseDir, conversionConfig, self.locationName, self.name, self.subsection, Flag.REPREPARE in flags)
+        task = tasks.Conversion(self.workingDirs[Step.CONVERSION], conversionConfig, self.name, self._dataDate, self.locationName, self._getFiles(Step.DOWNLOADING), self._getFiles(Step.PROCESSING))
         self._execute(Step.CONVERSION, 0, task, flags)
     
     def _execute(self, step: Step, index: int, task: tasks.Task, flags: list[Flag]) -> bool:

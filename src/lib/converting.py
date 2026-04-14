@@ -18,24 +18,6 @@ class Converter:
         self.inputFile = inputFile
         self.outputPath = outputPath
 
-    # def loadMap(self, mapID: str, mapColumnName: str, forceRetrieve: bool) -> None:
-    #     mapFile = self.mapDir / self._mapFileName
-
-    #     if mapFile.exists() and not forceRetrieve:
-    #         logging.info("Using local map file")
-    #         self.map = Map.fromFile(mapFile)
-    #     elif mapColumnName:
-    #         logging.info("Using updated mapping sheet")
-    #         self.map = Map.fromModernSheet(mapColumnName, mapFile)
-    #     elif mapID > 0:
-    #         logging.info("Using original mapping sheet")
-    #         self.map = Map.fromSheets(mapID, mapFile)
-    #     else:
-    #         logging.warning("No mapping found")
-
-    #     if self.map is None or self.map.isEmpty():
-    #         raise Exception("Unable to load map file") from FileNotFoundError
-
     def convert(self, map: Map, chunkSize: int, datasetID: str, entityEvent: str, entityColumn: str, verbose: bool) -> tuple[bool, dict]:
         logging.info("Processing chunks for conversion")
 
@@ -54,8 +36,8 @@ class Converter:
                 logging.error(f"{error} dataset is missing field '{self.entityColumn}' in event '{self.entityEvent}'")
                 return {}
             
-            dfEvents[self._entityIDEvent][self._datasetIDLabel] = self.datasetID
-            dfEvents[self._entityIDEvent][self._entityIDLabel] = dfEvents[self._entityIDEvent][self._datasetIDLabel] + dfEvents[self.entityEvent][self.entityColumn]
+            dfEvents[self._entityIDEvent][self._datasetIDLabel] = datasetID
+            dfEvents[self._entityIDEvent][self._entityIDLabel] = dfEvents[self._entityIDEvent][self._datasetIDLabel] + dfEvents[entityEvent][entityColumn]
             return dfEvents
     
         writer = StackedDFWriter(self.outputFile, self.map.events)
