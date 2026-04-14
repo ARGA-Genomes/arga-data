@@ -33,46 +33,12 @@ class Database:
     _metadataFileName = "metadata.json"
     _exampleFolderName = "examples"
 
-    def __init__(self, locationName: str, databaseName: str, config: dict):
-        self.locationName = locationName
-        self.databaseName = databaseName
-
-        self.subsections: dict[str, list[str]] = {}
-        for subsectionInfo in config.pop("subsections", []):
-            if not subsectionInfo:
-                logging.warning("Skipping over empty subsection element")
-                continue
-            
-            sections = subsectionInfo.split(",")
-            self.subsections[sections[0]] = [section.strip() for section in sections[1:]] # Strip comma separated values to allow optional whitespacing
-
-        self.config = config
-
-    def getLocationName(self) -> str:
-        return self.locationName
-
-    def getDatabaseName(self) -> str:
-        return self.databaseName
-
-    def getSubsections(self) -> list[str]:
-        return list(self.subsections)
-
-    def constuct(self, name: str, subsection: str) -> None:
-        if subsection:
-            if subsection not in self.subsections:
-                logging.error(f"Invalid subsection {subsection}, must be one of {self.getSubsections()}")
-                return
-
-            rawConfig = json.dumps(self.config)
-            rawConfig = rawConfig.replace("<S>", subsection)
-
-            for idx, extraValue in enumerate([subsection] + self.subsections[subsection]): # Add subsection as 0th element to allow <S:0> as valid subsection selector
-                rawConfig = rawConfig.replace(f"<S:{idx}", extraValue)
-
-            self.config = json.loads(rawConfig)
-
+    def __init__(self, location: str, database: str, subsection: str, name: str, config: dict):
+        self.locationName = location
+        self.databaseName = database
+        self.subsection = subsection
         self.name = name
-        self.subsection = subsection # Subsection is verified before construction, so is valid
+        self.config = config
 
         # Local storage and libraries
         settings = Settings()
@@ -91,7 +57,7 @@ class Database:
         self._dataDate: str = ""
 
         # Updating
-        updateConfig: dict = self.config.pop("updating", {})
+        updateConfig: dict = self.config.get("updating", {})
         self._update = self._getUpdater(updateConfig)
 
     def __str__(self):
@@ -144,15 +110,15 @@ class Database:
         return files
 
     def download(self, flags: list[Flag]) -> None:
-        downloadConfig: dict = self.config.pop(Step.DOWNLOADING.value, {})
+        downloadConfig: dict = self.config.get(Step.DOWNLOADING.value, {})
         if not downloadConfig:
             raise Exception(f"No download config specified as required for {self.name}") from AttributeError
 
-        retrieveType = downloadConfig.pop("retrieveType", None)
+        retrieveType = downloadConfig.get("retrieveType", None)
         if retrieveType is None:
             raise Exception(f"No retrieve type specified in download config for {self.name}") from AttributeError
         
-        downloadTaskConfig = downloadConfig.pop("tasks", None)
+        downloadTaskConfig = downloadConfig.get("tasks", None)
         if downloadTaskConfig is None:
             raise Exception(f"No download tasks specified in download config for {self.name}") from AttributeError
         
@@ -164,7 +130,7 @@ class Database:
             if retrieve == Retrieve.URL:
                 task = tasks.UrlRetrieve(self.workingDirs[Step.DOWNLOADING], taskConfig, self.locationName)
             elif retrieve == Retrieve.CRAWL:
-                task = tasks.CrawlRetrieve(self.workingDirs[Step.DOWNLOADING], taskConfig, self.locationName, Flag.REPREPARE in flags)
+                task = tasks.CrawlRetrieve(self.workingDirs[Step.DOWNLOADING], taskConfig, self.locationName)
             elif retrieve == Retrieve.SCRIPT:
                 task = tasks.ScriptRunner(self.workingDirs[Step.DOWNLOADING], taskConfig, self.dirLookup, self._getFiles(Step.DOWNLOADING), [])
             else:
@@ -173,13 +139,12 @@ class Database:
             if not self._execute(Step.DOWNLOADING, idx, task, flags):
                 logging.error("Stopped evaluating downloading tasks as previous task failed")
                 break
-            
 
     def process(self, flags: list[Flag], historicFolderNum: int) -> None:
         if not self._generateWorkingDirs(historicFolderNum):
             return
         
-        processingConfig: list[dict] = self.config.pop(Step.PROCESSING.value, [])
+        processingConfig: list[dict] = self.config.get(Step.PROCESSING.value, [])
 
         for idx, processingStep in enumerate(processingConfig):
             task = tasks.ScriptRunner(self.workingDirs[Step.PROCESSING], processingStep, self.dirLookup, self._getFiles(Step.DOWNLOADING), self._getFiles(Step.PROCESSING))
@@ -189,7 +154,7 @@ class Database:
                 break
 
     def convert(self, flags: list[Flag], historicFolderNum) -> None:
-        conversionConfig: dict = self.config.pop(Step.CONVERSION.value, {})
+        conversionConfig: dict = self.config.get(Step.CONVERSION.value, {})
         if not conversionConfig:
             raise Exception(f"No conversion config specified as required for {self.name}") from AttributeError
         
@@ -303,3 +268,36 @@ class Database:
             return upd.MonthlyUpdate(config)
         
         raise Exception(f"Unknown updater type: {updaterType}") from AttributeError
+
+class DatabaseFactory:
+    def __init__(self, locationName: str, databaseName: str, config: dict):
+        self.locationName = locationName
+        self.databaseName = databaseName
+
+        self.subsections: dict[str, list[str]] = {}
+        for subsectionInfo in config.pop("subsections", []):
+            if not subsectionInfo:
+                logging.warning("Skipping over empty subsection element")
+                continue
+            
+            sections = subsectionInfo.split(",")
+            self.subsections[sections[0]] = [section.strip() for section in sections[1:]] # Strip comma separated values to allow optional whitespacing
+
+        self.config = config
+
+    def construct(self, subsection: str, name: str) -> Database:
+        if subsection:
+            if subsection not in self.subsections:
+                logging.error(f"Invalid subsection {subsection}, must be one of {self.getSubsections()}")
+                return
+            
+            rawConfig = json.dumps(self.config)
+            rawConfig = rawConfig.replace("<S>", subsection)
+
+            for idx, extraValue in enumerate([subsection] + self.subsections[subsection]): # Add subsection as 0th element to allow <S:0> as valid subsection selector
+                rawConfig = rawConfig.replace(f"<S:{idx}", extraValue)
+
+            self.config = json.loads(rawConfig)
+
+        return Database(self.locationName, self.databaseName, subsection, name, self.config)
+    

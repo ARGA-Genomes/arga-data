@@ -154,15 +154,15 @@ class CrawlRetrieve(Task):
     def __init__(self, workingDir: Path, config: dict, secretLocation: str):
         super().__init__(workingDir)
 
-        self.url = config.pop(self._url, None)
-        self.regex = config.pop(self._regex, None)
-        self.link = config.pop(self._link, "")
-        self.maxDepth = config.pop(self._maxDepth, -1)
-        self.filenameURLParts = config.pop(self._filenameURLParts, 1)
-        self.skipFolders = config.pop(self._skipFolders, [])
+        self.url = config.get(self._url, None)
+        self.regex = config.get(self._regex, None)
+        self.link = config.get(self._link, "")
+        self.maxDepth = config.get(self._maxDepth, -1)
+        self.filenameURLParts = config.get(self._filenameURLParts, 1)
+        self.skipFolders = config.get(self._skipFolders, [])
         
         self.auth = None
-        auth = config.pop(self._auth, False)
+        auth = config.get(self._auth, False)
         if auth:
             secrets = Secrets(secretLocation)
             self.auth = secrets.getAuth()
@@ -191,22 +191,22 @@ class ScriptRunner(Task):
     def __init__(self, workingDir: Path, config: dict, dirLookup: dict[str, Path], downloaded: list[list[DataFile]], processed: list[list[DataFile]]):
         super().__init__(workingDir)
 
-        modulePath = config.pop(self._modulePath, "")
+        modulePath = config.get(self._modulePath, "")
         if not modulePath:
             raise Exception("No `path` specified in script config") from AttributeError
 
         self.modulePath = parse.parsePath(modulePath, workingDir, dirLookup)
 
-        self.functionName = config.pop(self._functionName, "")
+        self.functionName = config.get(self._functionName, "")
         if not self.functionName:
             raise Exception("No `function` specified in script config") from AttributeError
 
-        inputs = config.pop(self._inputs, [])
+        inputs = config.get(self._inputs, [])
         self.inputs = parse.parseInputList(inputs, downloaded, processed)
 
         self.args = config.get(self._args, [])
         self.kwargs = config.get(self._kwargs, {})
-        self.parallel = config.pop(self._parallel, False)
+        self.parallel = config.get(self._parallel, False)
 
     def _execute(self, overwrite: bool, verbose: bool) -> tuple[bool, dict]:
         if not self.parallel:
@@ -234,24 +234,24 @@ class Conversion(Task):
     def __init__(self, workingDir: Path, config: dict, name: str, dataDate: str, unmappedPrefix: str, downloaded: list[list[DataFile]], processed: list[list[DataFile]]):
         super().__init__(workingDir, True)
 
-        self.datasetID = config.pop(self._datasetID, "")
+        self.datasetID = config.get(self._datasetID, "")
         if not self.datasetID:
             raise Exception("No `datasetID` specified") from AttributeError
 
-        self.mapID = config.pop(self._mapID, "")
-        self.mapColumnName = config.pop(self._mapColumnName, "")
+        self.mapID = config.get(self._mapID, "")
+        self.mapColumnName = config.get(self._mapColumnName, "")
         if not self.mapID and not self.mapColumnName:
             raise Exception(f"No `mapID` or `mapColumnName` specified") from AttributeError
         
-        self.input = config.pop(self._input, "")
+        self.input = config.get(self._input, "")
         if not self.input:
             raise Exception(f"No `input` specified") from AttributeError
         
         self.input = parse.parseInput(self.input, downloaded, processed)[0] # Singular input
 
-        self.entityEvent = config.pop(self._entityEvent, "collection")
-        self.entityColumn = config.pop(self._entityColumn, "scientific_name")
-        self.chunkSize = config.pop(self._chunkSize, 1024)
+        self.entityEvent = config.get(self._entityEvent, "collection")
+        self.entityColumn = config.get(self._entityColumn, "scientific_name")
+        self.chunkSize = config.get(self._chunkSize, 1024)
 
         self.unmappedPrefix = unmappedPrefix
         self.fileName = f"{name}_{dataDate}"
