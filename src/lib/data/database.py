@@ -297,7 +297,7 @@ class DatabaseFactory:
             rawConfig = rawConfig.replace("<S>", subsection)
 
             for idx, extraValue in enumerate([subsection] + self.subsections[subsection]): # Add subsection as 0th element to allow <S:0> as valid subsection selector
-                rawConfig = rawConfig.replace(f"<S:{idx}", extraValue)
+                rawConfig = rawConfig.replace(f"<S:{idx}>", extraValue)
 
             self.config = json.loads(rawConfig)
 
