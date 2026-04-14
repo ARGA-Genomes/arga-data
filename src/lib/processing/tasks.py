@@ -27,8 +27,9 @@ class Metadata(Enum):
     CUSTOM = ""
 
 class Task:
-    def __init__(self, workingDir: Path):
+    def __init__(self, workingDir: Path, foldersAsOutputs: bool = False):
         self.workingDir = workingDir
+        self.foldersAsOutputs = foldersAsOutputs
         self._subTasks: list['Task'] = []
 
     @staticmethod
@@ -63,7 +64,7 @@ class Task:
             logging.info("Cancelling task execution early")
             return
         
-        outputs = [item.name for item in self.workingDir.iterdir() if item not in workingDirFiles and item.is_file()]
+        outputs = [item.name for item in self.workingDir.iterdir() if item not in workingDirFiles and (item.is_file() if not self.foldersAsOutputs else item.is_dir())]
 
         duration = time.perf_counter() - startTime
         endDate = datetime.now().isoformat()
@@ -231,7 +232,7 @@ class Conversion(Task):
     _localMapName = "map.json"
 
     def __init__(self, workingDir: Path, config: dict, name: str, dataDate: str, unmappedPrefix: str, downloaded: list[list[DataFile]], processed: list[list[DataFile]]):
-        super().__init__(workingDir)
+        super().__init__(workingDir, True)
 
         self.datasetID = config.pop(self._datasetID, "")
         if not self.datasetID:

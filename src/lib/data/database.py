@@ -215,7 +215,7 @@ class Database:
         if index < len(stepMetadata): # Task index has been run previously
             outputs = [DataFile(workingDir / fileName) for fileName in stepMetadata[index].get(tasks.Metadata.OUTPUTS.value, [])]
 
-            if not overwrite and all(output.exists() for output in outputs):
+            if not overwrite and outputs and all(output.exists() for output in outputs):
                 logging.info(f"Task has been run previously and produced outputs: '{', '.join([str(outputs) for output in outputs])}'. Skipping as overwrite flag has not been set.")
                 return True
 
