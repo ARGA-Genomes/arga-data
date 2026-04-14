@@ -252,15 +252,14 @@ class Conversion(Task):
         self.entityColumn = config.pop(self._entityColumn, "scientific_name")
         self.chunkSize = config.pop(self._chunkSize, 1024)
 
-        self.name = name
-        self.dataDate = dataDate
         self.unmappedPrefix = unmappedPrefix
+        self.fileName = f"{name}_{dataDate}"
 
     def _execute(self, overwrite: bool, verbose: bool) -> tuple[bool, dict]:
         mapDir = self.workingDir.parent
         localMapFile = mapDir / self._localMapName
 
-        if not localMapFile.exists() and not overwrite:
+        if not localMapFile.exists() or overwrite:
             if self.mapColumnName:
                 logging.info("Using updated mapping sheet")
                 map = Map.fromModernSheet(self.mapColumnName, localMapFile)
@@ -272,7 +271,7 @@ class Conversion(Task):
                 return False, {}
         else:
             logging.info(f"Using local map file {localMapFile}")
-            map = Map().fromFile(localMapFile, self.unmappedPrefix)
+            map = Map.fromFile(localMapFile, self.unmappedPrefix)
 
         converter = Converter(self.input, self.workingDir / self.fileName)
         return converter.convert(map, self.chunkSize, self.datasetID, self.entityEvent, self.entityColumn, verbose)

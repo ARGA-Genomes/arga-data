@@ -21,26 +21,26 @@ class Converter:
     def convert(self, map: Map, chunkSize: int, datasetID: str, entityEvent: str, entityColumn: str, verbose: bool) -> tuple[bool, dict]:
         logging.info("Processing chunks for conversion")
 
-        def _processChunk(self, chunk: pd.DataFrame) -> dict[str, pd.DataFrame]:
+        def _processChunk(chunk: pd.DataFrame) -> dict[str, pd.DataFrame]:
             dfEvents = map.applyTo(chunk) # Returns a multi-index dataframe
             
             if not dfEvents:
                 return {}
             
             error = f"Unable to generate '{self._entityIDLabel}':"
-            if self.entityEvent not in dfEvents:
-                logging.error(f"{error} no event found '{self.entityEvent}'")
+            if entityEvent not in dfEvents:
+                logging.error(f"{error} no event found '{entityEvent}'")
                 return {}
             
-            if self.entityColumn not in dfEvents[self.entityEvent].columns:
-                logging.error(f"{error} dataset is missing field '{self.entityColumn}' in event '{self.entityEvent}'")
+            if entityColumn not in dfEvents[entityEvent].columns:
+                logging.error(f"{error} dataset is missing field '{entityColumn}' in event '{entityEvent}'")
                 return {}
             
             dfEvents[self._entityIDEvent][self._datasetIDLabel] = datasetID
             dfEvents[self._entityIDEvent][self._entityIDLabel] = dfEvents[self._entityIDEvent][self._datasetIDLabel] + dfEvents[entityEvent][entityColumn]
             return dfEvents
     
-        writer = StackedDFWriter(self.outputFile, self.map.events)
+        writer = StackedDFWriter(self.outputPath, map.events)
 
         totalRows = 0
         chunks = self.inputFile.readIterator(chunkSize, low_memory=False)

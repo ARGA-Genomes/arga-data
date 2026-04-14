@@ -37,10 +37,14 @@ class Database:
         self.locationName = locationName
         self.databaseName = databaseName
 
-        self.subsections: dict[str, list[str]]
+        self.subsections: dict[str, list[str]] = {}
         for subsectionInfo in config.pop("subsections", []):
+            if not subsectionInfo:
+                logging.warning("Skipping over empty subsection element")
+                continue
+            
             sections = subsectionInfo.split(",")
-            self.subsections[sections[:1]] = [section.strip() for section in sections[1:]] # Strip comma separated values to allow optional whitespacing
+            self.subsections[sections[0]] = [section.strip() for section in sections[1:]] # Strip comma separated values to allow optional whitespacing
 
         self.config = config
 

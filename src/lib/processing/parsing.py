@@ -84,7 +84,7 @@ def parseInput(arg: str, downloaded: list[list[DataFile]], processed: list[list[
             logging.error(f"Selected step {int(stepSelection)} is out of range of lookup length ({len(lookup)})")
             return []
         
-        stepSelection = lookup[int(stepSelection)]
+        selectedFiles = lookup[int(stepSelection)]
 
     # Lookup step output selection
     outputs = [selectedFiles[number] for number in outputNumbers] if outputNumbers else selectedFiles
