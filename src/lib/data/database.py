@@ -288,6 +288,7 @@ class DatabaseFactory:
         self.config = config
 
     def construct(self, subsection: str, name: str) -> Database:
+        config = self.config
         if subsection:
             if subsection not in self.subsections:
                 logging.error(f"Invalid subsection {subsection}, must be one of {self.getSubsections()}")
@@ -299,7 +300,7 @@ class DatabaseFactory:
             for idx, extraValue in enumerate([subsection] + self.subsections[subsection]): # Add subsection as 0th element to allow <S:0> as valid subsection selector
                 rawConfig = rawConfig.replace(f"<S:{idx}>", extraValue)
 
-            self.config = json.loads(rawConfig)
+            config = json.loads(rawConfig)
 
-        return Database(self.locationName, self.databaseName, subsection, name, self.config)
+        return Database(self.locationName, self.databaseName, subsection, name, config)
     
