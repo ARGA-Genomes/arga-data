@@ -65,6 +65,7 @@ class Task:
             return
         
         outputs = [item.name for item in self.workingDir.iterdir() if item not in workingDirFiles and (item.is_file() if not self.foldersAsOutputs else item.is_dir())]
+        logging.info(f"Created outputs: {', '.join(outputs)}")
 
         duration = time.perf_counter() - startTime
         endDate = datetime.now().isoformat()
