@@ -4,13 +4,7 @@
         "tasks": [
             {
                 "path": "./dap.py",
-                "function": "getPortalData",
-                "args": [
-                    "{OUT-PATH}"
-                ],
-                "outputs": [
-                    "portalData.csv"
-                ]
+                "function": "getPortalData"
             }
         ]
     },

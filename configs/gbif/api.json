@@ -4,13 +4,7 @@
         "tasks": [
             {
                 "path": "./api.py",
-                "function": "collect",
-                "args": [
-                    "{OUT-PATH}"
-                ],
-                "outputs": [
-                    "gbif.zip"
-                ]
+                "function": "collect"
             }
         ]
     }

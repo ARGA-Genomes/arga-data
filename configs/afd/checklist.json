@@ -3,49 +3,31 @@
         "retrieveType": "script",
         "tasks": [
             {
-                "path": "./processing.py",
-                "function": "retrieve",
-                "args": [
-                    "{OUT-PATH}"
-                ],
-                "outputs": [
-                    "rawAFD.csv"
-                ]
+                "path": "./checklist.py",
+                "function": "retrieve"
             }
         ]
     },
     "processing": [
         {
-            "path": "./processing.py",
+            "path": "./checklist.py",
             "function": "cleanup",
-            "args": [
-                "{IN-PATH}",
-                "{OUT-PATH}"
-            ],
-            "outputs": [
-                "cleanedAFD.csv"
+            "inputs": [
+                "{D^}"
             ]
         },
         {
-            "path": "./processing.py",
+            "path": "./checklist.py",
             "function": "addParents",
-            "args": [
-                "{IN-PATH}",
-                "{OUT-PATH}"
-            ],
-            "outputs": [
-                "afd.csv"
+            "inputs": [
+                "{P^}"
             ]
         },
         {
-            "path": "./processing.py",
+            "path": "./checklist.py",
             "function": "enrich",
-            "args": [
-                "{IN-PATH}",
-                "{OUT-PATH}"
-            ],
-            "outputs": [
-                "enrichedAFD.csv"
+            "inputs": [
+                "{P^}"
             ]
         }
     ],

@@ -10,37 +10,10 @@
     },
     "processing": [
         {
-            "path": ".lib/zipping.py",
-            "function": "extract",
-            "args": [
-                "{IN-PATH}",
-                "{OUT-DIR}"
-            ],
-            "outputs": [
-                "biosample_set.xml"
-            ]
-        },
-        {
-            "path": ".lib/xml.py",
-            "function": "basicXMLProcessor",
-            "args": [
-                "{IN-PATH}",
-                "{OUT-PATH}",
-                150000
-            ],
-            "outputs": [
-                "rawBiosample.csv"
-            ]
-        },
-        {
             "path": "./biosample.py",
-            "function": "splitLatLong",
-            "args": [
-                "{IN-PATH}",
-                "{OUT-PATH}"
-            ],
-            "outputs": [
-                "biosample.csv"
+            "function": "parse",
+            "inputs": [
+                "{D^_}"
             ]
         }
     ],

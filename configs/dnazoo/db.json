@@ -4,13 +4,7 @@
         "tasks": [
             {
                 "path": "./db.py",
-                "function": "build",
-                "args": [
-                    "{OUT-PATH}"
-                ],
-                "outputs": [
-                    "dnazoo.csv"
-                ]
+                "function": "build"
             }
         ]
     },

@@ -5,9 +5,13 @@ import ast
 from lib.progressBar import ProgressBar
 from lib.bigFiles import RecordWriter
 import logging
+from lib.processing.scripts import importableScript
+from lib.processing.files import DataFile
 
-def retrieve(dataset: str, outputFolder: Path, recordsPerPage: int) -> None:
+@importableScript(inputCount=0)
+def retrieve(outputDir: Path, dataset: str) -> None:
     session = requests.Session()
+    recordsPerPage = 1000
 
     def getRecords(pageNum: int) -> requests.Response:
         url = f"https://collections.museumsvictoria.com.au/api/{dataset}?perpage={recordsPerPage}&page={pageNum}"
@@ -37,7 +41,7 @@ def retrieve(dataset: str, outputFolder: Path, recordsPerPage: int) -> None:
 
     totalCalls = (totalResults / recordsPerPage).__ceil__()
     progress = ProgressBar(totalCalls - 1)
-    writer = RecordWriter(outputFolder / f"{dataset}.csv", 100000)
+    writer = RecordWriter(outputDir / f"{dataset}.csv", 100000)
 
     data = response.json()
     writer.writerMultipleRecords(flattenPageData(data))
@@ -50,11 +54,12 @@ def retrieve(dataset: str, outputFolder: Path, recordsPerPage: int) -> None:
 
     writer.combine(removeParts=True)
 
-def expandTaxa(filePath: Path, outputPath: Path) -> None:
-    df = pd.read_csv(filePath)
+@importableScript()
+def expandTaxa(outputDir: Path, inputFile: DataFile) -> None:
+    df = inputFile.read()
     df2 = df["taxonomy"].fillna("{}")
     df2 = pd.json_normalize(df2.apply(ast.literal_eval))
     
     df.drop("taxonomy", axis=1, inplace=True)
     df = df.join(df2)
-    df.to_csv(outputPath, index=False)
+    df.to_csv(outputDir / f"expanded_{inputFile.path.name}", index=False)

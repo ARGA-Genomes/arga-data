@@ -4,8 +4,12 @@ import lib.downloading as dl
 import logging
 from lib.secrets import Secrets
 import lib.bigFiles as bf
+from lib.processing.scripts import importableScript
+from lib.processing.files import DataFile
+import lib.zipping as zp
 
-def collectBiocache(queryParamters: dict, outputFilePath: Path) -> None:
+@importableScript(inputCount=0)
+def collectBiocache(outputDir: Path, queryParamters: dict) -> None:
     secrets = Secrets()
 
     paramters = {
@@ -23,9 +27,12 @@ def collectBiocache(queryParamters: dict, outputFilePath: Path) -> None:
     totalRecords = data["totalRecords"]
     logging.info(f"Found {totalRecords} total records")
 
-    dl.asyncRunner(statusURL, "status", "finished", "downloadUrl", outputFilePath)
+    dl.asyncRunner(statusURL, "status", "finished", "downloadUrl", outputDir / "biocache.csv")
 
-def cleanup(folderPath: Path, outputFilePath: Path) -> None:
+@importableScript()
+def cleanup(outputDir: Path, inputFile: DataFile) -> None:
+    extractedFolder = zp.extract(inputFile.path, outputDir)
+
     extraFiles = [
         "citation.csv",
         "headings.csv",
@@ -33,10 +40,10 @@ def cleanup(folderPath: Path, outputFilePath: Path) -> None:
     ]
 
     for fileName in extraFiles:
-        path = folderPath / fileName
+        path = extractedFolder / fileName
         path.unlink(missing_ok=True)
 
-    bf.combineDirectoryFiles(outputFilePath, folderPath)
+    bf.combineDirectoryFiles(outputDir / "compiledBiocache.csv", extractedFolder)
 
 # status = {
 #     "inQueue": [

@@ -3,8 +3,10 @@ from bs4 import BeautifulSoup
 import pandas as pd
 from pathlib import Path
 from lib.progressBar import ProgressBar
+from lib.processing.scripts import importableScript
 
-def build(outputFilePath: Path) -> None:
+@importableScript(inputCount=0)
+def build(outputDir: Path) -> None:
     retrieveURL = "https://dnazoo.s3.wasabisys.com/?delimiter=/"
     baseDLURL = "https://dnazoo.s3.wasabisys.com/"
 
@@ -42,4 +44,4 @@ def build(outputFilePath: Path) -> None:
         progress.update()
 
     df = pd.DataFrame.from_records(allData)
-    df.to_csv(outputFilePath, index=False)
+    df.to_csv(outputDir / "dnazoo.csv", index=False)

@@ -4,13 +4,7 @@
         "tasks": [
             {
                 "path": "./portal.py",
-                "function": "build",
-                "args": [
-                    "{OUT-PATH}"
-                ],
-                "outputs": [
-                    "tern.csv"
-                ]
+                "function": "build"
             }
         ]
     },

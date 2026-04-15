@@ -2,8 +2,10 @@ import requests
 import math
 import pandas as pd
 from pathlib import Path
+from lib.processing.scripts import importableScript
 
-def build(outputFilePath: Path) -> None:
+@importableScript(inputCount=0)
+def build(outputDir: Path) -> None:
     baseURL = "https://portal.tern.org.au/search/filter/"
 
     parameters = {
@@ -61,4 +63,4 @@ def build(outputFilePath: Path) -> None:
     
     df = pd.DataFrame.from_records(records)
     df.replace(to_replace=[r"\\t|\\n|\\r", "\t|\n|\r"], value=["", ""], regex=True, inplace=True)
-    df.to_csv(outputFilePath, index=False)
+    df.to_csv(outputDir / "tern.csv", index=False)

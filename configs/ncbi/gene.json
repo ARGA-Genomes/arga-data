@@ -10,14 +10,10 @@
     },
     "processing": [
         {
-            "path": ".lib/zipping.py",
+            "path": ".lib/importableTools.py",
             "function": "extract",
-            "args": [
-                "{IN-PATH}",
-                "{OUT-DIR}"
-            ],
-            "outputs": [
-                "All_data_gene_info.csv"
+            "inputs": [
+                "{D^_}"
             ]
         }
     ],

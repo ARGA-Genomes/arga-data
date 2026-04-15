@@ -6,12 +6,7 @@
                 "path": "./lib.py",
                 "function": "retrieve",
                 "args": [
-                    "species",
-                    "{OUT-DIR}",
-                    1000
-                ],
-                "outputs": [
-                    "species.csv"
+                    "species"
                 ]
             }
         ]
@@ -20,12 +15,8 @@
         {
             "path": "./lib.py",
             "function": "expandTaxa",
-            "args": [
-                "{IN-PATH}",
-                "{OUT-PATH}"
-            ],
-            "outputs": [
-                "species.csv"
+            "inputs": [
+                "{D^}"
             ]
         }
     ],

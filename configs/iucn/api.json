@@ -4,13 +4,7 @@
         "tasks": [
             {
                 "path": "./api.py",
-                "function": "retrieve",
-                "args": [
-                    "{OUT-PATH}"
-                ],
-                "outputs": [
-                    "iucn.csv"
-                ]
+                "function": "retrieve"
             }
         ]
     },
@@ -18,12 +12,8 @@
         {
             "path": "./api.py",
             "function": "reduce",
-            "args": [
-                "{IN-PATH}",
-                "{OUT-PATH}"
-            ],
-            "outputs": [
-                "refinedIUCN.csv"
+            "inputs": [
+                "{D^}"
             ]
         }
     ]

@@ -12,23 +12,15 @@
         {
             "path": "./apc.py",
             "function": "denormalize",
-            "args": [
-                "{IN-PATH}",
-                "{OUT-PATH}"
-            ],
-            "outputs": [
-                "demormalized.csv"
+            "inputs": [
+                "{D^}"
             ]
         },
         {
             "path": "./apc.py",
             "function": "cleanup",
-            "args": [
-                "{IN-PATH}",
-                "{OUT-PATH}"
-            ],
-            "outputs": [
-                "all-taxa.csv"
+            "inputs": [
+                "{P^}"
             ]
         }
     ],

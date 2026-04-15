@@ -2,26 +2,27 @@ import requests
 from urllib.parse import quote
 import pandas as pd
 from pathlib import Path
-from lib.downloader import Downloader
+import lib.downloading as dl
+from lib.processing.scripts import importableScript
+from lib.processing.files import DataFile
 
-def buildCall(size: int, query: str, tidy: bool) -> str:
-    baseURL = "https://goat.genomehubs.org/api/v2/"
-    fullURL = f"{baseURL}search?query={quote(query)}&result=taxon&includeEstimates=true&size={size}&tidyData={'true' if tidy else 'false'}"
-    return fullURL
-
-def build(outputFilePath: Path) -> None:
+@importableScript(inputCount=0)
+def build(outputDir: Path) -> None:
     query = "tax_name(*) AND tax_rank(species)"
 
-    response = requests.get(buildCall(0, query, False))
+    def buildCall(size: int, tidy: bool) -> str:
+        return f"https://goat.genomehubs.org/api/v2/search?query={quote(query)}&result=taxon&includeEstimates=true&size={size}&tidyData={'true' if tidy else 'false'}"
+
+    response = requests.get(buildCall(0, False))
     output = response.json()
     status = output.get("status", {})
     hits = status.get("hits", 0)
 
-    downloader = Downloader()
-    downloader.download(buildCall(hits, query, True), outputFilePath, headers={"accept": "text/csv"})
+    dl.download(buildCall(hits, True), outputDir / "goat.csv", headers={"accept": "text/csv"})
 
-def clean(filePath: Path, outputFilePath: Path) -> None:
-    df = pd.read_csv(filePath)
+@importableScript()
+def clean(outputDir: Path, inputFile: DataFile) -> None:
+    df = inputFile.read()
 
     df["aggregation_source"] = df["aggregation_source"].apply(lambda x: x.replace('"', ''))
     combineFields = ["field", "value", "aggregation_source", "aggregation_method"]
@@ -30,4 +31,4 @@ def clean(filePath: Path, outputFilePath: Path) -> None:
     df.drop(combineFields + ["data"], axis=1, inplace=True)
     df = df.merge(data, "left", on="taxon_id")
     df = df.drop_duplicates(["taxon_id"])
-    df.to_csv(outputFilePath, index=False)
+    df.to_csv(outputDir / "cleanedGoat.csv", index=False)

@@ -3,14 +3,8 @@
         "retrieveType": "script",
         "tasks": [
             {
-                "path": "./processing.py",
-                "function": "collect",
-                "args": [
-                    "{OUT-PATH}"
-                ],
-                "outputs": [
-                    "lists.csv"
-                ]
+                "path": "./lists.py",
+                "function": "collect"
             }
         ]
     }

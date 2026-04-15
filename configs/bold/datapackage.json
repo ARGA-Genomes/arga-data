@@ -4,37 +4,17 @@
         "tasks": [
             {
                 "path": "./datapackage.py",
-                "function": "retrieve",
-                "outputs": [
-                    "datapackage.tar.gz"
-                ]
+                "function": "retrieve"
             }
         ]
     },
     "processing": [
         {
-            "path": ".lib/zipping.py",
-            "function": "extract",
-            "args": [
-                "{IN-PATH}",
-                "{OUT-DIR}"
-            ],
-            "outputs": [
-                "datapackage"
-            ]
-        },
-        {
             "path": "./datapackage.py",
             "function": "cleanUp",
-            "args": [
-                "{IN-PATH}"
-            ],
-            "outputs": [
-                "dataPackage.tsv"
-            ],
-            "properties": {
-                "encoding": "iso-8859-1"
-            }
+            "inputs": [
+                "{D^}"
+            ]
         }
     ],
     "conversion": {

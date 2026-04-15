@@ -1,10 +1,15 @@
 from pathlib import Path
 import pandas as pd
+from lib.processing.scripts import importableScript
+from lib.processing.files import DataFile
+import lib.zipping as zp
 
-def process(folderPath: Path, outputPath: Path) -> None:
+@importableScript()
+def process(outputDir: Path, inputFile: DataFile) -> None:
+    extractedFile = zp.extract(inputFile.path, outputDir)
 
     def readCSV(fileName: str) -> pd.DataFrame:
-        return pd.read_csv(folderPath / fileName, sep="\t", on_bad_lines="skip", low_memory=False)
+        return pd.read_csv(extractedFile / fileName, sep="\t", on_bad_lines="skip", low_memory=False)
     
     df = readCSV("Taxon.tsv")
 
@@ -26,4 +31,4 @@ def process(folderPath: Path, outputPath: Path) -> None:
 
     vernacular = pd.DataFrame.from_dict(records, orient="index")
     df = df.merge(vernacular, "left", left_on="dwc:taxonID", right_on=vernacular.index)
-    df.to_csv(outputPath, index=False)
+    df.to_csv(outputDir / "col.csv", index=False)

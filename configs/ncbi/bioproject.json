@@ -10,15 +10,14 @@
     },
     "processing": [
         {
-            "path": ".lib/xml.py",
-            "function": "basicXMLProcessor",
-            "args": [
-                "{IN-PATH}",
-                "{OUT-PATH}",
-                150000
+            "path": ".lib/importableTools.py",
+            "function": "xmlProcessor",
+            "inputs": [
+                "{D^_}"
             ],
-            "outputs": [
-                "bioproject.csv"
+            "args": [
+                "bioproject.csv",
+                150000
             ]
         }
     ],

@@ -6,7 +6,9 @@ import lib.downloading as dl
 from lib.progressBar import ProgressBar
 import logging
 import lib.dataframes as dff
+from lib.processing.scripts import importableScript
 
+@importableScript(inputCount=0)
 def collect(outputDir: Path, profile: str) -> None:
     session = requests.session()
     secrets = Secrets("ala")

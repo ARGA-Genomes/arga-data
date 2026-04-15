@@ -2,6 +2,7 @@ from pathlib import Path
 import lib.downloading as dl
 import lib.bigFiles as bf
 import lib.common as cmn
+from lib.processing.scripts import importableScript
 
 relevantLists = {
     "ARGA Threatened Species": "dr23195",
@@ -17,12 +18,13 @@ relevantLists = {
     "ARGA Crop Wild Relatives": "dr23173",
 }
 
-def collect(outputPath: Path) -> None:
-    subDir = outputPath.parent / "sections"
+@importableScript(inputCount=0)
+def collect(outputDir: Path) -> None:
+    subDir = outputDir / "sections"
     subDir.mkdir()
 
     for listName, dataResourceUID in relevantLists.items():
         dl.download(f"https://lists-ws.test.ala.org.au/v2/download/{dataResourceUID}?zip=false", subDir / f"{listName.replace(' ', '_')}.csv", verbose=True)
     
-    bf.combineDirectoryFiles(outputPath, subDir)
+    bf.combineDirectoryFiles(outputDir / "lists.csv", subDir)
     cmn.clearFolder(subDir, True)

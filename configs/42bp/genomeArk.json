@@ -6,11 +6,7 @@
                 "path": "./processing.py",
                 "function": "build",
                 "args": [
-                    "{OUT-PATH}",
                     "./species.json"
-                ],
-                "outputs": [
-                    "genomeArk.csv"
                 ]
             }
         ]

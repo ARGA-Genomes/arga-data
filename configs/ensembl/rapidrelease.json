@@ -12,12 +12,8 @@
         {
             "path": "./rapidrelease.py",
             "function": "convert",
-            "args": [
-                "{IN-PATH}",
-                "{OUT-PATH}"
-            ],
-            "outputs": [
-                "metadata.csv"
+            "inputs": [
+                "{D^}"
             ]
         }
     ],

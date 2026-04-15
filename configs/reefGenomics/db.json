@@ -10,11 +10,7 @@
                 "path": "./db.py",
                 "function": "build",
                 "args": [
-                    "{OUT-DIR}",
-                    "<SUB>"
-                ],
-                "outputs": [
-                    "<SUB>.csv"
+                    "<S>"
                 ]
             }
         ]

@@ -15,25 +15,11 @@
     "processing": [
         {
             "parallel": true,
-            "path": ".lib/zipping.py",
-            "function": "extract",
-            "args": [
-                "{IN-PATH}",
-                "{OUT-DIR}"
-            ],
-            "outputs": [
-                "{IN-PATH.}"
-            ]
-        },
-        {
-            "parallel": true,
-            "path": "./flatFileParser.py",
-            "function": "parseFlatfile",
-            "args": [
-                "{IN-PATH}"
-            ],
-            "outputs": [
-                "{IN-PATH.}"
+            "path": "./nucleotide.py",
+            "function": "parse",
+            "inputs": [
+                "{D0}",
+                "{D1}"
             ]
         }
     ],

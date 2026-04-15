@@ -10,14 +10,10 @@
         "retrieveType": "script",
         "tasks": [
             {
-                "path": "./processing.py",
+                "path": "./profiles.py",
                 "function": "collect",
                 "args": [
-                    "{OUT-DIR}",
-                    "<SUB>"
-                ],
-                "outputs": [
-                    "<SUB>.csv"
+                    "<S>"
                 ]
             }
         ]

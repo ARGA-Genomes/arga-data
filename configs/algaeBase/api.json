@@ -3,14 +3,8 @@
         "retrieveType": "script",
         "tasks": [
             {
-                "path": "./processing.py",
-                "function": "build",
-                "args": [
-                    "{OUT-PATH}"
-                ],
-                "outputs": [
-                    "algaeBase.csv"
-                ]
+                "path": "./api.py",
+                "function": "build"
             }
         ]
     },

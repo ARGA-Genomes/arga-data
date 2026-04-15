@@ -5,8 +5,11 @@ from lib.bigFiles import RecordWriter
 import time
 import lib.dataframes as dff
 from lib.secrets import Secrets
+from lib.processing.scripts import importableScript
+from lib.processing.files import DataFile
 
-def retrieve(outputFilePath: Path):
+@importableScript(inputCount=0)
+def retrieve(outputDir: Path):
     secrets = Secrets("iucn")
 
     baseURL = "https://api.iucnredlist.org/api/v4"
@@ -22,7 +25,7 @@ def retrieve(outputFilePath: Path):
     version = list(response.json().values())[0]
     print(f"Version: {version}")
     
-    writer = RecordWriter(outputFilePath, 10000)
+    writer = RecordWriter(outputDir / "iucn.csv", 10000)
     onPage = writer.writtenFileCount() + 1
 
     running = True
@@ -80,7 +83,8 @@ def retrieve(outputFilePath: Path):
     writer.combine(removeParts=True)
     print()
 
-def reduce(filePath: Path, outputFilePath: Path) -> None:
+@importableScript()
+def reduce(outputDir: Path, inputFile: DataFile) -> None:
     def filter(field: str) -> bool:
         if not isinstance(field, str) or not (field.startswith("[") and field.endswith("]")):
             return False
@@ -95,7 +99,7 @@ def reduce(filePath: Path, outputFilePath: Path) -> None:
         values = field.strip("[']").split("' '")
         return any(value in validValues for value in values)
 
-    df = pd.read_csv(filePath, low_memory=False)
+    df = inputFile.read(low_memory=False)
     df = df[df["biogeographical_realms"].apply(lambda x: filter(x))]
     df = dff.removeSpaces(df)
-    df.to_csv(outputFilePath, index=False)
+    df.to_csv(outputDir / "refinedIUCN.csv", index=False)

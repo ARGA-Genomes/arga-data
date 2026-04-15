@@ -13,14 +13,10 @@
     "processing": [
         {
             "parallel": true,
-            "path": ".lib/zipping.py",
+            "path": ".lib/importableTools.py",
             "function": "extract",
-            "args": [
-                "{IN-PATH}",
-                "{OUT-DIR}"
-            ],
-            "outputs": [
-                "{IN-PATH.}"
+            "inputs": [
+                "{D^}"
             ]
         }
     ]

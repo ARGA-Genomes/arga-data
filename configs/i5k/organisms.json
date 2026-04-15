@@ -4,13 +4,7 @@
         "tasks": [
             {
                 "path": "./organisms.py",
-                "function": "retrieve",
-                "args": [
-                    "{OUT-PATH}"
-                ],
-                "outputs": [
-                    "i5k.csv"
-                ]
+                "function": "retrieve"
             }
         ]
     },

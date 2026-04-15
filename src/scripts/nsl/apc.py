@@ -1,9 +1,12 @@
 from pathlib import Path
-import pandas as pd
 import lib.common as cmn
+from lib.processing.scripts import importableScript
+from lib.processing.files import DataFile
 
-def denormalize(filePath: Path, outputFilePath: Path) -> None:
-    df = pd.read_csv(filePath)
+@importableScript()
+def denormalize(outputDir: Path, inputFile: DataFile) -> None:
+    df = inputFile.read()
+
     columnMap = {column: cmn.toSnakeCase(column) for column in df.columns}
     df = df.rename(columns=columnMap)
 
@@ -17,10 +20,11 @@ def denormalize(filePath: Path, outputFilePath: Path) -> None:
     df2 = df2.rename(columns=subDFMap)
 
     df = df.merge(df2, "left", left_on="parent_name_usage_id", right_on="parent_taxon_id")
-    df.to_csv(outputFilePath, index=False)
+    df.to_csv(outputDir / "denormalized.csv", index=False)
 
-def cleanup(filePath: Path, outputFilePath: Path) -> None:
-    df = pd.read_csv(filePath)
+@importableScript()
+def cleanup(outputDir: Path, inputFile: DataFile) -> None:
+    df = inputFile.read()
     df = df.replace(
         {
             "[unranked]": "unranked",
@@ -34,4 +38,4 @@ def cleanup(filePath: Path, outputFilePath: Path) -> None:
     df["dataset_id"] = datasetID
     df["entity_id"] = f"{datasetID};" + df["scientific_name"]
     
-    df.to_csv(outputFilePath, index=False)
+    df.to_csv(outputDir / "apc.csv", index=False)

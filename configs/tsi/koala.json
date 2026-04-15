@@ -12,13 +12,12 @@
         {
             "path": "./lib.py",
             "function": "addName",
-            "args": [
-                "{IN-PATH}",
-                "{OUT-PATH",
-                "Phascolarctos cinereus"
+            "inputs": [
+                "{D^}"
             ],
-            "outputs": [
-                "koala.csv"
+            "args": [
+                "Koala.csv",
+                "Phascolarctos cinereus"
             ]
         }
     ],

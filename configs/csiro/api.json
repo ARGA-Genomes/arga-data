@@ -1,7 +1,7 @@
 {
     "subsections": [
-        "datasets",
-        "genomes"
+        "datasets, ARGA:TL:0000179",
+        "genomes, ARGA:TL:0000180"
     ],
     "downloading": {
         "retrieveType": "script",
@@ -10,20 +10,13 @@
                 "path": "./api.py",
                 "function": "build",
                 "args": [
-                    "<SUB>",
-                    "{OUT-PATH}"
-                ],
-                "outputs": [
-                    "genomes.csv"
+                    "<S>"
                 ]
             }
         ]
     },
     "conversion": {
-        "datasetID": {
-            "datasets": "ARGA:TL:0000179",
-            "genomes": "ARGA:TL:0000180"
-        },
+        "datasetID": "<S:1>",
         "mapID": 215504073
     },
     "updating": {

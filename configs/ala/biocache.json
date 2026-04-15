@@ -3,7 +3,7 @@
         "retrieveType": "script",
         "tasks": [
             {
-                "path": "./processing.py",
+                "path": "./biocache.py",
                 "function": "collectBiocache",
                 "args": [
                     {
@@ -12,36 +12,17 @@
                         "disableAllQualityFilters": true,
                         "qualityProfile": "ALA",
                         "qc": "-_nest_parent_:*"
-                    },
-                    "{OUT-PATH}"
-                ],
-                "outputs": [
-                    "biocache.zip"
+                    }
                 ]
             }
         ]
     },
     "processing": [
         {
-            "path": ".lib/zipping.py",
-            "function": "extract",
-            "args": [
-                "{IN-PATH}",
-                "{OUT-DIR}"
-            ],
-            "outputs": [
-                "biocache"
-            ]
-        },
-        {
-            "path": "./processing.py",
+            "path": "./biocache.py",
             "function": "cleanup",
-            "args": [
-                "{IN-PATH}",
-                "{OUT-PATH}"
-            ],
-            "outputs": [
-                "biocache.csv"
+            "inputs": [
+                "{D^}"
             ]
         }
     ],

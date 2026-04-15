@@ -4,27 +4,16 @@
         "tasks": [
             {
                 "path": "./db.py",
-                "function": "build",
-                "args": [
-                    "{OUT-PATH}"
-                ],
-                "outputs": [
-                    "rawgoat.csv"
-                ]
+                "function": "build"
             }
         ]
     },
     "processing": [
         {
-            "parallel": true,
             "path": "./db.py",
             "function": "clean",
-            "args": [
-                "{IN-PATH}",
-                "{OUT-PATH}"
-            ],
-            "outputs": [
-                "cleanedgoat.csv"
+            "inputs": [
+                "{D^}"
             ]
         }
     ],

@@ -1,36 +1,11 @@
 from pathlib import Path
 import pandas as pd
+from lib.processing.scripts import importableScript
 
-def splitLine(line: str, endingDivider: bool = True) -> list[str]:
-    cleanLine = line.rstrip('\n').rstrip()
-    if endingDivider:
-        cleanLine = cleanLine.rstrip('|')
-    return [element.strip() for element in cleanLine.split('|')]
-
-def compileBiocollections(fileDir: Path, outputFilePath: Path) -> None:
-    collCodes = fileDir / "Collection_codes.txt"
-    instCodes = fileDir /"Institution_codes.txt"
-    uInstCodes = fileDir / "Unique_institution_codes.txt"
-
-    for ref, filePath in enumerate((collCodes, instCodes, uInstCodes)):
-        data = []
-
-        with open(filePath, encoding='utf-8') as fp:
-            line = fp.readline()
-            headers = splitLine(line)
-            line = fp.readline() # Blank line 2 in every file, call again
-            line = fp.readline()
-            while line:
-                data.append(splitLine(line, True))
-                line = fp.readline()
-
-        # cull extra data that doesn't map to a header
-        df = pd.DataFrame([line[:len(headers)] for line in data], columns=headers) 
-
-        if ref == 0:
-            output = df.copy()
-        else:
-            output = pd.merge(output, df, 'left')
-
-    output.dropna(how='all', axis=1, inplace=True)
-    output.to_csv(outputFilePath, index=False)
+@importableScript(inputCount=2)
+def compile(outputDir: Path, collectionCodesPath: Path, institutionCodesPath: Path) -> None:
+    collectionCodes = pd.read_csv(collectionCodesPath, sep="\t|\t", engine="python", on_bad_lines="skip", dtype=object)
+    institutionCodes = pd.read_csv(institutionCodesPath, sep="\t|\t", engine="python", on_bad_lines="skip", dtype=object)
+    df = pd.merge(collectionCodes, institutionCodes, "left", on="inst_id")
+    df = df.dropna(how="all", axis=1)
+    df.to_csv(outputDir / "biocollections.csv", index=False)

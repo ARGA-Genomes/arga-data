@@ -2,8 +2,10 @@ import requests
 from bs4 import BeautifulSoup
 from pathlib import Path
 import pandas as pd
+from lib.processing.scripts import importableScript
 
-def build(folderPath: Path, tableName: str) -> None:
+@importableScript(inputCount=0)
+def build(outputDir: Path, tableName: str) -> None:
     url = "http://reefgenomics.org/sitemap.html"
     rawHTML = requests.get(url)
     soup = BeautifulSoup(rawHTML.text, 'html.parser')
@@ -23,4 +25,4 @@ def build(folderPath: Path, tableName: str) -> None:
             link = entries[1].find("a").get("href")
             rowData.append({header: value.text for header, value in zip(headers, entries)} | {"link": link})
 
-        pd.DataFrame.from_records(rowData).to_csv(folderPath / f"{tableName}.csv", index=False)
+        pd.DataFrame.from_records(rowData).to_csv(outputDir / f"{tableName}.csv", index=False)

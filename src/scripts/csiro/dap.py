@@ -1,8 +1,11 @@
 import math
 import requests
 import pandas as pd
+from lib.processing.scripts import importableScript
+from pathlib import Path
 
-def getPortalData(outputFilePath: Path) -> None:
+@importableScript(inputCount=0)
+def getPortalData(outputDir: Path) -> None:
     baseURL = "https://data.csiro.au/dap/ws/v2/collections"
     entriesPerPage = 100
 
@@ -27,4 +30,4 @@ def getPortalData(outputFilePath: Path) -> None:
     # df.drop("id", axis=1, inplace=True)
     # df = pd.concat([idDf, df], axis=1)
     df.replace(to_replace=[r"\\t|\\n|\\r", "\t|\n|\r"], value=["", ""], regex=True, inplace=True)
-    df.to_csv(outputFilePath, index=False)
+    df.to_csv(outputDir / "dap.csv", index=False)

@@ -8,7 +8,7 @@
         "tasks": [
             {
                 "url": "https://s3.ap-southeast-2.amazonaws.com/wilderlab.publicdata/<SUB>3.csv",
-                "name": "<SUB>.csv"
+                "name": "<S>.csv"
             }
         ]
     },
@@ -16,12 +16,8 @@
         {
             "path": "./aws.py",
             "function": "clean",
-            "args": [
-                "{IN-PATH}",
-                "{OUT-PATH}"
-            ],
-            "outputs": [
-                "cleaned<SUB>.csv"
+            "inputs": [
+                "{D^}"
             ]
         }
     ],

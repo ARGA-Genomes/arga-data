@@ -10,25 +10,10 @@
     },
     "processing": [
         {
-            "path": ".lib/zipping.py",
-            "function": "extract",
-            "args": [
-                "{IN-PATH}",
-                "{OUT-DIR}"
-            ],
-            "outputs": [
-                "{IN-PATH.}"
-            ]
-        },
-        {
             "path": "./db.py",
             "function": "process",
-            "args": [
-                "{IN-PATH}",
-                "{OUT-PATH}"
-            ],
-            "outputs": [
-                "col.csv"
+            "inputs": [
+                "{D^}"
             ]
         }
     ],

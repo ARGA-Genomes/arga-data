@@ -13,25 +13,10 @@
     "processing": [
         {
             "parallel": true,
-            "path": ".lib/zipping.py",
-            "function": "extract",
-            "args": [
-                "{IN-PATH}",
-                "{OUT-DIR}"
-            ],
-            "outputs": [
-                "{IN-PATH.}"
-            ]
-        },
-        {
-            "parallel": true,
             "path": "./db.py",
             "function": "splitHaploType",
-            "args": [
-                "{IN-PATH}"
-            ],
-            "outputs": [
-                "{IN-PATH}"
+            "inputs": [
+                "{D^}"
             ]
         }
     ],
