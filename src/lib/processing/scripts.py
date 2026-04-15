@@ -82,24 +82,25 @@ class OutputScript(FunctionScript):
     def _execute(self, processFunction: callable, verbose: bool, args: list = [], kwargs: dict = {}) -> tuple[bool, any]:
         io = [self.outputDir]
 
-        if self.inputCount > 0: # Injected function requires inputs
+        if self.inputCount != 0: # <0 for all inputs regardless of count, >0 for specific inputs checked above
+            if self.inputCount > 0: # Selected quantity of inputs
 
-            if self.inputCount > len(self.inputs):
-                if verbose:
-                    logging.error(f"Imported function '{self.functionName}' from path '{self.modulePath}' expects {self.inputCount} inputs but {len(self.inputs)} were passed to it")
+                if self.inputCount > len(self.inputs):
+                    if verbose:
+                        logging.error(f"Imported function '{self.functionName}' from path '{self.modulePath}' expects {self.inputCount} inputs but {len(self.inputs)} were passed to it")
+                        return False, None
+                
+                if self.inputCount < len(self.inputs):
+                    if verbose:
+                        logging.warning(f"Imported function '{self.functionName}' from path '{self.modulePath}' given {len(self.inputs)} inputs while only {self.inputCount} were expected. Running with first {self.inputCount} inputs only.")
+
+                    self.inputs = self.inputs[:self.inputCount] # restrict excess provided inputs to inputCount
+
+                if not all(input.exists() for input in self.inputs):
+                    if verbose:
+                        logging.warning(f"Missing {len(self.inputs)} required file(s) needed to run script {self.functionName}")
+
                     return False, None
-            
-            if self.inputCount < len(self.inputs):
-                if verbose:
-                    logging.warning(f"Imported function '{self.functionName}' from path '{self.modulePath}' given {len(self.inputs)} inputs while only {self.inputCount} were expected. Running with first {self.inputCount} inputs only.")
-
-                self.inputs = self.inputs[:self.inputCount]
-
-            if not all(input.exists() for input in self.inputs):
-                if verbose:
-                    logging.warning(f"Missing {len(self.inputs)} required file(s) needed to run script {self.functionName}")
-
-                return False, None
             
             if self.separateInputArgs:
                 io.extend(self.inputs)
