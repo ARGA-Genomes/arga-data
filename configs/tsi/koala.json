@@ -1,0 +1,28 @@
+{
+    "downloading": {
+        "retrieveType": "url",
+        "tasks": [
+            {
+                "url": "https://koalagenomes.s3.ap-southeast-2.amazonaws.com/Koala_Metadata-19-10-2022.csv",
+                "name": "Koala_Metadata.csv"
+            }
+        ]
+    },
+    "processing": [
+        {
+            "path": "./lib.py",
+            "function": "addName",
+            "inputs": [
+                "{D^}"
+            ],
+            "args": [
+                "Koala.csv",
+                "Phascolarctos cinereus"
+            ]
+        }
+    ],
+    "conversion": {
+        "datasetID": "ARGA:TL:0008000",
+        "mapID": 975794491
+    }
+}

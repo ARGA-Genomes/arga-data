@@ -5,4 +5,4 @@ if __name__ == '__main__':
     
     sources, flags, args = parser.parseArgs()
     for source in sources:
-        source.create(Step.PROCESSING, flags, args.select)
+        source.process(flags, args.select)

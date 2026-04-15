@@ -1,0 +1,19 @@
+{
+    "downloading": {
+        "retrieveType": "script",
+        "tasks": [
+            {
+                "path": "./organisms.py",
+                "function": "retrieve"
+            }
+        ]
+    },
+    "conversion": {
+        "datasetID": "ARGA:TL:0000185"
+    },
+    "updating": {
+        "type": "weekly",
+        "day": "sunday",
+        "interval": 2
+    }
+}

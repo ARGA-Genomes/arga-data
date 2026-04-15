@@ -1,0 +1,23 @@
+{
+    "downloading": {
+        "retrieveType": "crawl",
+        "tasks": [
+            {
+                "location": "https://www.arb-silva.de/no_cache/download/archive/current/Exports/full_metadata/",
+                "link": "https://www.arb-silva.de/",
+                "regex": ".*\\.gz$",
+                "maxDepth": 0
+            }
+        ]
+    },
+    "processing": [
+        {
+            "parallel": true,
+            "path": ".lib/importableTools.py",
+            "function": "extract",
+            "inputs": [
+                "{D^}"
+            ]
+        }
+    ]
+}

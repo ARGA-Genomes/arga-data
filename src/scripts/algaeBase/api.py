@@ -6,8 +6,10 @@ import lib.dataframes as dff
 from lib.progressBar import ProgressBar
 from lib.secrets import Secrets
 import logging
+from lib.processing.scripts import importableScript
 
-def build(outputFile: Path) -> None:
+@importableScript(inputCount=0)
+def build(outputDir: Path) -> None:
     secrets = Secrets("algaebase")
     entriesPerCall = 1000
     
@@ -36,4 +38,4 @@ def build(outputFile: Path) -> None:
 
     df = pd.DataFrame.from_records(records)
     df = dff.removeSpaces(df)
-    df.to_csv(outputFile, index=False)
+    df.to_csv(outputDir / "algaeBase.csv", index=False)

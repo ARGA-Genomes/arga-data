@@ -1,0 +1,26 @@
+{
+    "subsections": [
+        "kamilaroi",
+        "noongar",
+        "southEastarnHemland",
+        "mangroveWatch",
+        "weeds-australia"
+    ],
+    "downloading": {
+        "retrieveType": "script",
+        "tasks": [
+            {
+                "path": "./profiles.py",
+                "function": "collect",
+                "args": [
+                    "<S>"
+                ]
+            }
+        ]
+    },
+    "updating": {
+        "type": "weekly",
+        "day": "sunday",
+        "interval": 2
+    }
+}

@@ -1,0 +1,32 @@
+{
+    "downloading": {
+        "retrieveType": "crawl",
+        "tasks": [
+            {
+                "url": "https://db.anemone.bio/dist/",
+                "regex": ".*\\.tsv\\.xz",
+                "urlPrefix": 2,
+                "auth": true
+            }
+        ]
+    },
+    "processing": [
+        {
+            "parallel": true,
+            "path": "./db.py",
+            "function": "splitHaploType",
+            "inputs": [
+                "{D^}"
+            ]
+        }
+    ],
+    "conversion": {
+        "datasetID": "ARGA:TL:0000174",
+        "mapID": 286004534
+    },
+    "updating": {
+        "type": "weekly",
+        "day": "sunday",
+        "interval": 2
+    }
+}

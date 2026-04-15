@@ -4,8 +4,11 @@ import requests
 import lib.downloading as dl
 from bs4 import BeautifulSoup
 import pandas as pd
+from lib.processing.scripts import importableScript
+import lib.zipping as zp
 
-def retrieve(outputFilePath: Path):
+@importableScript(inputCount=0)
+def retrieve(outputDir: Path):
     secrets = Secrets("worms")
 
     auth = dl.buildAuth(secrets.email, secrets.password)
@@ -15,12 +18,14 @@ def retrieve(outputFilePath: Path):
     url = dlTable.find("a")
     downloadURL = url["href"]
 
-    dl.download(downloadURL, outputFilePath, verbose=True, auth=auth)
+    dl.download(downloadURL, outputDir / "worms.zip", verbose=True, auth=auth)
 
-def combine(folderPath: Path, outputFilePath: Path):
-    taxonFile = folderPath / "taxon.txt"
-    speciesProfileFile = folderPath / "speciesprofile.txt"
-    identifierFile = folderPath / "identifier.txt"
+@importableScript()
+def combine(outputDir: Path, inputPath: Path):
+    extractedFolder = zp.extract(inputPath, outputDir)
+    taxonFile = extractedFolder / "taxon.txt"
+    speciesProfileFile = extractedFolder / "speciesprofile.txt"
+    identifierFile = extractedFolder / "identifier.txt"
 
     df = pd.read_csv(taxonFile, sep="\t")
     speciesDF = pd.read_csv(speciesProfileFile, sep="\t")
@@ -28,4 +33,4 @@ def combine(folderPath: Path, outputFilePath: Path):
 
     df = df.merge(speciesDF, "outer", "taxonID")
     df = df.merge(identDF, "outer", "taxonID")
-    df.to_csv(outputFilePath, index=False)
+    df.to_csv(outputDir / "worms.csv", index=False)

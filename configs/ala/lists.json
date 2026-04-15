@@ -1,0 +1,11 @@
+{
+    "downloading": {
+        "retrieveType": "script",
+        "tasks": [
+            {
+                "path": "./lists.py",
+                "function": "collect"
+            }
+        ]
+    }
+}

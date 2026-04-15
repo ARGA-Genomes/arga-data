@@ -3,6 +3,7 @@ import pandas as pd
 import concurrent.futures
 from pathlib import Path
 from bs4 import BeautifulSoup, ResultSet
+from lib.processing.scripts import importableScript
 
 def _getSoup(suffix: str) -> BeautifulSoup:
     baseURL = "https://i5k.nal.usda.gov"
@@ -81,7 +82,8 @@ def _parseOrganism(organismLink: ResultSet[any]) -> dict:
     organism["analysis"] = organism.pop("analysis") # Move analysis to end of dict
     return organism
 
-def retrieve(outputFilePath: Path) -> None:
+@importableScript(inputCount=0)
+def retrieve(outputDir: Path) -> None:
     organisms = []
     links = []
 
@@ -101,4 +103,4 @@ def retrieve(outputFilePath: Path) -> None:
             executor.shutdown(cancel_futures=True)
             exit()
     
-    pd.DataFrame.from_records(organisms).to_csv(outputFilePath, index=False)
+    pd.DataFrame.from_records(organisms).to_csv(outputDir / "i5k.csv", index=False)

@@ -1,67 +1,140 @@
 from pathlib import Path
 import logging
-from lib.processing.files import DataFile, StackedFile
+from lib.processing.files import DataFile
 from lib.processing.scripts import OutputScript
 import lib.downloading as dl
 from lib.crawler import Crawler
 from lib.converting import Converter
-from datetime import date
 import lib.processing.parsing as parse
 from lib.secrets import Secrets
+import time
+from datetime import datetime
+from enum import Enum
+from lib.processing.mapping import Map
+
+class Metadata(Enum):
+    OUTPUTS = "outputs"
+    SUCCESS = "success"
+    TASK_START = "task started"
+    TASK_END = "task completed"
+    TASK_DURATION = "duration"
+    LAST_SUCCESS_START = "last success started"
+    LAST_SUCCESS_END = "last success completed"
+    LAST_SUCCESS_DURATION = "last success duration"
+    TOTAL_DURATION = "total duration"
+    LAST_SUCCESS_TOTAL_DURATION = "last success total duration"
+    TASK_COMPONENTS = "task components"
+    CUSTOM = ""
 
 class Task:
-    def __init__(self, outputs: list[DataFile] = []):
-        self._runMetadata = {}
-        self._outputs = outputs
+    def __init__(self, workingDir: Path, foldersAsOutputs: bool = False):
+        self.workingDir = workingDir
+        self.foldersAsOutputs = foldersAsOutputs
+        self._subTasks: list['Task'] = []
 
-    def getOutputs(self) -> list[DataFile]:
-        return self._outputs
+    def _execute(self, overwrite: bool, verbose: bool) -> tuple[bool, dict]:
+        return True, {}
 
-    def run(self, overwrite: bool, verbose: bool) -> bool:
-        return True
-    
-    def setAdditionalMetadata(self, metadata: dict) -> None:
-        self._runMetadata.update(metadata)
+    def run(self, overwrite: bool, verbose: bool) -> dict:
+        startTime = time.perf_counter()
+        startDate = datetime.now().isoformat()
 
-    def getMetadata(self) -> dict:
-        return self._runMetadata
+        workingDirFiles = [item for item in self.workingDir.iterdir()]
+
+        try:
+            success, extraMetadata = self._execute(overwrite, verbose)
+        except KeyboardInterrupt:
+            logging.info("Cancelling task execution early")
+            return {}
+        
+        outputs = [item.name for item in self.workingDir.iterdir() if item not in workingDirFiles and (item.is_file() if not self.foldersAsOutputs else item.is_dir())]
+
+        duration = time.perf_counter() - startTime
+        endDate = datetime.now().isoformat()
+
+        metadata = {
+            Metadata.OUTPUTS: outputs,
+            Metadata.SUCCESS: success,
+            Metadata.TASK_START: startDate,
+            Metadata.TASK_DURATION: duration,
+            Metadata.TASK_END: endDate,
+            Metadata.CUSTOM: extraMetadata
+        }
+
+        if not self._subTasks:
+            if not outputs:
+                logging.error("No outputs were created")
+                success = False
+            else:
+                logging.info(f"Created outputs: {', '.join(outputs)}")
+
+            if success:
+                metadata |= {
+                    Metadata.LAST_SUCCESS_START: startDate,
+                    Metadata.LAST_SUCCESS_END: endDate,
+                    Metadata.LAST_SUCCESS_DURATION: duration
+                }
+
+            return metadata
+        
+        # Subtasks were generated during execution, run those now
+        logging.info(f"Main task generated {len(self._subTasks)} sub-tasks, running those now...")
+
+        metadata[Metadata.TASK_COMPONENTS] = []
+        for subTask in self._subTasks:
+            subTaskMetadata = subTask.run(overwrite, verbose)
+
+            if not subTaskMetadata:
+                metadata[Metadata.SUCCESS] = False
+                return metadata
+
+            metadata[Metadata.OUTPUTS] = metadata[Metadata.OUTPUTS] + subTaskMetadata[Metadata.OUTPUTS]
+            metadata[Metadata.SUCCESS] = metadata[Metadata.SUCCESS] & subTaskMetadata[Metadata.SUCCESS]
+            metadata[Metadata.TASK_COMPONENTS].append(subTaskMetadata)
+
+
+        duration = time.perf_counter() - startTime
+        endDate = datetime.now().isoformat()
+
+        metadata[Metadata.TASK_DURATION] = duration
+        metadata[Metadata.TASK_END] = endDate
+
+        if metadata[Metadata.SUCCESS]:
+            metadata |= {
+                Metadata.LAST_SUCCESS_START: startDate,
+                Metadata.LAST_SUCCESS_END: endDate,
+                Metadata.LAST_SUCCESS_DURATION: duration
+            }
+
+        return metadata
 
 class UrlRetrieve(Task):
 
     _url = "url"
     _name = "name"
-    _properties = "properties"
     _auth = "auth"
 
     def __init__(self, workingDir: Path, config: dict, secretLocation: str):
-        self.workingDir = workingDir
-        self.auth = None
+        super().__init__(workingDir)
 
         self.url = config.get(self._url, None)
         if self.url is None:
             raise Exception("No url provided for source") from AttributeError
 
-        fileName = config.get(self._name, None)
-        if fileName is None:
+        self.fileName = config.get(self._name, None)
+        if self.fileName is None:
             raise Exception("No filename provided to download to") from AttributeError
-        
-        auth = config.get(self._auth, False)
-        if auth:
-            secrets = Secrets(secretLocation)
-            self.auth = secrets.getAuth()
+
+        self.auth = config.get(self._auth, False) # True/False flag
+        self.secretLocation = secretLocation
+
+    def _execute(self, overwrite: bool, verbose: bool) -> tuple[bool, dict]:
+        auth = None
+        if self.auth:
+            secrets = Secrets(self.secretLocation)
+            auth = secrets.getAuth()
     
-        properties = config.get(self._properties, {})
-        self.file = DataFile(self.workingDir / fileName, properties)
-
-        super().__init__([self.file])
-
-    def run(self, overwrite: bool, verbose: bool) -> bool:
-        if not overwrite and self.file.exists():
-            logging.info(f"Output file {self.file.path} already exists")
-            return False
-        
-        self.file.delete()
-        return dl.download(self.url, self.file.path, verbose=verbose, auth=self.auth)
+        return dl.download(self.url, self.workingDir / self.fileName, verbose=verbose, auth=auth), {}
 
 class CrawlRetrieve(Task):
 
@@ -75,45 +148,35 @@ class CrawlRetrieve(Task):
     _filenameURLParts = "urlPrefix"
     _auth = "auth"
 
-    def __init__(self, workingDir: Path, config: dict, secretLocation: str, overwrite: bool):
-        self.workingDir = workingDir
-        self.auth = None
+    def __init__(self, workingDir: Path, config: dict, secretLocation: str):
+        super().__init__(workingDir)
 
-        url = config.pop(self._url, None)
-        regex = config.pop(self._regex, None)
-        link = config.pop(self._link, "")
-        maxDepth = config.pop(self._maxDepth, -1)
-        filenameURLParts = config.pop(self._filenameURLParts, 1)
-        skipFolders = config.pop(self._skipFolders, [])
-        properties = config.pop(self._properties, {})
-        auth = config.pop(self._auth, False)
+        self.url = config.get(self._url, None)
+        self.regex = config.get(self._regex, None)
+        self.link = config.get(self._link, "")
+        self.maxDepth = config.get(self._maxDepth, -1)
+        self.filenameURLParts = config.get(self._filenameURLParts, 1)
+        self.skipFolders = config.get(self._skipFolders, [])
+        
+        self.auth = config.get(self._auth, False) # True/False flag
+        self.secretLocation = secretLocation
 
-        if auth:
-            secrets = Secrets(secretLocation)
-            self.auth = secrets.getAuth()
+    def _execute(self, overwrite: bool, verbose: bool) -> tuple[bool, dict]:
+        crawler = Crawler(self.workingDir, self.workingDir.parent, self.auth)
+        crawler.run(self.url, self.regex, self.maxDepth, self.skipFolders, overwrite)
+        urlList = crawler.getFileURLs(self.link)
 
-        crawler = Crawler(self.workingDir, self.auth)
-        crawler.run(url, regex, maxDepth, skipFolders, overwrite)
-        urlList = crawler.getFileURLs(link)
-
-        self.downloads: list[tuple[str, DataFile]] = []
         for url in urlList:
-            fileName = "_".join(url.split("/")[-filenameURLParts:])
-            self.downloads.append((url, DataFile(self.workingDir / fileName, properties)))
+            fileName = "_".join(url.split("/")[-self.filenameURLParts:])
+            downloadConfig = {
+                UrlRetrieve._url: url,
+                UrlRetrieve._name: fileName,
+                UrlRetrieve._auth: self.auth
+            }
 
-        super().__init__([downloadFile for _, downloadFile in self.downloads])
+            self._subTasks.append(UrlRetrieve(self.workingDir, downloadConfig, self.secretLocation))
 
-    def run(self, overwrite: bool, verbose: bool) -> bool:
-        downloadsRun = False
-        for downloadURL, downloadFile in self.downloads:
-            if not overwrite and downloadFile.exists():
-                continue
-
-            downloadFile.delete()
-            dl.download(downloadURL, downloadFile.path, auth=self.auth, verbose=verbose)
-            downloadsRun = True
-
-        return downloadsRun
+        return True, {}
 
 class ScriptRunner(Task):
 
@@ -123,109 +186,104 @@ class ScriptRunner(Task):
     _inputs = "inputs"
     _args = "args"
     _kwargs = "kwargs"
-    _outputs = "outputs"
 
-    def __init__(self, workingDir: Path, config: dict, dirLookup: parse.DirLookup, fileLookup: parse.DataFileLookup):
-        parallel = config.pop(self._parallel, False)
+    def __init__(self, workingDir: Path, config: dict, dirLookup: dict[str, Path], downloaded: list[list[DataFile]], processed: list[list[DataFile]], _parseConfig: bool = True):
+        super().__init__(workingDir)
 
-        modulePath = config.pop(self._modulePath, "")
+        modulePath = config.get(self._modulePath, "")
         if not modulePath:
             raise Exception("No `path` specified in script config") from AttributeError
 
-        modulePath = parse.parseArg(modulePath, workingDir, dirLookup, fileLookup)
+        self.modulePath = parse.parsePath(modulePath, workingDir, dirLookup) if _parseConfig else modulePath
 
-        functionName = config.pop(self._functionName, "")
-        if not functionName:
+        self.functionName = config.get(self._functionName, "")
+        if not self.functionName:
             raise Exception("No `function` specified in script config") from AttributeError
 
-        outputs = config.pop(self._outputs, [])
-        if not outputs:
-            raise Exception("No `outputs` specified in script config") from AttributeError        
+        inputs = config.get(self._inputs, [])
+        self.inputs = parse.parseInputList(inputs, downloaded, processed) if _parseConfig else inputs
 
-        # Split script if necessary for parallel tasks
-        lookups: list[parse.DataFileLookup] = []
-        if parallel:
-            for input in fileLookup.getFiles(parse.FileSelect.INPUT):
-                individualFileLookup = parse.DataFileLookup([input], fileLookup.getFiles(parse.FileSelect.DOWNLOAD), fileLookup.getFiles(parse.FileSelect.PROCESS))
-                lookups.append(individualFileLookup)
-        else:
-            lookups.append(fileLookup)
+        self.args = config.get(self._args, [])
+        self.kwargs = config.get(self._kwargs, {})
+        self.parallel = config.get(self._parallel, False)
 
-        # Store script objects for run time
-        self.scripts: list[tuple[OutputScript, list, dict]] = []
-        allOutputs = []
-        for lookup in lookups:
+        self._dirLookup = dirLookup
+        self._downloaded = downloaded
+        self._processed = processed
 
-            parsedOutputs = []
-            for output in outputs:
-                parsed = parse.parseArg(output, workingDir, dirLookup, lookup)
+    def _execute(self, overwrite: bool, verbose: bool) -> tuple[bool, dict]:
+        if not self.parallel:
+            script = OutputScript(self.modulePath, self.functionName, self.workingDir, self.inputs)
+            success, _ = script.run(verbose, self.args, self.kwargs)
+            return success, {}
 
-                if isinstance(parsed, Path):
-                    parsedOutputs.append(DataFile(workingDir / parsed.name))
-                elif isinstance(parsed, DataFile):
-                    parsedOutputs.append(parsed.move(workingDir))
-                else:
-                    parsedOutputs.append(DataFile(workingDir / parsed))
+        for input in self.inputs:
+            scriptConfig = {
+                ScriptRunner._modulePath: self.modulePath,
+                ScriptRunner._functionName: self.functionName,
+                ScriptRunner._inputs: self.inputs,
+                ScriptRunner._args: self.args,
+                ScriptRunner._kwargs: self._kwargs
+            }
 
-            lookup.extend(parse.FileSelect.OUTPUT, parsedOutputs)
+            self._subTasks.append(ScriptRunner(self.workingDir, scriptConfig, self._dirLookup, self._downloaded, self._processed, False))
 
-            args = parse.parseList(config.get(self._args, []), workingDir, dirLookup, lookup)
-            kwargs = parse.parseDict(config.get(self._kwargs, {}), workingDir, dirLookup, lookup)
-
-            self.scripts.append((OutputScript(modulePath, functionName, parsedOutputs, lookup.getFiles(parse.FileSelect.INPUT), dirLookup.paths()), args, kwargs))
-            allOutputs.extend(parsedOutputs)
-
-        super().__init__(allOutputs)
-
-    def run(self, overwrite: bool, verbose: bool) -> bool:
-        for script, args, kwargs in self.scripts:
-            success, _ = script.run(overwrite, verbose, args, kwargs)
-            if not success:
-                return False
-
-        return True
+        return True, {}
 
 class Conversion(Task):
 
     _datasetID = "datasetID"
     _mapID = "mapID"
     _mapColumnName = "mapColumnName"
+    _input = "input"
     _entityEvent = "entityEvent"
     _entityColumn = "entityColumn"
     _chunkSize = "chunkSize"
 
-    def __init__(self, workingDir: Path, mapDir: Path, config: dict, inputFile: DataFile, prefix: str, name: str, subsection: str, retrieveMap: bool):
-        self.workingDir = workingDir
+    _localMapName = "map.json"
 
-        datasetID = config.pop(self._datasetID, "")
-        if isinstance(datasetID, dict):
-            datasetID = datasetID.get(subsection, "")
+    def __init__(self, workingDir: Path, config: dict, name: str, dataDate: str, unmappedPrefix: str, downloaded: list[list[DataFile]], processed: list[list[DataFile]]):
+        super().__init__(workingDir, True)
 
-        if not datasetID:
-            error = "No `datasetID` specified"
-            if subsection:
-                error += f" for subsection `{subsection}`"
+        self.datasetID = config.get(self._datasetID, "")
+        if not self.datasetID:
+            raise Exception("No `datasetID` specified") from AttributeError
 
-            raise Exception(error) from AttributeError
-
-        mapID = config.pop(self._mapID, "")
-        mapColumnName = config.pop(self._mapColumnName, "")
-        if not mapID and not mapColumnName:
+        self.mapID = config.get(self._mapID, "")
+        self.mapColumnName = config.get(self._mapColumnName, "")
+        if not self.mapID and not self.mapColumnName:
             raise Exception(f"No `mapID` or `mapColumnName` specified") from AttributeError
+        
+        self.input = config.get(self._input, "")
+        if not self.input:
+            raise Exception(f"No `input` specified") from AttributeError
+        
+        self.input = parse.parseInput(self.input, downloaded, processed)[0] # Singular input
 
-        entityEvent = config.pop(self._entityEvent, "collection")
-        entityColumn = config.pop(self._entityColumn, "scientific_name")
+        self.entityEvent = config.get(self._entityEvent, "collection")
+        self.entityColumn = config.get(self._entityColumn, "scientific_name")
+        self.chunkSize = config.get(self._chunkSize, 1024)
 
-        outputFile = StackedFile(self.workingDir / name)
+        self.unmappedPrefix = unmappedPrefix
+        self.fileName = f"{name}_{dataDate}"
 
-        chunkSize = config.pop(self._chunkSize, 1024)
+    def _execute(self, overwrite: bool, verbose: bool) -> tuple[bool, dict]:
+        mapDir = self.workingDir.parent
+        localMapFile = mapDir / self._localMapName
 
-        self.converter = Converter(mapDir, inputFile, outputFile, prefix, datasetID, (entityEvent, entityColumn), chunkSize)
-        self.converter.loadMap(mapID, mapColumnName, retrieveMap)
+        if not localMapFile.exists() or overwrite:
+            if self.mapColumnName:
+                logging.info("Using updated mapping sheet")
+                map = Map.fromModernSheet(self.mapColumnName, localMapFile)
+            elif self.mapID:
+                logging.info("Using original mapping sheet")
+                map = Map.fromSheets(self.mapID, localMapFile)
+            else: # Should never land here as mapID and mapColumnName are verified to exist in init
+                logging.warning("No mapping found")
+                return False, {}
+        else:
+            logging.info(f"Using local map file {localMapFile}")
+            map = Map.fromFile(localMapFile, self.unmappedPrefix)
 
-        super().__init__([outputFile])
-
-    def run(self, overwrite: bool, verbose: bool) -> bool:
-        success, metadata = self.converter.convert(overwrite, verbose)
-        self.setAdditionalMetadata(metadata)
-        return success
+        converter = Converter(self.input, self.workingDir / self.fileName)
+        return converter.convert(map, self.chunkSize, self.datasetID, self.entityEvent, self.entityColumn, verbose)

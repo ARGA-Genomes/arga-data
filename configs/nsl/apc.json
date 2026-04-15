@@ -1,0 +1,32 @@
+{
+    "downloading": {
+        "retrieveType": "url",
+        "tasks": [
+            {
+                "url": "https://biodiversity.org.au/nsl/services/export/taxonCsv",
+                "name": "apc.csv"
+            }
+        ]
+    },
+    "processing": [
+        {
+            "path": "./apc.py",
+            "function": "denormalize",
+            "inputs": [
+                "{D^}"
+            ]
+        },
+        {
+            "path": "./apc.py",
+            "function": "cleanup",
+            "inputs": [
+                "{P^}"
+            ]
+        }
+    ],
+    "updating": {
+        "type": "weekly",
+        "day": "sunday",
+        "interval": 2
+    }
+}

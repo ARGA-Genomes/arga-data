@@ -1,0 +1,27 @@
+{
+    "subsections": [
+        "datasets, ARGA:TL:0000179",
+        "genomes, ARGA:TL:0000180"
+    ],
+    "downloading": {
+        "retrieveType": "script",
+        "tasks": [
+            {
+                "path": "./api.py",
+                "function": "build",
+                "args": [
+                    "<S>"
+                ]
+            }
+        ]
+    },
+    "conversion": {
+        "datasetID": "<S:1>",
+        "mapID": 215504073
+    },
+    "updating": {
+        "type": "weekly",
+        "day": "sunday",
+        "interval": 2
+    }
+}

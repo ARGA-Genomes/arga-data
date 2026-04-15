@@ -1,0 +1,37 @@
+{
+    "downloading": {
+        "retrieveType": "script",
+        "tasks": [
+            {
+                "path": "./checklist.py",
+                "function": "retrieve"
+            }
+        ]
+    },
+    "processing": [
+        {
+            "path": "./checklist.py",
+            "function": "cleanup",
+            "inputs": [
+                "{D^}"
+            ]
+        },
+        {
+            "path": "./checklist.py",
+            "function": "addParents",
+            "inputs": [
+                "{P^}"
+            ]
+        },
+        {
+            "path": "./checklist.py",
+            "function": "enrich",
+            "inputs": [
+                "{P^}"
+            ]
+        }
+    ],
+    "conversion": {
+        "datasetID": "ARGA:TL:0001000"
+    }
+}

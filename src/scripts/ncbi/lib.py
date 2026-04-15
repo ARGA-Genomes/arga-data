@@ -6,10 +6,12 @@ from lib.secrets import Secrets
 from lib.bigFiles import RecordWriter
 from lib.progressBar import ProgressBar
 from lib.processing.files import DataFile
-from llib.apiWorker import apiWorker
+from scripts.ncbi.apiWorker import apiWorker
 import numpy as np
+from lib.processing.scripts import importableScript
 
-def getStats(summaryFile: DataFile, outputPath: Path):
+@importableScript()
+def getStats(outputDir: Path, summaryFile: DataFile):
     secrets = Secrets("ncbi")
 
     if not secrets.key:
@@ -23,10 +25,10 @@ def getStats(summaryFile: DataFile, outputPath: Path):
     accessionCol = "#assembly_accession"
 
     logging.info("Reading summary file")
-    df = summaryFile.read(dtype=object, usecols=[accessionCol])
+    df = summaryFile.read(dtype=object, usecols=[accessionCol], header=1)
     totalAccessions = df.size
 
-    writer = RecordWriter(outputPath, recordsPerSubsection)
+    writer = RecordWriter(outputDir / summaryFile.path.name, recordsPerSubsection)
     startingAccession = writer.writtenFileCount() * recordsPerSubsection
     accessionsPerProcess = ((totalAccessions - startingAccession) / processes).__ceil__()
 
@@ -63,22 +65,25 @@ def getStats(summaryFile: DataFile, outputPath: Path):
 
     writer.combine(removeParts=False, index=False)
 
-def merge(summaryFile: DataFile, statsFilePath: Path, outputPath: Path) -> None:
+@importableScript(inputCount=2)
+def merge(outputDir: Path, summaryFile: DataFile, statsFile: DataFile, fileName: str) -> None:
     if not summaryFile.exists():
         logging.error("Unable to merge files as summary file doesn't exist")
         return
     
-    if not statsFilePath.exists():
+    if not statsFile.exists():
         logging.error("Unable to merge files as stats file doesn't exist")
         return
 
-    df = summaryFile.read(low_memory=False)
-    df2 = pd.read_csv(statsFilePath, low_memory=False)
-    df = df.merge(df2, how="outer", left_on="#assembly_accession", right_on="current_accession")
-    df.to_csv(outputPath, index=False)
+    df = summaryFile.read(header=1, low_memory=False)
+    df2 = statsFile.read(low_memory=False)
 
-def cleanData(inPath: Path, outPath: Path) -> None:
-    df = pd.read_csv(inPath, low_memory=False)
+    df = df.merge(df2, how="outer", left_on="#assembly_accession", right_on="current_accession")
+    df.to_csv(outputDir / fileName, index=False)
+
+@importableScript()
+def cleanData(outputDir: Path, mergedData: DataFile, fileName: str) -> None:
+    df = mergedData.read(low_memory=False)
     df = df.replace("na", np.NaN)
     
     for column in ("sequence_id", "record_id"):
@@ -86,4 +91,4 @@ def cleanData(inPath: Path, outPath: Path) -> None:
         df[column] = df[column].fillna(df["#assembly_accession"])
 
     df = df.rename({"biosample": "dna_extract_id"}, axis=1)
-    df.to_csv(outPath, index=False)
+    df.to_csv(outputDir / fileName, index=False)

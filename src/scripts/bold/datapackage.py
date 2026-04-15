@@ -4,8 +4,13 @@ from bs4 import BeautifulSoup
 import numpy as np
 import pandas as pd
 from pathlib import Path
+from lib.processing.scripts import importableScript
+from lib.processing.files import DataFile
+import lib.zipping as zp
+import lib.common as cmn
 
-def retrieve(outputFilePath: Path):
+@importableScript(inputCount=0)
+def retrieve(outputDir: Path):
     # datapackageURL = "https://www.boldsystems.org/index.php/datapackages"
     # request = requests.get(datapackageURL)
 
@@ -14,15 +19,13 @@ def retrieve(outputFilePath: Path):
     # mostRecent = recentData["Snapshot Date"][0]
     mostRecent = "28-APR-2023"
 
-def cleanUp(folderPath: Path, outputFilePath: Path) -> None:
-    for file in folderPath.iterdir():
-        if file.suffix == ".tsv":
-            file.rename(outputFilePath)
-            continue
+@importableScript()
+def cleanUp(outputDir: Path, inputFile: DataFile) -> None:
+    extractedFile = zp.extract(inputFile.path, outputDir)
 
-        file.unlink()
-
-    folderPath.rmdir() # Cleanup remaining folder
+    tsvFile = [file for file in extractedFile.iterdir() if file.suffix == ".tsv"][0] # Should only be one file
+    tsvFile.rename(outputDir / "datapackage.tsv")
+    cmn.clearFolder(extractedFile, delete=True)
 
 def augment(df: pd.DataFrame) -> pd.DataFrame:
     clusterPrefix = "http://www.boldsystems.org/index.php/Public_BarcodeCluster?clusteruri="

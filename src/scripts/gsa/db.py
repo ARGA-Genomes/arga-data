@@ -1,21 +1,23 @@
 from lib.crawler import Crawler
 import pandas as pd
 from pathlib import Path
+from lib.processing.scripts import importableScript
 
-def build(outputFilePath: Path) -> None:
+@importableScript
+def build(outputDir: Path) -> None:
     url = "http://download.cncb.ac.cn/gsa/"
     regexMatch = ".*\\.gz"
 
-    crawler = Crawler(outputFilePath.parent, url, regexMatch)
+    crawler = Crawler(outputDir, url, regexMatch)
     files, leftoverFolders = crawler.crawl()
 
     if leftoverFolders:
         print("Exited early, writing file/folder progress to file")
 
-        with open(outputFilePath.parent / "files.txt", 'w') as fp:
+        with open(outputDir / "files.txt", 'w') as fp:
             fp.write("\n".join(files))
 
-        with open(outputFilePath.parent / "folders.txt", 'w') as fp:
+        with open(outputDir / "folders.txt", 'w') as fp:
             fp.write("\n".join(leftoverFolders))
 
         exit()
@@ -45,4 +47,4 @@ def build(outputFilePath: Path) -> None:
         data.append(info)
 
     df = pd.DataFrame.from_records(data)
-    df.to_csv(outputFilePath, index=False)
+    df.to_csv(outputDir / "gsa.csv", index=False)

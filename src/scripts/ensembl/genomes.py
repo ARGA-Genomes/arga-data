@@ -5,6 +5,8 @@ from pathlib import Path
 import lib.downloading as dl
 import lib.zipping as zp
 from bs4 import BeautifulSoup
+from lib.processing.scripts import importableScript
+from lib.processing.files import DataFile
 
 def download(url: str, outputDir: Path, overwrite: bool = False) -> Path:
     localFile = Path(outputDir / f"{'_'.join(url.rsplit('/', 2)[-2:])}")
@@ -35,8 +37,9 @@ def speciesDownload(outputFilePath: Path) -> None:
     df = pd.DataFrame.from_records(data["species"])
     df.to_csv(outputFilePath, index=False)
 
-def flatten(filePath: Path, outputFilePath: Path) -> None:
-    with open(filePath) as fp:
+@importableScript()
+def flatten(outputDir: Path, inputPath: Path) -> None:
+    with open(inputPath) as fp:
         data = json.load(fp)
 
     records = []
@@ -51,13 +54,14 @@ def flatten(filePath: Path, outputFilePath: Path) -> None:
 
         records.append(organism | assembly | release | record)
 
-    pd.DataFrame.from_records(records).to_csv(outputFilePath, index=False)
+    pd.DataFrame.from_records(records).to_csv(outputDir / "metadata.csv", index=False)
 
-def enrich(filePath: Path, subsection: str, outputFilePath: Path) -> None:
-    df = pd.read_csv(filePath, sep="\t", dtype=object, index_col=False)
+@importableScript()
+def enrich(outputDir: Path, inputFile: DataFile, subsection: str) -> None:
+    df = inputFile.read(dtype=object, index_col=False)
 
     baseURL = f"http://ftp.ensemblgenomes.org/pub/{subsection}/current/mysql/"
-    outputFolder = Path(outputFilePath.parent / "enrichFiles")
+    outputFolder = Path(outputDir / "enrichFiles")
     outputFolder.mkdir(exist_ok=True)
 
     records = []
@@ -87,14 +91,15 @@ def enrich(filePath: Path, subsection: str, outputFilePath: Path) -> None:
     enrichDF = pd.DataFrame.from_records(records)
     uniqueCols = enrichDF.columns.difference(df.columns)
     df = df.merge(enrichDF[uniqueCols], how="outer", left_on="#name", right_on="name")
-    df.to_csv(outputFilePath, index=False)
+    df.to_csv(outputDir / "enrichedStats.csv", index=False)
 
-def combine(metadataPath: Path, statsPath: Path, outputFilePath: Path) -> None:
-    metadata = pd.read_csv(metadataPath)
-    stats = pd.read_csv(statsPath)
+@importableScript(inputCount=2)
+def combine(outputDir: Path, metadataFile: DataFile, statsFile: DataFile) -> None:
+    metadata = metadataFile.read()
+    stats = statsFile.read()
 
     uniqueColumns = stats.columns.difference(metadata.columns)
-    pd.merge(metadata, stats[uniqueColumns], how="outer", left_on="display_name", right_on="#name").to_csv(outputFilePath, index=False)
+    pd.merge(metadata, stats[uniqueColumns], how="outer", left_on="display_name", right_on="#name").to_csv(outputDir / "combined.csv", index=False)
 
 def collectVGP(outputFilePath: Path):
     def cleanText(text: str) -> str:

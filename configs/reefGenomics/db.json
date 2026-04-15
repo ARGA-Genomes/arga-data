@@ -1,0 +1,26 @@
+{
+    "subsections": [
+        "project",
+        "organism"
+    ],
+    "downloading": {
+        "retrieveType": "script",
+        "tasks": [
+            {
+                "path": "./db.py",
+                "function": "build",
+                "args": [
+                    "<S>"
+                ]
+            }
+        ]
+    },
+    "conversion": {
+        "datasetID": "ARGA:TL:0000187"
+    },
+    "updating": {
+        "type": "weekly",
+        "day": "sunday",
+        "interval": 2
+    }
+}

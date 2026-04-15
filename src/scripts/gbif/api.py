@@ -2,8 +2,11 @@ from pathlib import Path
 import lib.downloading as dl
 from lib.secrets import Secrets
 import requests
+from lib.processing.scripts import importableScript
+from lib.processing.files import DataFile
 
-def collect(outputFilePath: Path) -> None:
+@importableScript(inputCount=0)
+def collect(outputDir: Path) -> None:
     secrets = Secrets("gbif")
 
     baseURL = "https://api.gbif.org/v1"
@@ -65,4 +68,4 @@ def collect(outputFilePath: Path) -> None:
     requestID = response.text
 
     statusURL = f"{baseURL}{statusEndpoint}/{requestID}"
-    dl.asyncRunner(statusURL, "status", "SUCCEEDED", "downloadLink", outputFilePath)
+    dl.asyncRunner(statusURL, "status", "SUCCEEDED", "downloadLink", outputDir / "gbif.zip")

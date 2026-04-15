@@ -1,0 +1,62 @@
+{
+    "subsections": [
+        "bacteria, bct",
+        "constructed, con",
+        "environmental, env",
+        "expressedSeq, est",
+        "genomeSurvey, gss",
+        "highCDNA, htc",
+        "invertebrate, inv",
+        "mammalian, mam",
+        "otherVertebrate, vrt",
+        "patent, pat",
+        "phage, phg",
+        "plant, pln",
+        "primate, pri",
+        "rodent, rod",
+        "sequenceTagged, sts",
+        "synthetic, syn",
+        "transcriptome, tsa",
+        "viral, vrl"
+    ],
+    "downloading": {
+        "retrieveType": "crawl",
+        "tasks": [
+            {
+                "url": "https://ftp.ncbi.nlm.nih.gov/genbank/",
+                "regex": "gb<S:1>\\d+\\.seq\\.gz",
+                "maxDepth": 0
+            }
+        ]
+    },
+    "processing": [
+        {
+            "parallel": true,
+            "path": "./nucleotide.py",
+            "function": "parse",
+            "inputs": [
+                "{D^}"
+            ]
+        },
+        {
+            "path": ".lib/importableTools.py",
+            "function": "fileMerger",
+            "inputs": [
+                "{P^}"
+            ],
+            "args": [
+                "<S>.csv"
+            ]
+        }
+    ],
+    "conversion": {
+        "datasetID": "ARGA:TL:0000160",
+        "mapID": 1182330400,
+        "chunkSize": 512
+    },
+    "updating": {
+        "type": "weekly",
+        "day": "sunday",
+        "interval": 2
+    }
+}

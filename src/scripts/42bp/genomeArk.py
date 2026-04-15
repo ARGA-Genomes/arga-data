@@ -2,12 +2,14 @@ import requests
 from pathlib import Path
 import lib.common as cmn
 import yaml
-import csv
 from yaml.scanner import ScannerError
 import json
 import lib.downloading as dl
+from lib.processing.scripts import importableScript
+import pandas as pd
 
-def build(outputFilePath: Path, savedFilePath: Path) -> None:
+@importableScript(inputCount=0)
+def build(outputDir: Path, savedFilePath: Path) -> None:
     location = "https://42basepairs.com/api/v1/files/s3/genomeark/species/"
     baseDLUrl = "https://42basepairs.com/download/s3/genomeark/species/"
 
@@ -32,7 +34,7 @@ def build(outputFilePath: Path, savedFilePath: Path) -> None:
             continue
 
         downloadURL = baseDLUrl + name + "metadata.yaml"
-        filePath = outputFilePath.parent / f"{name[:-1]}_metadata.yaml"
+        filePath = outputDir / f"{name[:-1]}_metadata.yaml"
         if not filePath.exists():
             success = dl.download(downloadURL, filePath)
             if not success:
@@ -51,9 +53,5 @@ def build(outputFilePath: Path, savedFilePath: Path) -> None:
         allData.append(data)
         columns = cmn.extendUnique(columns, data.keys())
 
-    with open(outputFilePath, 'w', newline='') as fp:
-        writer = csv.DictWriter(fp, columns)
-        writer.writeheader()
-        
-        for row in allData:
-            writer.writerow(row)
+    df = pd.DataFrame.from_records(data)
+    df.to_csv(outputDir / "genomeArk.csv", index=False)

@@ -4,6 +4,7 @@ import logging
 import importlib.util
 import traceback
 import sys
+from functools import wraps
 
 class FunctionScript:
     def __init__(self, modulePath: Path, functionName: str, libraryDirs: list[Path] = []):
@@ -12,21 +13,15 @@ class FunctionScript:
         self.libraryDirs = libraryDirs
 
     def _importFunction(self) -> callable:
+        pathExtension = [str(libraryPath.parent) for libraryPath in self.libraryDirs]
+        sys.path.extend(pathExtension)
+
         spec = importlib.util.spec_from_file_location(self.modulePath.name, self.modulePath)
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)
         return getattr(module, self.functionName)
-
-    def run(self, verbose: bool, args: list = [], kwargs: dict = {}) -> tuple[bool, any]:
-        pathExtension = [str(libraryPath.parent) for libraryPath in self.libraryDirs]
-        sys.path.extend(pathExtension)
-
-        try:
-            processFunction = self._importFunction()
-        except:
-            logging.error(f"Error importing function '{self.functionName}' from path '{self.modulePath}'")
-            return False, None
-
+    
+    def _execute(self, processFunction: callable, verbose: bool, args: list = [], kwargs: dict = {}) -> tuple[bool, any]:
         if verbose:
             msg = f"Running {self.modulePath} function '{self.functionName}'"
             if args:
@@ -51,46 +46,83 @@ class FunctionScript:
                 
         return True, retVal
 
+    def run(self, verbose: bool, args: list = [], kwargs: dict = {}) -> tuple[bool, any]:
+        try:
+            processFunction = self._importFunction()
+        except:
+            logging.error(f"Error importing function '{self.functionName}' from path '{self.modulePath}'")
+            return False, None
+
+        return self._execute(processFunction, verbose, args, kwargs)
+
 class OutputScript(FunctionScript):
-    def __init__(self, modulePath: Path, functionName: str, outputs: list[DataFile], inputs: list[DataFile] = [], libraryDirs: list[Path] = []):
+    def __init__(self, modulePath: Path, functionName: str, outputDir: Path, inputs: list[DataFile] = [], libraryDirs: list[Path] = []):
         super().__init__(modulePath, functionName, libraryDirs)
 
-        self.outputs = outputs
+        self.outputDir = outputDir
         self.inputs = inputs
 
-    def run(self, overwrite: bool, verbose: bool, args: list = [], kwargs: dict = {}) -> tuple[bool, any]:
-        if all(output.exists() for output in self.outputs):
-            if not overwrite:
-                logging.info(f"All outputs for function '{self.functionName}' exist and not overwriting, skipping...")
-                return True, None
-            
-        if not all(input.exists() for input in self.inputs):
-            logging.warning(f"Missing {len(self.inputs)} required file(s) needed to run script {self.functionName}")
-            return False, None
-            
-        # All files don't exist and forced rerun OR overwriting
-        for output in self.outputs:
-            if output.exists():
-                output.backUp(True)
+    def _importFunction(self):
+        processFunction = super()._importFunction()
 
-        success, retVal = super().run(verbose, args, kwargs)
-
-        if not success:
-            for output in self.outputs:
-                output.restoreBackUp()
-
-            return False, retVal
+        processAttributes = vars(processFunction)
+        if "callable" not in processAttributes:
+            logging.error(f"Function '{self.functionName}' from path '{self.modulePath}' is not properly decorated with the importableScript decorator in {Path(__file__)}")
+            raise ImportError
         
-        if not all(output.exists() for output in self.outputs):
-            logging.warning(f"Output {self.outputs[0]} was not created" if len(self.outputs) == 1 else f"Failed to create all {len(self.outputs)} files")
+        if not processAttributes["callable"]: # Decorator has no braces to execute outer decorator layer, call to expose proper imported function target
+            processFunction = processFunction()
 
-            for output in self.outputs:
-                output.restoreBackUp()
+        self.ioArgStrt = processFunction.ioArgStart
+        self.inputCount = processFunction.inputCount
+        self.separateInputArgs = processFunction.separateInputArgs
 
-            return False, retVal
+        return processFunction
+
+    def _execute(self, processFunction: callable, verbose: bool, args: list = [], kwargs: dict = {}) -> tuple[bool, any]:
+        io = [self.outputDir]
+
+        if self.inputCount != 0: # <0 for all inputs regardless of count, >0 for specific inputs checked above
+            if self.inputCount > 0: # Selected quantity of inputs
+
+                if self.inputCount > len(self.inputs):
+                    if verbose:
+                        logging.error(f"Imported function '{self.functionName}' from path '{self.modulePath}' expects {self.inputCount} inputs but {len(self.inputs)} were passed to it")
+                        return False, None
+                
+                if self.inputCount < len(self.inputs):
+                    if verbose:
+                        logging.warning(f"Imported function '{self.functionName}' from path '{self.modulePath}' given {len(self.inputs)} inputs while only {self.inputCount} were expected. Running with first {self.inputCount} inputs only.")
+
+                    self.inputs = self.inputs[:self.inputCount] # restrict excess provided inputs to inputCount
+
+                if not all(input.exists() for input in self.inputs):
+                    if verbose:
+                        logging.warning(f"Missing {len(self.inputs)} required file(s) needed to run script {self.functionName}")
+
+                    return False, None
+            
+            if self.separateInputArgs:
+                io.extend(self.inputs)
+            else:
+                io.append(self.inputs)
+
+        args = args[:self.ioArgStrt] + io + args[self.ioArgStrt:] # Inject io args at defined position
+        return super()._execute(processFunction, verbose, args, kwargs)
+
+def importableScript(ioArgStart: int = 0, inputCount: int = 1, separateInputArgs: bool = True):
+
+    def scriptDecorator(func: callable):
+
+        @wraps(func)
+        def scriptWrapper(*args, **kwargs):
+            return func(*args, **kwargs)
         
-        logging.info(f"Created file {self.outputs[0]}" if len(self.outputs) == 1 else f"Created all {len(self.outputs)} files")
-        for output in self.outputs:
-            output.deleteBackup()
-
-        return True, retVal
+        scriptWrapper.ioArgStart = ioArgStart
+        scriptWrapper.inputCount = inputCount
+        scriptWrapper.separateInputArgs = separateInputArgs
+        scriptWrapper.callable = True
+        return scriptWrapper
+    
+    scriptDecorator.callable = False
+    return scriptDecorator

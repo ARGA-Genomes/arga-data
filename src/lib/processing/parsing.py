@@ -4,99 +4,16 @@ from enum import Enum
 from lib.processing.files import DataFile
 from typing import Any
 
-class FileSelect(Enum):
-    INPUT    = "IN"
-    OUTPUT   = "OUT"
-    DOWNLOAD = "D"
-    PROCESS  = "P"
-
-class FileProperty(Enum):
-    DIR  = "DIR"
-    FILE = "FILE"
-    PATH = "PATH"
-
-class DataFileLookup:
-    def __init__(self, inputs: list[DataFile] = None, downloads: list[DataFile] = None, processed: list[DataFile] = None, outputs: list[DataFile] = None):
-        self._enumMap = {
-            FileSelect.INPUT: inputs,
-            FileSelect.OUTPUT: outputs,
-            FileSelect.DOWNLOAD: downloads,
-            FileSelect.PROCESS: processed
-        }
-
-        for key, value in self._enumMap.items():
-            if value is None:
-                self._enumMap[key] = []
-
-    def __repr__(self) -> str:
-        return str(self)
-    
-    def __str__(self) -> str:
-        return "\n".join(f"{key.name.lower()}:\n - " + ("\n - ".join([str(file.path) for file in value]) or "None") for key, value in self._enumMap.items()) + "\n"
-
-    def getFiles(self, enum: FileSelect) -> list[DataFile]:
-        return self._enumMap.get(enum, [])
-    
-    def add(self, enum: FileSelect, file: DataFile) -> None:
-        self._enumMap[enum].append(file)
-
-    def extend(self, enum: FileSelect, files: list[DataFile]) -> None:
-        self._enumMap[enum].extend(files)
-    
-    def merge(self, other: 'DataFileLookup') -> None:
-        for enum in FileSelect:
-            self._enumMap[enum] += other._enumMap[enum]
-
-class DirLookup:
-    def __init__(self, lookup: dict[str, Path]):
-        self._lookup = lookup
-
-    def contains(self, prefix: str) -> bool:
-        return prefix in self._lookup
-
-    def remap(self, path: Path, prefix: str) -> Path:
-        return self._lookup[prefix] / path
-    
-    def paths(self) -> list[Path]:
-        return list(self._lookup.values())
-
-def parseDict(data: dict, relativeDir: Path, dirLookup: DirLookup = None, dataFileLookup: DataFileLookup = None) -> dict:
-    res = {}
-    for key, value in data.items():
-        if isinstance(value, list):
-            res[key] = parseList(value, relativeDir, dirLookup, dataFileLookup)
-
-        elif isinstance(value, dict):
-            res[key] = parseDict(value, relativeDir, dirLookup, dataFileLookup)
-
-        else:
-            res[key] = parseArg(value, relativeDir, dirLookup, dataFileLookup)
-
-    return res
-
-def parseList(data: list, relativeDir: Path, dirLookup: DirLookup = None, dataFileLookup: DataFileLookup = None) -> list:
-    return [parseArg(arg, relativeDir, dirLookup, dataFileLookup) for arg in data]
-
-def parseArg(arg: Any, relativeDir: Path, dirLookup: DirLookup = None, dataFileLookup: DataFileLookup = None) -> Path | str:
+def parsePath(arg: str, relativeDir: Path, dirLookup: dict[str, Path]) -> Path | Any:
     if not isinstance(arg, str):
         return arg
-
-    if "/" in arg:
-        return parsePath(arg, relativeDir, dirLookup)
     
-    if arg.startswith("{") and arg.endswith("}"):
-        parsedArg = _parseSelectorArg(arg[1:-1], dataFileLookup)
-        if parsedArg == arg:
-            logging.warning(f"Unknown key code: {parsedArg}")
+    if "/" not in arg:
+        return arg
 
-        return parsedArg
-
-    return arg
-
-def parsePath(arg: str, relativeDir: Path, dirLookup: DirLookup = None) -> Path | Any:
     prefix, relPath = arg.split("/", 1)
-    if dirLookup is not None and dirLookup.contains(prefix):
-        return dirLookup.remap(relPath, prefix)
+    if prefix in dirLookup:
+        return dirLookup[prefix] / relPath
     
     if len(prefix) == 2 and prefix[0].isupper() and prefix[1] == ":":
         return Path(arg)
@@ -114,55 +31,68 @@ def parsePath(arg: str, relativeDir: Path, dirLookup: DirLookup = None) -> Path 
     
     return arg
 
-def _parseSelectorArg(arg: str, dataFileLookup: DataFileLookup = None) -> Path | str:
-    if "-" not in arg:
-        logging.warning(f"Both file type and file property not present in arg, deliminate with '-'")
-        return arg
+def parseInput(arg: str, downloaded: list[list[DataFile]], processed: list[list[DataFile]]) -> list[DataFile | Path]:
+    if not (arg[0] == "{" and arg[-1] == "}"):
+        logging.warning(f"{arg} is not a valid input argument")
+        return
     
-    if dataFileLookup is None:
-        logging.error("No DataFile lookup provided")
-        return arg
+    arg = arg[1:-1]
+    asPath = arg.endswith("_") # Return outputs as path insteasd
+    fileInfo = arg.rstrip("_")
     
-    fType, fProperty = arg.split("-")
+    # File selection parsing
+    outputNumbers = []
+    def _addSelection(value: int) -> None:
+        if value in outputNumbers:
+            logging.warning("Duplicate input added to datafile selection")
+            return
 
-    if fType[-1].isdigit():
-        selection = int(fType[-1])
-        fType = fType[:-1]
+        outputNumbers.append(value)
+
+    if "|" in fileInfo: # Output number selection
+        fileInfo, rawSelection = arg.split("|")
+
+        for selectionItem in rawSelection.split(","):
+            if "-" not in selectionItem: # No range selection
+                _addSelection(int(selectionItem))
+                continue
+
+            start, end = selectionItem.split("-")
+            for subselectionItem in range(int(start), int(end)+1):
+                _addSelection(subselectionItem)
+
+    # Lookup parsing
+    lookupSelection = fileInfo[0]
+    if lookupSelection == "D":
+        lookup = downloaded
+    elif lookupSelection == "P":
+        lookup = processed
     else:
-        selection = 0
+        logging.error(f"Invalid lookup selection: {lookupSelection}")
+        return []
 
-    fTypeEnum = FileSelect._value2member_map_.get(fType, None)
-    if fTypeEnum is None:
-        logging.error(f"Invalid file type: '{file}'")
-        return arg
-
-    files = dataFileLookup.getFiles(fTypeEnum)
-    if not files:
-        logging.error(f"No files provided for file type: '{fType}'")
-        return arg
-
-    if selection > len(files):
-        logging.error(f"File selection '{selection}' out of range for file type '{fType}' which has a length of '{len(files)}")
-        return arg
+    # Lookup step parsing
+    stepSelection = fileInfo[1:]
+    if not lookup:
+        logging.error(f"{'Downloaded' if lookupSelection == 'D' else 'Processed'} lookup is empty")
+        return []
     
-    file: DataFile = files[selection]
-    fProperty, *suffixes = fProperty.split(".")
+    if stepSelection == "^":
+        selectedFiles = lookup[-1]
+    else:
+        if int(stepSelection) > len(lookup):
+            logging.error(f"Selected step {int(stepSelection)} is out of range of lookup length ({len(lookup)})")
+            return []
+        
+        selectedFiles = lookup[int(stepSelection)]
 
-    if fProperty == FileProperty.FILE.value:
-        if suffixes:
-            logging.warning("Suffix provided for a file object which cannot be resolved, suffix not applied")
-        return file
-    
-    if fProperty == FileProperty.DIR.value:
-        if suffixes:
-            logging.warning("Suffix provided for a parent path which cannot be resolved, suffix not applied")
-        return file.path.parent
+    # Lookup step output selection
+    outputs = [selectedFiles[number] for number in outputNumbers] if outputNumbers else selectedFiles
 
-    if fProperty == FileProperty.PATH.value:
-        pth = file.path
-        for suffix in suffixes:
-            pth = pth.with_suffix(suffix if not suffix else f".{suffix}") # Prepend a dot for valid suffixes
-        return pth
+    if asPath:
+        return [output.path for output in outputs]
     
-    logging.error(f"Unable to parse file property: '{fProperty}")
-    return arg
+    return outputs
+
+def parseInputList(inputArgs: list[str], downloaded: list[list[DataFile]], processed: list[list[DataFile]]) -> list[DataFile | Path]:
+    return [file for arg in inputArgs for file in parseInput(arg, downloaded, processed)]

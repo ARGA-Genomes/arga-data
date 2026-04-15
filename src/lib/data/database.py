@@ -5,14 +5,9 @@ from enum import Enum
 from pathlib import Path
 from lib.processing import tasks
 import lib.processing.updating as upd
-import lib.processing.parsing as parse
-import time
 from datetime import datetime
 from lib.processing.files import DataFile
 from lib.json import JsonSynchronizer
-import traceback
-
-sourceConfigName = "config.json"
 
 class Flag(Enum):
     VERBOSE   = "quiet" # Verbosity enabled by default, flag is used when silenced
@@ -34,92 +29,32 @@ class Updates(Enum):
     WEEKLY = "weekly"
     MONTHLY = "monthly"
 
-class Metadata(Enum):
-    OUTPUTS = "outputs"
-    SUCCESS = "success"
-    TASK_START = "task started"
-    TASK_END = "task completed"
-    TASK_DURATION = "duration"
-    LAST_SUCCESS_START = "last success started"
-    LAST_SUCCESS_END = "last success completed"
-    LAST_SUCCESS_DURATION = "last success duration"
-    TOTAL_DURATION = "total duration"
-    LAST_SUCCESS_TOTAL_DURATION = "last success total duration"
-    CUSTOM = ""
-
 class Database:
     _metadataFileName = "metadata.json"
+    _exampleFolderName = "examples"
 
-    def __init__(self, databaseDir: Path):
-        self.databaseDir = databaseDir
-
-        configPath = databaseDir / sourceConfigName
-        if configPath.exists():
-            with open(configPath) as fp:
-                config = json.load(fp)
-        else:
-            config = {}
-
-        self.subsections: dict[str, str] | list[str] = config.pop("subsections", {})
-        self.config = config
-
-    def locationName(self) -> str:
-        return self.locationDir.name
-
-    def databaseName(self) -> str:
-        return self.databaseDir.name
-
-    def listSubsections(self) -> list[str]:
-        return list(self.subsections)
-
-    def constuct(self, name: str, subsection: str):
+    def __init__(self, location: str, database: str, subsection: str, name: str, config: dict):
+        self.locationName = location
+        self.databaseName = database
+        self.subsection = subsection
         self.name = name
-        self.subsection = subsection # Subsection is verified before construction, so is valid
-        self.subsectionDir = self.databaseDir / subsection # Same as databaseDir if no subsection
-        self.locationDir = self.databaseDir.parent
-
-        # Subsection remapping
-        if subsection:
-            rawConfig = json.dumps(self.config)
-            rawConfig = rawConfig.replace("<SUB>", subsection)
-
-            if isinstance(self.subsections, dict): # Name provided with subsections
-                 rawConfig = rawConfig.replace("<SUB:VALUE>", self.subsections[subsection])
-
-            self.config = json.loads(rawConfig)
+        self.config = config
 
         # Local storage and libraries
         settings = Settings()
+        self.dataDir = settings.Storage.DATA / self.locationName / self.databaseName / self.subsection
 
-        self.exampleDir = self.subsectionDir / "examples" # Data sample storage location
-        self.dirLookup = parse.DirLookup({
-            ".": settings.scriptsDir / self.locationName(),
+        self.dirLookup = {
+            ".": settings.scriptsDir / self.locationName,
             ".lib": settings.libDir,
-        })
+        }
 
-        # Local settings
-        for dir in (self.locationDir, self.databaseDir, self.subsectionDir):
-            subdirConfig = Path(dir / "settings.toml")
-            if subdirConfig.exists():
-                settings.update(subdirConfig)
+        # Empty default values, generated based on historic selection
+        self.workingDirs: dict[Step, Path] = {}
+        self.exampleDir: Path = None
 
-        # Data storage
-        self.dataDir = self.subsectionDir / "data" # Default data location
-        if settings.Storage.DATA: # Overwrite data location
-            self.dataDir: Path = settings.Storage.DATA / self.dataDir.relative_to(self.locationDir.parent) # Change parent of locationDir (dataSources folder) to storage dir
-
-        self.workingDirs = {}
-
-        # Tasks
-        self._queuedTasks: dict[Step, list[tasks.Task]] = {step: [] for step in Step}
-        self._metadata = JsonSynchronizer(self.subsectionDir / self._metadataFileName)
-
-        # Updating
-        updateConfig: dict = self.config.pop("updating", {})
-        self._update = self._getUpdater(updateConfig)
-
-        # Preparation Stage
-        self._lastPrepared = None
+        self._metadata: JsonSynchronizer = None
+        self._dataDate: str = ""
 
     def __str__(self):
         return self.name
@@ -131,155 +66,24 @@ class Database:
         for property in config:
             logging.debug(f"{self.name} unknown{f' {sectionName}' if sectionName else ''} config item: {property}")
 
-    def _flattenTaskOutputs(self, taskList: list[tasks.Task]) -> list[DataFile]:
-        return [output for task in taskList for output in task.getOutputs()]
-    
-    def _getCurrentLookup(self) -> parse.DataFileLookup:
-        inputs = self._flattenTaskOutputs(self._queuedTasks[Step.PROCESSING][-1:] or self._queuedTasks[Step.DOWNLOADING][-1:])
-        downloads = self._flattenTaskOutputs(self._queuedTasks[Step.DOWNLOADING])
-        processed = self._flattenTaskOutputs(self._queuedTasks[Step.PROCESSING])
+    def _getHistoricFolders(self) -> list[Path]:
+        return sorted([item for item in self.dataDir.iterdir() if item.is_dir() and item.name.replace("-", "").isnumeric()], reverse=True)
 
-        return parse.DataFileLookup(inputs, downloads, processed)
-
-    def _prepareDownload(self, flags: list[Flag]) -> None:
-        downloadConfig: dict = self.config.pop(Step.DOWNLOADING.value, {})
-        if not downloadConfig:
-            raise Exception(f"No download config specified as required for {self.name}") from AttributeError
-
-        retrieveType = downloadConfig.pop("retrieveType", None)
-        if retrieveType is None:
-            raise Exception(f"No retrieve type specified in download config for {self.name}") from AttributeError
-        
-        downloadTaskConfig = downloadConfig.pop("tasks", None)
-        if downloadTaskConfig is None:
-            raise Exception(f"No download tasks specified in download config for {self.name}") from AttributeError
-        
-        retrieve = Retrieve._value2member_map_.get(retrieveType, None)
-        for taskConfig in downloadTaskConfig:
-            if retrieve == Retrieve.URL:
-                self._queuedTasks[Step.DOWNLOADING].append(tasks.UrlRetrieve(self.workingDirs[Step.DOWNLOADING], taskConfig, self.locationDir.name))
-
-            elif retrieve == Retrieve.CRAWL:
-                self._queuedTasks[Step.DOWNLOADING].append(tasks.CrawlRetrieve(self.workingDirs[Step.DOWNLOADING], taskConfig, self.locationDir.name, Flag.REPREPARE in flags))
-
-            elif retrieve == Retrieve.SCRIPT:
-                self._queuedTasks[Step.DOWNLOADING].append(tasks.ScriptRunner(self.workingDirs[Step.DOWNLOADING], taskConfig, self.dirLookup, self._getCurrentLookup()))
-
-            else:
-                raise Exception(f"Unknown retrieve type '{retrieveType}' specified for {self.name}") from AttributeError
-
-    def _prepareProcessing(self, flags: list[Flag]) -> None:
-        processingConfig: list[dict] = self.config.pop(Step.PROCESSING.value, [])
-
-        for processingStep in processingConfig:
-            self._queuedTasks[Step.PROCESSING].append(tasks.ScriptRunner(self.workingDirs[Step.PROCESSING], processingStep, self.dirLookup, self._getCurrentLookup()))
-
-    def _prepareConversion(self, flags: list[Flag]) -> None:
-        conversionConfig: dict = self.config.pop(Step.CONVERSION.value, {})
-        if not conversionConfig:
-            raise Exception(f"No conversion config specified as required for {self.name}") from AttributeError
-
-        overwrite = Flag.REPREPARE in flags
-        if self._queuedTasks[Step.PROCESSING]:
-            inputFile = self._queuedTasks[Step.PROCESSING][-1].getOutputs()[0] # Last processed file for conversion
-        else:
-            inputFile = self._queuedTasks[Step.DOWNLOADING][-1].getOutputs()[0]
-
-        self._queuedTasks[Step.CONVERSION].append(tasks.Conversion(self.workingDirs[Step.CONVERSION], self.databaseDir, conversionConfig, inputFile, self.locationName(), self.name, self.subsection, overwrite))
-
-    def _prepare(self, fileStep: Step, flags: list[Flag]) -> bool:
-        stepMap = {
-            Step.DOWNLOADING: (None, self._prepareDownload),
-            Step.PROCESSING: (Step.DOWNLOADING, self._prepareProcessing),
-            Step.CONVERSION: (Step.PROCESSING, self._prepareConversion)
-        }
-
-        if fileStep not in stepMap:
-            raise Exception(f"Unknown step to prepare: {fileStep}")
-
-        for stepType, (requirement, callback) in stepMap.items():
-            if self._lastPrepared != requirement:
-                continue
-
-            logging.info(f"Preparing {self} step '{stepType.name}' with flags: {self._printFlags(flags)}")
-            try:
-                callback(flags)
-            except Exception as e:
-                logging.error(f"Error preparing step \'{stepType.name}\'. Reason: {e}")
-                logging.error(traceback.format_exc())
-                return False
-            
-            self._lastPrepared = stepType
-            if fileStep is stepType:
-                break
-            
-        return True
-    
-    def _execute(self, step: Step, flags: list[Flag]) -> bool:
-        overwrite = Flag.OVERWRITE in flags
-        verbose = Flag.VERBOSE in flags
-        logging.info(f"Executing {self} step '{step.name}' with flags: {self._printFlags(flags)}")
-
-        evaluationTasks = self._queuedTasks.get(step, [])
-        if not evaluationTasks:
-            logging.info(f"No tasks to evaluate for step {step.value}")
-            return True
-
-        workingDir = self.workingDirs[step]
-        workingDir.mkdir(parents=True, exist_ok=True)
-
-        allSucceeded = False
-        startTime = time.perf_counter()
-        for idx, task in enumerate(evaluationTasks):
-            taskStartTime = time.perf_counter()
-            taskStartDate = datetime.now().isoformat()
-
-            try:
-                success = task.run(overwrite, verbose)
-            except KeyboardInterrupt:
-                logging.info("Cancelling task execution early")
-                return
-
-            duration = time.perf_counter() - taskStartTime
-            taskEndDate = datetime.now().isoformat()
-
-            packet = {
-                Metadata.OUTPUTS: [t.path.name for t in task.getOutputs()],
-                Metadata.SUCCESS: success,
-                Metadata.TASK_START: taskStartDate,
-                Metadata.TASK_END: taskEndDate,
-                Metadata.TASK_DURATION: duration,
-            }
-
-            # Task can set metadata on itself during run
-            extraMetadata = task.getMetadata()
-            if extraMetadata:
-                packet[Metadata.CUSTOM] = extraMetadata
-
-            if success:
-                packet |= {
-                    Metadata.LAST_SUCCESS_START: taskStartDate,
-                    Metadata.LAST_SUCCESS_END: taskEndDate,
-                    Metadata.LAST_SUCCESS_DURATION: duration
-                }
-
-            self.updateMetadata(step, idx, packet)
-            allSucceeded = allSucceeded and success
-
-        self.updateTotalTime(time.perf_counter() - startTime, allSucceeded)
-        return allSucceeded
-    
-    def _generateWorkingDirs(self, historicFolderNum) -> bool:
+    def _generateWorkingDirs(self, historicFolderNum: int) -> bool:
 
         def _generate(folder: Path) -> None:
             self.workingDirs = {step: folder / step.value for step in Step}
+            self.exampleDir = folder / self._exampleFolderName
+
+            self._metadata = JsonSynchronizer(folder / self._metadataFileName)
+            self._dataDate = folder.name
 
         todaysDataDir = self.dataDir / str(datetime.now().date())   
         if historicFolderNum == -1: # Force today
             _generate(todaysDataDir)
             return True
 
-        historicFolders = sorted(item for item in self.dataDir.iterdir() if item.is_dir())
+        historicFolders = self._getHistoricFolders()
         if historicFolderNum > (len(historicFolders) - 1):
             logging.error(f"Unable to select historic folder #{historicFolderNum} as there are only {len(historicFolders)}")
             return False
@@ -287,41 +91,168 @@ class Database:
         _generate(historicFolders[historicFolderNum])
         return True
 
-    def create(self, fileStep: Step, flags: list[Flag], historicFolderNum: int = 0) -> None:
-        success = self._generateWorkingDirs(historicFolderNum)
-        if not success:
+    def _getFiles(self, step: Step) -> list[list[DataFile]]:
+        files = []
+        
+        for stepMetadata in self._metadata.get(step.value, []):
+            stepFiles = []
+
+            for fileName in stepMetadata.get(tasks.Metadata.OUTPUTS.value):
+                if fileName is None:
+                    logging.warning(f"Metadata has no recorded outputs from step {step.value}")
+                    continue
+
+                stepFiles.append(DataFile(self.workingDirs[step] / fileName))
+
+            files.append(stepFiles)
+            
+        return files
+
+    def download(self, flags: list[Flag]) -> None:
+        downloadConfig: dict = self.config.get(Step.DOWNLOADING.value, {})
+        if not downloadConfig:
+            raise Exception(f"No download config specified as required for {self.name}") from AttributeError
+
+        retrieveType = downloadConfig.get("retrieveType", None)
+        if retrieveType is None:
+            raise Exception(f"No retrieve type specified in download config for {self.name}") from AttributeError
+        
+        downloadTaskConfig = downloadConfig.get("tasks", None)
+        if downloadTaskConfig is None:
+            raise Exception(f"No download tasks specified in download config for {self.name}") from AttributeError
+        
+        if not self._generateWorkingDirs(-1):
+            return
+        
+        retrieve = Retrieve._value2member_map_.get(retrieveType)
+        for idx, taskConfig in enumerate(downloadTaskConfig):
+            if retrieve == Retrieve.URL:
+                task = tasks.UrlRetrieve(self.workingDirs[Step.DOWNLOADING], taskConfig, self.locationName)
+            elif retrieve == Retrieve.CRAWL:
+                task = tasks.CrawlRetrieve(self.workingDirs[Step.DOWNLOADING], taskConfig, self.locationName)
+            elif retrieve == Retrieve.SCRIPT:
+                task = tasks.ScriptRunner(self.workingDirs[Step.DOWNLOADING], taskConfig, self.dirLookup, self._getFiles(Step.DOWNLOADING), [])
+            else:
+                raise Exception(f"Unknown retrieve type '{retrieveType}' specified for {self.name}") from AttributeError
+            
+            if not self._execute(Step.DOWNLOADING, idx, task, flags):
+                logging.error("Stopped evaluating downloading tasks as previous task failed")
+                break
+
+    def process(self, flags: list[Flag], historicFolderNum: int) -> None:
+        if not self._generateWorkingDirs(historicFolderNum):
+            return
+        
+        processingConfig: list[dict] = self.config.get(Step.PROCESSING.value, [])
+
+        for idx, processingStep in enumerate(processingConfig):
+            task = tasks.ScriptRunner(self.workingDirs[Step.PROCESSING], processingStep, self.dirLookup, self._getFiles(Step.DOWNLOADING), self._getFiles(Step.PROCESSING))
+
+            if not self._execute(Step.PROCESSING, idx, task, flags):
+                logging.error("Stopped evaluating processing tasks as previous task failed")
+                break
+
+    def convert(self, flags: list[Flag], historicFolderNum: int) -> None:
+        conversionConfig: dict = self.config.get(Step.CONVERSION.value, {})
+        if not conversionConfig:
+            raise Exception(f"No conversion config specified as required for {self.name}") from AttributeError
+        
+        if not self._generateWorkingDirs(historicFolderNum):
             return
 
-        try:
-            success = self._prepare(fileStep, flags)
-            if not success:
-                return
-            
-        except KeyboardInterrupt:
-            logging.info(f"Process ended early when attempting to prepare step '{fileStep.name}' for {self.name}")
+        task = tasks.Conversion(self.workingDirs[Step.CONVERSION], conversionConfig, self.name, self._dataDate, self.locationName, self._getFiles(Step.DOWNLOADING), self._getFiles(Step.PROCESSING))
+        self._execute(Step.CONVERSION, 0, task, flags)
 
-        try:
-            self._execute(fileStep, flags)
-        except KeyboardInterrupt:
-            logging.info(f"Process ended early when attempting to execute step '{fileStep.name}' for {self.name}")
+    def update(self) -> None:
+        updateConfig: dict = self.config.get("updating", {})
+        if not updateConfig:
+            raise Exception(f"No update config specified as required for {self.name}")
+        
+        updaterTypeValue = updateConfig.get("type", None)
+        if updaterTypeValue is None:
+            raise Exception("No 'type' specified in update config") from AttributeError
 
-    def checkUpdateReady(self) -> bool:
-        return self._update.updateReady(self.getLastUpdate(Step.DOWNLOADING))
+        updaterType = Updates._value2member_map_.get(updaterTypeValue, None)
+        if updaterType is None:
+            raise Exception(f"Unknown update type: {updaterTypeValue}") from AttributeError
     
-    def update(self, flags: list[Flag]) -> bool:
-        for fileStep in (Step.DOWNLOADING, Step.PROCESSING):
-            self.create(fileStep, list(set(flags).add(Flag.OVERWRITE)))
+        if updaterType == Updates.DAILY:
+            updater = upd.DailyUpdate(updateConfig)
+        elif updaterType == Updates.WEEKLY:
+            updater = upd.WeeklyUpdate(updateConfig)
+        elif updaterType == Updates.MONTHLY:
+            updater = upd.MonthlyUpdate(updateConfig)
+        else:
+            raise Exception(f"Unhandled updater type: {updaterType}") from AttributeError
+        
+        lastUpdate = None
+        for folder in self._getHistoricFolders():
+            historicMetadata = JsonSynchronizer(folder / self._metadataFileName)
+            lastSuccess = historicMetadata[Step.DOWNLOADING][0].get(tasks.Metadata.LAST_SUCCESS_START, None)
+
+            if lastSuccess is not None:
+                lastUpdate = datetime.fromisoformat(lastSuccess)
+
+        if (lastUpdate is not None) and (updater.updateReady(lastUpdate)):
+            logging.info(f"Data source '{self.name}' is not ready for update.")
+            return
+
+        self.download()
+        self.process()
+        self.convert()
+    
+    def _execute(self, step: Step, index: int, task: tasks.Task, flags: list[Flag]) -> bool:
+        overwrite = Flag.OVERWRITE in flags
+        verbose = Flag.VERBOSE in flags
+
+        logging.info(f"Executing {self} step '{step.name}' with flags: {self._printFlags(flags)}")
+
+        workingDir = self.workingDirs[step]
+        workingDir.mkdir(parents=True, exist_ok=True)
+
+        backupDir = workingDir / "backups"
+        outputs: list[DataFile] = [] # List of outputs from previous run        
+
+        stepMetadata = self._metadata.get(step.value, [])
+        if index < len(stepMetadata): # Task index has been run previously
+            outputs = [DataFile(workingDir / fileName) for fileName in stepMetadata[index].get(tasks.Metadata.OUTPUTS.value, [])]
+
+            if not overwrite and outputs and all(output.exists() for output in outputs):
+                logging.info(f"Task has been run previously and produced outputs: '{', '.join([str(output) for output in outputs])}'. Skipping as overwrite flag has not been set.")
+                return True
+
+        if outputs:
+            backupDir.mkdir()
+
+        for file in outputs:
+            file.backUp(backupDir)
+
+        metadata = task.run(overwrite, verbose)
+        self.updateMetadata(step, index, metadata)
+        runSuccess = metadata[tasks.Metadata.SUCCESS]
+
+        if not runSuccess:
+            if outputs:
+                for file in outputs:
+                    file.restoreBackUp()
+
+                backupDir.rmdir()
+        else:
+            for file in outputs:
+                file.deleteBackup()
+
+        return runSuccess
 
     def _printFlags(self, flags: list[Flag]) -> str:
         return " | ".join(f"{flag.value}={flag in flags}" for flag in Flag)
 
-    def updateMetadata(self, step: Step, stepIndex: int, metadata: dict[Metadata, any]) -> None:
+    def updateMetadata(self, step: Step, stepIndex: int, metadata: dict[tasks.Metadata, any]) -> None:
         parsedMetadata = {}
         for key, value in metadata.items():
-            if not isinstance(key, Metadata):
+            if not isinstance(key, tasks.Metadata):
                 continue
 
-            if key == Metadata.CUSTOM:
+            if key == tasks.Metadata.CUSTOM:
                 for customKey, customValue in value.items():
                     parsedMetadata[customKey] = customValue
 
@@ -340,37 +271,36 @@ class Database:
 
         self._metadata[step.value] = taskMetadata
 
-        logging.info(f"Updated {step.value} metadata and saved to file")
+class DatabaseFactory:
+    def __init__(self, locationName: str, databaseName: str, config: dict):
+        self.locationName = locationName
+        self.databaseName = databaseName
 
-    def updateTotalTime(self, totalTime: float, allSucceeded) -> None:
-        self._metadata[Metadata.TOTAL_DURATION.value] = totalTime
-        if allSucceeded:
-            self._metadata[Metadata.LAST_SUCCESS_TOTAL_DURATION.value] = totalTime
+        self.subsections: dict[str, list[str]] = {}
+        for subsectionInfo in config.pop("subsections", []):
+            if not subsectionInfo:
+                logging.warning("Skipping over empty subsection element")
+                continue
+            
+            sections = subsectionInfo.split(",")
+            self.subsections[sections[0]] = [section.strip() for section in sections[1:]] # Strip comma separated values to allow optional whitespacing
 
-    def getLastUpdate(self, step: Step) -> datetime | None:
-        timestamp = self._metadata[step.value][0][Metadata.LAST_SUCCESS_START.value]
-        if timestamp is not None:
-            return datetime.fromisoformat(timestamp)
+        self.config = config
 
-    def getLastOutputs(self, step: Step) -> list[str]:
-        return self._metadata.get(step.value, [])[-1].get(Metadata.OUTPUTS.value, [])
+    def construct(self, subsection: str, name: str) -> Database:
+        config = self.config
+        if subsection:
+            if subsection not in self.subsections:
+                logging.error(f"Invalid subsection {subsection}, must be one of {self.getSubsections()}")
+                return
+            
+            rawConfig = json.dumps(self.config)
+            rawConfig = rawConfig.replace("<S>", subsection)
 
-    def _getUpdater(self, config: dict) -> upd.Update:
-        updaterTypeValue = config.get("type", None)
-        if updaterTypeValue is None:
-            raise Exception("No update config specified") from AttributeError
+            for idx, extraValue in enumerate([subsection] + self.subsections[subsection]): # Add subsection as 0th element to allow <S:0> as valid subsection selector
+                rawConfig = rawConfig.replace(f"<S:{idx}>", extraValue)
 
-        updaterType = Updates._value2member_map_.get(updaterTypeValue, None)
-        if updaterType is None:
-            raise Exception(f"Unknown update type: {updaterTypeValue}") from AttributeError
+            config = json.loads(rawConfig)
+
+        return Database(self.locationName, self.databaseName, subsection, name, config)
     
-        if updaterType == Updates.DAILY:
-            return upd.DailyUpdate(config)
-
-        if updaterType == Updates.WEEKLY:
-            return upd.WeeklyUpdate(config)
-        
-        if updaterType == Updates.MONTHLY:
-            return upd.MonthlyUpdate(config)
-        
-        raise Exception(f"Unknown updater type: {updaterType}") from AttributeError

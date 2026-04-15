@@ -1,0 +1,20 @@
+{
+    "downloading": {
+        "retrieveType": "script",
+        "tasks": [
+            {
+                "path": "./db.py",
+                "function": "build"
+            }
+        ]
+    },
+    "conversion": {
+        "datasetID": "ARGA:TL:0000181",
+        "mapID": 570069681
+    },
+    "updating": {
+        "type": "weekly",
+        "day": "sunday",
+        "interval": 2
+    }
+}

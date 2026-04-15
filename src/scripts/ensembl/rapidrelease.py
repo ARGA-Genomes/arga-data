@@ -1,10 +1,12 @@
 from pathlib import Path
 import json
 import pandas as pd
+from lib.processing.scripts import importableScript
 
-def convert(filePath: Path, outputFilePath: Path) -> None:
-    with open(filePath) as fp:
+@importableScript()
+def convert(outputDir: Path, inputPath: Path) -> None:
+    with open(inputPath) as fp:
         data = json.load(fp)
 
     df = pd.DataFrame.from_records(data)
-    df.to_csv(outputFilePath, index=False)
+    df.to_csv(outputDir / "rapidRelease.csv", index=False)

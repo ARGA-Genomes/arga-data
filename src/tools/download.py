@@ -1,4 +1,4 @@
-from lib.data.argParser import ArgParser, Step
+from lib.data.argParser import ArgParser
 
 if __name__ == '__main__':
     parser = ArgParser(
@@ -8,4 +8,5 @@ if __name__ == '__main__':
 
     sources, flags, args = parser.parseArgs()
     for source in sources:
-        source.create(Step.DOWNLOADING, flags, -1)
+        source.download(flags)
+

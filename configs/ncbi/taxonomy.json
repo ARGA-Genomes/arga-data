@@ -1,0 +1,30 @@
+{
+    "downloading": {
+        "retrieveType": "url",
+        "tasks": [
+            {
+                "url": "https://ftp.ncbi.nlm.nih.gov/pub/taxonomy/taxdmp.zip",
+                "name": "taxdump.zip"
+            }
+        ]
+    },
+    "processing": [
+        {
+            "path": "./taxonomy.py",
+            "function": "parse",
+            "inputs": [
+                "{D^_}"
+            ]
+        }
+    ],
+    "conversion": {
+        "datasetID": "ARGA:TL:0002000",
+        "mapID": 240630744,
+        "chunkSize": 65536
+    },
+    "updating": {
+        "type": "weekly",
+        "day": "sunday",
+        "interval": 2
+    }
+}

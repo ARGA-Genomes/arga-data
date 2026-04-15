@@ -8,6 +8,8 @@ from bs4 import BeautifulSoup
 from lib.progressBar import ProgressBar
 import re
 import traceback
+from lib.processing.scripts import importableScript
+from lib.processing.files import DataFile
 
 class EntryData:
     def __init__(self, rawData: dict):
@@ -26,8 +28,9 @@ class EntryData:
         self.state = rawData.get("state", "")
         self.children = [EntryData(child) for child in rawData.get("children", [])]
 
-def retrieve(outputFilePath: Path):
-    writer = DFWriter(outputFilePath)
+@importableScript(inputCount=0)
+def retrieve(outputDir: Path):
+    writer = DFWriter(outputDir / "checklistData.csv")
 
     checklist = "https://biodiversity.org.au/afd/mainchecklist"
     response = requests.get(checklist).text
@@ -76,8 +79,9 @@ def findChildren(taxonKey: str) -> list[EntryData]:
 
     return [EntryData(child) for child in children]
 
-def cleanup(filePath: Path, outputFilePath: Path) -> None:
-    df = pd.read_csv(filePath, dtype=object)
+@importableScript()
+def cleanup(outputDir: Path, inputFile: DataFile) -> None:
+    df = inputFile.read(dtype=object)
 
     df = df.drop([
         "CAVS_CODE",
@@ -152,10 +156,11 @@ def cleanup(filePath: Path, outputFilePath: Path) -> None:
     df["authorship"] = df.apply(lambda row: f"{row['author']}, {row['year']}" if row["author"] not in ("", "NaN", "nan") else "", axis=1)
     df["scientific_name_authorship"] = df.apply(lambda row: f"({row['authorship']})" if row['orig_combination'] == 'N' and row["authorship"] not in ("", "NaN", "nan") else row["authorship"], axis=1)
 
-    df.to_csv(outputFilePath, index=False)
+    df.to_csv(outputDir / "cleanedData.csv", index=False)
 
-def addParents(filePath: Path, outputFilePath: Path) -> None:
-    df = pd.read_csv(filePath, dtype=object)
+@importableScript()
+def addParents(outputDir: Path, inputFile: DataFile) -> None:
+    df = inputFile.read(dtype=object)
     parentDF = df[df["taxonomic_status"] == "Valid Name"]
 
     remap = {
@@ -181,16 +186,17 @@ def addParents(filePath: Path, outputFilePath: Path) -> None:
     df = df.merge(parentDF, "left", left_on="taxon_id", right_on="accepted_usage_taxon_id")
     df = df[df["taxonomic_status"].isin(("Valid Name", "Synonym"))]
 
-    df.to_csv(outputFilePath, index=False)
+    df.to_csv(outputDir / "cleanedWithParents.csv", index=False)
 
-def enrich(filePath: Path, outputFilePath: Path) -> None:
-    df = pd.read_csv(filePath, dtype=object)
+@importableScript()
+def enrich(outputDir: Path, inputFile: DataFile) -> None:
+    df = inputFile.read(dtype=object)
     session = requests.Session()
 
     for rank in ("Species", "Genus"):
         subDF = df[df["taxon_rank"] == rank]
 
-        enrichmentPath = outputFilePath.parent / f"{rank}.csv"
+        enrichmentPath = outputDir / f"{rank}.csv"
         if not enrichmentPath.exists():
             writer = DFWriter(enrichmentPath)
             uniqueSeries = subDF["taxon_id"].unique()[writer.writtenFileCount():] # Do not repeat already completed chunks
@@ -214,7 +220,7 @@ def enrich(filePath: Path, outputFilePath: Path) -> None:
         enrichmentDF = pd.read_csv(enrichmentPath, dtype=object)
         df = df.merge(enrichmentDF, "left", left_on=["taxon_id", "canonical_name"], right_on=["taxon_id", rank.lower()])
 
-    df.to_csv(outputFilePath, index=False)
+    df.to_csv(outputDir / "enrichedAFD.csv", index=False)
 
 def _parseContent(content: str, taxonID: str, rank: str) -> list[dict]:
     soup = BeautifulSoup(content, "html.parser")

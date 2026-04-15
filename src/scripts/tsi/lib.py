@@ -1,10 +1,12 @@
 from pathlib import Path
-import pandas as pd
+from lib.processing.scripts import importableScript
+from lib.processing.files import DataFile
 
-def addName(inPath: Path, outPath: Path, name: str, **otherFields: dict) -> None:
-    df = pd.read_csv(inPath)
-    df["scientific_name"] = name
+@importableScript()
+def addName(outputDir: Path, inputFile: DataFile, fileName: str, scientificName, str, **otherFields: dict) -> None:
+    df = inputFile.read()
+    df["scientific_name"] = scientificName
     for key, value in otherFields.items():
         df[key] = value
 
-    df.to_csv(outPath, index=False)
+    df.to_csv(outputDir / fileName, index=False)

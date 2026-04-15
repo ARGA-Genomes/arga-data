@@ -1,17 +1,16 @@
-# from lib.zipping import RepeatExtractor
 import lib.zipping as zp
 from pathlib import Path
-from llib import flatFileParser as ffp
+import scripts.ncbi.flatFileParser as ffp
+from lib.processing.scripts import importableScript
 
-def parse(filePath: Path, outputFilePath: Path) -> None:
-    extractedFile = zp.extract(filePath, outputFilePath.parent)
+@importableScript()
+def parse(outputDir: Path, inputPath: Path) -> None:
+    extractedFile = zp.extract(inputPath, outputDir)
     if extractedFile is None:
         return
     
     df = ffp.parseFlatfile(extractedFile)
-    if df is None:
-        extractedFile.unlink()
-        return
+    if df is not None:
+        df.to_parquet(f"{extractedFile.stem}.parquet")
     
-    df.to_parquet(outputFilePath)
     extractedFile.unlink()

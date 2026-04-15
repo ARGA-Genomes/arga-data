@@ -1,0 +1,33 @@
+{
+    "subsections": [
+        "bird, Bird, ARGA:TL:0000182",
+        "mammal, Mam, ARGA:TL:0000183"
+    ],
+    "downloading": {
+        "retrieveType": "url",
+        "tasks": [
+            {
+                "url": "https://www.esapubs.org/archive/ecol/E095/178/<S:1>FuncDat.txt",
+                "name": "<S>Data.tsv",
+                "properties": {
+                    "encoding": "cp1252"
+                }
+            },
+            {
+                "url": "https://www.esapubs.org/archive/ecol/E095/178/<S:1>FuncDatSources.txt",
+                "name": "<S>Sources.tsv",
+                "properties": {
+                    "encoding": "cp1252"
+                }
+            }
+        ]
+    },
+    "conversion": {
+        "datasetID": "<S:2>"
+    },
+    "updating": {
+        "type": "weekly",
+        "day": "sunday",
+        "interval": 2
+    }
+}

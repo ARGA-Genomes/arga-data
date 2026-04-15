@@ -1,0 +1,22 @@
+{
+    "downloading": {
+        "retrieveType": "script",
+        "tasks": [
+            {
+                "path": "./lib.py",
+                "function": "retrieve",
+                "args": [
+                    "specimens"
+                ]
+            }
+        ]
+    },
+    "conversion": {
+        "datasetID": "ARGA:TL:0000191"
+    },
+    "updating": {
+        "type": "weekly",
+        "day": "sunday",
+        "interval": 2
+    }
+}

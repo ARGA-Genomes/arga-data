@@ -1,0 +1,50 @@
+{
+    "downloading": {
+        "retrieveType": "url",
+        "tasks": [
+            {
+                "url": "https://ftp.ncbi.nih.gov/genomes/genbank/assembly_summary_genbank.txt",
+                "name": "assembly_summary_genbank.tsv"
+            }
+        ]
+    },
+    "processing": [
+        {
+            "path": "./lib.py",
+            "function": "getStats",
+            "inputs": [
+                "{D^}"
+            ]
+        },
+        {
+            "path": "./lib.py",
+            "function": "merge",
+            "inputs": [
+                "{D^}",
+                "{P^}"
+            ],
+            "args": [
+                "genbank"
+            ]
+        },
+        {
+            "path": "./lib.py",
+            "function": "cleanData",
+            "inputs": [
+                "{P^}"
+            ],
+            "args": [
+                "genbank"
+            ]
+        }
+    ],
+    "conversion": {
+        "datasetID": "ARGA:TL:0002003",
+        "mapID": 2003682060
+    },
+    "updating": {
+        "type": "weekly",
+        "day": "sunday",
+        "interval": 1
+    }
+}

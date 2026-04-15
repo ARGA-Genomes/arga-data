@@ -1,0 +1,51 @@
+{
+    "subsections": [
+        "plants, Plants, ARGA:TL:0002009",
+        "metazoa, Metazoa, ARGA:TL:0002008",
+        "protists, Protists, ARGA:TL:0002010",
+        "fungi, Fungi, ARGA:TL:0002011"
+    ],
+    "downloading": {
+        "retrieveType": "url",
+        "tasks": [
+            {
+                "url": "http://ftp.ensemblgenomes.org/pub/<S>/current/species_metadata_Ensembl<S:1>.json",
+                "name": "<S>.json"
+            },
+            {
+                "url": "http://ftp.ensemblgenomes.org/pub/<S>/current/species_Ensembl<S:1>.txt",
+                "name": "<S>.tsv"
+            }
+        ]
+    },
+    "processing": [
+        {
+            "path": "./genomes.py",
+            "function": "flatten",
+            "inputs": [
+                "{D0_}"
+            ]
+        },
+        {
+            "path": "./genomes.py",
+            "function": "enrich",
+            "inputs": [
+                "{D1}"
+            ],
+            "args": [
+                "<S>"
+            ]
+        },
+        {
+            "path": "./genomes.py",
+            "function": "combine",
+            "inputs": [
+                "{P0}",
+                "{P1}"
+            ]
+        }
+    ],
+    "conversion": {
+        "datasetID": "<S:2>"
+    }
+}

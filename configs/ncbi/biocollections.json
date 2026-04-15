@@ -1,0 +1,30 @@
+{
+    "downloading": {
+        "retrieveType": "url",
+        "tasks": [
+            {
+                "url": "https://ftp.ncbi.nih.gov/pub/taxonomy/biocollections/Collection_codes.txt",
+                "name": "Collection_codes.txt"
+            },
+            {
+                "url": "https://ftp.ncbi.nih.gov/pub/taxonomy/biocollections/Institution_codes.txt",
+                "name": "Institution_codes.txt"
+            }
+        ]
+    },
+    "processing": [
+        {
+            "path": "./biocollections.py",
+            "function": "compile",
+            "inputs": [
+                "{D0_}",
+                "{D1_}"
+            ]
+        }
+    ],
+    "updating": {
+        "type": "weekly",
+        "day": "sunday",
+        "interval": 2
+    }
+}

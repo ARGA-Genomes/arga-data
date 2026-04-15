@@ -148,9 +148,9 @@ def combineDataFiles(outputFilePath: Path, dataFiles: list[DataFile], chunkSize:
             dataFile.delete()
 
 class StackedDFWriter:
-    def __init__(self, outputFile: StackedFile, subsections: list[str], chunkFormat: DataFormat = DataFormat.PARQUET):
-        self.outputFile = outputFile
-        self._subWriters = {subsection: DFWriter(outputFile.path / f"{subsection}.csv", chunkFormat=chunkFormat, subDirName=subsection) for subsection in subsections}
+    def __init__(self, outputPath: Path, subsections: list[str], chunkFormat: DataFormat = DataFormat.PARQUET):
+        self.outputFile = StackedFile(outputPath)
+        self._subWriters = {subsection: DFWriter(outputPath / f"{subsection}.csv", chunkFormat=chunkFormat, subDirName=subsection) for subsection in subsections}
 
     def uniqueColumns(self, subsection: str) -> list[str]:
         return self._subWriters[subsection].uniqueColumns()

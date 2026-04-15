@@ -1,0 +1,20 @@
+{
+    "downloading": {
+        "retrieveType": "script",
+        "tasks": [
+            {
+                "path": "./api.py",
+                "function": "retrieve"
+            }
+        ]
+    },
+    "processing": [
+        {
+            "path": "./api.py",
+            "function": "reduce",
+            "inputs": [
+                "{D^}"
+            ]
+        }
+    ]
+}

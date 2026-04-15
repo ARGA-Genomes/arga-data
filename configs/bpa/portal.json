@@ -1,0 +1,25 @@
+{
+    "downloading": {
+        "retrieveType": "script",
+        "tasks": [
+            {
+                "path": "./portal.py",
+                "function": "build",
+                "args": [
+                    1000
+                ]
+            }
+        ]
+    },
+    "conversion": {
+        "input": "{D0}",
+        "datasetID": "ARGA:TL:0005000",
+        "mapColumnName": "BPA mappings",
+        "entityColumn": "canonical_name"
+    },
+    "updating": {
+        "type": "weekly",
+        "day": "sunday",
+        "interval": 2
+    }
+}

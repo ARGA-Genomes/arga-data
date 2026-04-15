@@ -14,60 +14,36 @@ class Converter:
     _entityIDLabel = "entity_id"
     _entityIDEvent = "collection"
 
-    def __init__(self, mapDir: Path, inputFile: DataFile, outputFile: StackedFile, prefix: str, datasetID: str, entityInfo: tuple[str, str], chunkSize: int):
-        self.mapDir = mapDir
+    def __init__(self, inputFile: DataFile, outputPath: Path):
         self.inputFile = inputFile
-        self.outputFile = outputFile
-        self.prefix = prefix
-        self.datasetID = datasetID
-        self.entityEvent, self.entityColumn = entityInfo
-        self.chunkSize = chunkSize
+        self.outputPath = outputPath
 
-        self.map = None
-
-    def loadMap(self, mapID: str, mapColumnName: str, forceRetrieve: bool) -> None:
-        mapFile = self.mapDir / self._mapFileName
-
-        if mapFile.exists() and not forceRetrieve:
-            logging.info("Using local map file")
-            self.map = Map.fromFile(mapFile)
-        elif mapColumnName:
-            logging.info("Using updated mapping sheet")
-            self.map = Map.fromModernSheet(mapColumnName, mapFile)
-        elif mapID > 0:
-            logging.info("Using original mapping sheet")
-            self.map = Map.fromSheets(mapID, mapFile)
-        else:
-            logging.warning("No mapping found")
-
-        if self.map is None or self.map.isEmpty():
-            raise Exception("Unable to load map file") from FileNotFoundError
-
-    def _processChunk(self, chunk: pd.DataFrame) -> dict[str, pd.DataFrame]:
-        dfEvents = self.map.applyTo(chunk, self.prefix) # Returns a multi-index dataframe
-        
-        if not dfEvents:
-            return {}
-        
-        error = f"Unable to generate '{self._entityIDLabel}':"
-        if self.entityEvent not in dfEvents:
-            logging.error(f"{error} no event found '{self.entityEvent}'")
-            return {}
-        
-        if self.entityColumn not in dfEvents[self.entityEvent].columns:
-            logging.error(f"{error} dataset is missing field '{self.entityColumn}' in event '{self.entityEvent}'")
-            return {}
-        
-        dfEvents[self._entityIDEvent][self._datasetIDLabel] = self.datasetID
-        dfEvents[self._entityIDEvent][self._entityIDLabel] = dfEvents[self._entityIDEvent][self._datasetIDLabel] + dfEvents[self.entityEvent][self.entityColumn]
-        return dfEvents
-
-    def convert(self, overwrite: bool, verbose: bool) -> tuple[bool, dict]:
+    def convert(self, map: Map, chunkSize: int, datasetID: str, entityEvent: str, entityColumn: str, verbose: bool) -> tuple[bool, dict]:
         logging.info("Processing chunks for conversion")
-        writer = StackedDFWriter(self.outputFile, self.map.events)
+
+        def _processChunk(chunk: pd.DataFrame) -> dict[str, pd.DataFrame]:
+            dfEvents = map.applyTo(chunk) # Returns a multi-index dataframe
+            
+            if not dfEvents:
+                return {}
+            
+            error = f"Unable to generate '{self._entityIDLabel}':"
+            if entityEvent not in dfEvents:
+                logging.error(f"{error} no event found '{entityEvent}'")
+                return {}
+            
+            if entityColumn not in dfEvents[entityEvent].columns:
+                logging.error(f"{error} dataset is missing field '{entityColumn}' in event '{entityEvent}'")
+                return {}
+            
+            dfEvents[self._entityIDEvent][self._datasetIDLabel] = datasetID
+            dfEvents[self._entityIDEvent][self._entityIDLabel] = dfEvents[self._entityIDEvent][self._datasetIDLabel] + dfEvents[entityEvent][entityColumn]
+            return dfEvents
+    
+        writer = StackedDFWriter(self.outputPath, map.events)
 
         totalRows = 0
-        chunks = self.inputFile.readIterator(self.chunkSize, low_memory=False)
+        chunks = self.inputFile.readIterator(chunkSize, low_memory=False)
         completed = writer.completedCount()
 
         if completed > 0:
@@ -80,7 +56,7 @@ class Converter:
                 if verbose:
                     print(f"At chunk: {idx}", end='\r')
 
-                dfSections = self._processChunk(df)
+                dfSections = _processChunk(df)
                 if not dfSections:
                     return False, {}
 
@@ -93,7 +69,7 @@ class Converter:
 
         metadata = {
             "total columns": len(self.inputFile.getColumns()),
-            "unmapped columns": writer.uniqueColumns(self.map._unmappedLabel),
+            "unmapped columns": writer.uniqueColumns(map._unmappedLabel),
             "rows": totalRows
         }
 

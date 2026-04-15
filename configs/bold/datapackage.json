@@ -1,0 +1,29 @@
+{
+    "downloading": {
+        "retrieveType": "script",
+        "tasks": [
+            {
+                "path": "./datapackage.py",
+                "function": "retrieve"
+            }
+        ]
+    },
+    "processing": [
+        {
+            "path": "./datapackage.py",
+            "function": "cleanUp",
+            "inputs": [
+                "{D^}"
+            ]
+        }
+    ],
+    "conversion": {
+        "datasetID": "ARGA:TL:0004000",
+        "mapID": 1154592624
+    },
+    "updating": {
+        "type": "weekly",
+        "day": "sunday",
+        "interval": 2
+    }
+}

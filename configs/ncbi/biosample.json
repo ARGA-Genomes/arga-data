@@ -1,0 +1,29 @@
+{
+    "downloading": {
+        "retrieveType": "url",
+        "tasks": [
+            {
+                "url": "https://ftp.ncbi.nlm.nih.gov/biosample/biosample_set.xml.gz",
+                "name": "biosample_set.xml.gz"
+            }
+        ]
+    },
+    "processing": [
+        {
+            "path": "./biosample.py",
+            "function": "parse",
+            "inputs": [
+                "{D^_}"
+            ]
+        }
+    ],
+    "conversion": {
+        "datasetID": "ARGA:TL:0002001",
+        "mapID": 109194600
+    },
+    "updating": {
+        "type": "weekly",
+        "day": "sunday",
+        "interval": 2
+    }
+}

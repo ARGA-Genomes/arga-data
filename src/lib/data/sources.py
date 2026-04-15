@@ -1,7 +1,7 @@
 import json
 from lib.settings import Settings
 from pathlib import Path
-from lib.data.database import Database
+from lib.data.database import Database, DatabaseFactory
 import logging
 
 class SourceManager:
@@ -12,12 +12,12 @@ class SourceManager:
         self.locations: dict[str, Location] = {}
 
         settings = Settings(False)
-        for locationFolder in settings.dataSourcesDir.iterdir():
+        for locationFolder in settings.configDir.iterdir():
             if locationFolder.is_file():
                 continue
 
             location = Location(locationFolder)
-            self.locations[location.getName()] = location
+            self.locations[location.name] = location
 
     def _buildSourceName(self, locationName: str, databaseName: str, subsectionName: str) -> str:
         return f"{locationName}{self._divider}{databaseName}" + (f"{self._divider}{subsectionName}" if subsectionName else "")
@@ -71,18 +71,19 @@ class SourceManager:
 
 class Location:
     def __init__(self, locationPath: Path):
-        self.locationPath = locationPath
-        self.databases: dict[str, Database] = {}
+        self.path = locationPath
+        self.name = locationPath.name
+        self.databases: dict[str, DatabaseFactory] = {}
 
-        for databaseFolder in locationPath.iterdir():
-            if databaseFolder.is_file() or databaseFolder.name in ("__pycache__", "llib"): # Skip files, cached python folder, and location library
+        for file in locationPath.iterdir():
+            if (not file.is_file()) or (file.suffix != ".json"):
                 continue
 
-            db = Database(databaseFolder)
-            self.databases[db.databaseName()] = db
+            with open(file) as fp:
+                config = json.load(fp)
 
-    def getName(self) -> str:
-        return self.locationPath.name
+            db = DatabaseFactory(self.name, file.stem, config)
+            self.databases[db.databaseName] = db
     
     def getDatabases(self, databaseName: str = "", subsectionName: str = "") -> dict[str, list[str]]:
         noSubsections = [""]
@@ -90,7 +91,7 @@ class Location:
         if not databaseName:
             dbs = {}
             for databaseName, database in self.databases.items():
-                databaseSubsections = database.listSubsections()
+                databaseSubsections = database.subsections
                 if not databaseSubsections:
                     databaseSubsections = noSubsections
 
@@ -100,10 +101,10 @@ class Location:
         
         database = self.databases.get(databaseName, None)
         if database is None:
-            logging.error(f"Invalid database '{databaseName}' for location '{self.getName()}'")
+            logging.error(f"Invalid database '{databaseName}' for location '{self.name}'")
             return {}
         
-        databaseSubsections = database.listSubsections()
+        databaseSubsections = database.subsections
         if not subsectionName:
             if not databaseSubsections:
                 databaseSubsections = noSubsections
@@ -111,12 +112,11 @@ class Location:
             return {databaseName: databaseSubsections}
 
         if subsectionName not in databaseSubsections:
-            logging.error(f"No subsection '{subsectionName}' exists under database '{databaseName}' for location '{self.getName()}'")
+            logging.error(f"No subsection '{subsectionName}' exists under database '{databaseName}' for location '{self.name}'")
             return {}
 
         return {databaseName: [subsectionName]}
     
     def constructDB(self, databaseName, subsection: str, name: str) -> Database:
-        database = self.databases[databaseName]
-        database.constuct(name, subsection)
-        return database
+        factory = self.databases[databaseName]
+        return factory.construct(subsection, name)

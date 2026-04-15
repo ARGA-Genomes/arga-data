@@ -1,0 +1,32 @@
+{
+    "subsections": [
+        "records",
+        "samples"
+    ],
+    "downloading": {
+        "retrieveType": "url",
+        "tasks": [
+            {
+                "url": "https://s3.ap-southeast-2.amazonaws.com/wilderlab.publicdata/<SUB>3.csv",
+                "name": "<S>.csv"
+            }
+        ]
+    },
+    "processing": [
+        {
+            "path": "./aws.py",
+            "function": "clean",
+            "inputs": [
+                "{D^}"
+            ]
+        }
+    ],
+    "conversion": {
+        "datasetID": "ARGA:TL:0000192"
+    },
+    "updating": {
+        "type": "weekly",
+        "day": "sunday",
+        "interval": 2
+    }
+}

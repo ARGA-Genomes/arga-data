@@ -34,8 +34,9 @@ class FileObject:
     def exists(self) -> bool:
         return self.path.exists()
     
-    def backUp(self, overwrite: bool = False) -> None:
-        backupPath = self.path.parent / f"{self.path.stem}_backup{self.path.suffix}"
+    def backUp(self, location: Path = None, overwrite: bool = False) -> None:
+        backupLocation = location if location is not None else self.parent.path
+        backupPath = backupLocation / f"{self.path.stem}_backup{self.path.suffix}"
         if backupPath.exists():
             if not overwrite:
                 logging.info("Unable to create new backup as it already exists")

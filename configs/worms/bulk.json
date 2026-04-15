@@ -1,0 +1,25 @@
+{
+    "downloading": {
+        "retrieveType": "script",
+        "tasks": [
+            {
+                "path": "./bulk.py",
+                "function": "retrieve"
+            }
+        ]
+    },
+    "processing": [
+        {
+            "path": "./bulk.py",
+            "function": "combine",
+            "inputs": [
+                "{D^}"
+            ]
+        }
+    ],
+    "updating": {
+        "type": "weekly",
+        "day": "sunday",
+        "interval": 2
+    }
+}

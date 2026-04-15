@@ -1,0 +1,28 @@
+{
+    "downloading": {
+        "retrieveType": "script",
+        "tasks": [
+            {
+                "path": "./db.py",
+                "function": "build"
+            }
+        ]
+    },
+    "processing": [
+        {
+            "path": "./db.py",
+            "function": "clean",
+            "inputs": [
+                "{D^}"
+            ]
+        }
+    ],
+    "conversion": {
+        "datasetID": "ARGA:TL:0000184"
+    },
+    "updating": {
+        "type": "weekly",
+        "day": "sunday",
+        "interval": 2
+    }
+}

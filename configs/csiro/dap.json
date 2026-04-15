@@ -1,0 +1,20 @@
+{
+    "downloading": {
+        "retrieveType": "script",
+        "tasks": [
+            {
+                "path": "./dap.py",
+                "function": "getPortalData"
+            }
+        ]
+    },
+    "conversion": {
+        "datasetID": "ARGA:TL:0000178",
+        "mapID": 16336602
+    },
+    "updating": {
+        "type": "weekly",
+        "day": "sunday",
+        "interval": 2
+    }
+}

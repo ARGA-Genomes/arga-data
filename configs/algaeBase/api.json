@@ -1,0 +1,19 @@
+{
+    "downloading": {
+        "retrieveType": "script",
+        "tasks": [
+            {
+                "path": "./api.py",
+                "function": "build"
+            }
+        ]
+    },
+    "conversion": {
+        "datasetID": "ARGA:TL:0003001"
+    },
+    "updating": {
+        "type": "weekly",
+        "day": "sunday",
+        "interval": 2
+    }
+}

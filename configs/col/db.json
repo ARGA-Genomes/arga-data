@@ -1,0 +1,28 @@
+{
+    "downloading": {
+        "retrieveType": "url",
+        "tasks": [
+            {
+                "url": "https://api.checklistbank.org/dataset/3LR/export.zip?extended=true&format=DwCA",
+                "name": "catalogueOfLife.zip"
+            }
+        ]
+    },
+    "processing": [
+        {
+            "path": "./db.py",
+            "function": "process",
+            "inputs": [
+                "{D^}"
+            ]
+        }
+    ],
+    "conversion": {
+        "datasetID": "ARGA:TL:0001018"
+    },
+    "updating": {
+        "type": "weekly",
+        "day": "sunday",
+        "interval": 2
+    }
+}

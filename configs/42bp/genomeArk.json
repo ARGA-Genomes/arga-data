@@ -1,0 +1,23 @@
+{
+    "downloading": {
+        "retrieveType": "script",
+        "tasks": [
+            {
+                "path": "./processing.py",
+                "function": "build",
+                "args": [
+                    "./species.json"
+                ]
+            }
+        ]
+    },
+    "conversion": {
+        "datasetID": "ARGA:TL:0000193",
+        "mapID": 84855374
+    },
+    "updating": {
+        "type": "weekly",
+        "day": "sunday",
+        "interval": 2
+    }
+}

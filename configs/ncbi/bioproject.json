@@ -1,0 +1,29 @@
+{
+    "downloading": {
+        "retrieveType": "url",
+        "tasks": [
+            {
+                "url": "https://ftp.ncbi.nlm.nih.gov/bioproject/bioproject.xml",
+                "name": "bioproject.xml"
+            }
+        ]
+    },
+    "processing": [
+        {
+            "path": ".lib/importableTools.py",
+            "function": "xmlProcessor",
+            "inputs": [
+                "{D^_}"
+            ],
+            "args": [
+                "bioproject.csv",
+                150000
+            ]
+        }
+    ],
+    "updating": {
+        "type": "weekly",
+        "day": "sunday",
+        "interval": 2
+    }
+}

@@ -1,0 +1,28 @@
+{
+    "downloading": {
+        "retrieveType": "url",
+        "tasks": [
+            {
+                "url": "https://www.itis.gov/downloads/itisSqlite.zip",
+                "name": "itisSqlite.zip"
+            }
+        ]
+    },
+    "processing": [
+        {
+            "path": "./db.py",
+            "function": "convert",
+            "inputs": [
+                "{D^_}"
+            ]
+        }
+    ],
+    "conversion": {
+        "datasetID": "ARGA:TL:0001016"
+    },
+    "updating": {
+        "type": "weekly",
+        "day": "sunday",
+        "interval": 2
+    }
+}

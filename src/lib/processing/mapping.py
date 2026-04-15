@@ -9,8 +9,9 @@ import lib.common as cmn
 class Map:
     _unmappedLabel = "unmapped"
 
-    def __init__(self, translationData: dict[str, tuple[str, str, list[str]]]):
+    def __init__(self, translationData: dict[str, tuple[str, str, list[str]]], unmappedPrefix: str = ""):
         self.translation = translationData
+        self.unmappedPrefix = unmappedPrefix
         self.events = []
 
         for originalName, mappingData in translationData.items():
@@ -21,16 +22,16 @@ class Map:
         self.events.append(self._unmappedLabel)
 
     @classmethod
-    def fromFile(cls, filePath: Path) -> 'Map':
+    def fromFile(cls, filePath: Path, unmappedPrefix: str = "") -> 'Map':
         if not filePath.exists():
             logging.warning(f"No map file found at path: {filePath}")
-            return cls({})
+            return cls({}, unmappedPrefix)
         
         with open(filePath) as fp:
-            return cls(json.load(fp))
+            return cls(json.load(fp), unmappedPrefix)
     
     @classmethod
-    def fromSheets(cls, sheetID: int, saveFilePath: Path = None) -> 'Map':
+    def fromSheets(cls, sheetID: int, saveFilePath: Path = None, unmappedPrefix: str = "") -> 'Map':
         documentID = "1dglYhHylG5_YvpslwuRWOigbF5qhU-uim11t_EE_cYE"
         df = cls._loadGoogleSheet(documentID, sheetID)
         
@@ -80,14 +81,14 @@ class Map:
                 oldNames = [subname.split("::")[0].strip(" :") for subname in oldNamesCell.split(",")] # Overwrite old name with list of subnames
                 mapping[oldNames[0]] = (eventName, mappedName, oldNames[1:])
 
-        instance = cls(mapping)
+        instance = cls(mapping, unmappedPrefix)
         if saveFilePath is not None:
             instance.save(saveFilePath)
 
         return instance
     
     @classmethod
-    def fromModernSheet(cls, columnName: str, saveFilePath: Path = None) -> 'Map':
+    def fromModernSheet(cls, columnName: str, saveFilePath: Path = None, unmappedPrefix: str = "") -> 'Map':
         documentID = "1XBQ8Hz_MWM8LCvr379AO73zFGzn3dqQMrGi8U-95FZ0"
         df = cls._loadGoogleSheet(documentID, 0)
 
@@ -117,7 +118,7 @@ class Map:
             oldNames = [subName.strip() for subName in oldNamesCell.split(";")]
             mapping[oldNames[0]] = (row[event], row[argaSchema], oldNames[1:])
 
-        instance = cls(mapping)
+        instance = cls(mapping, unmappedPrefix)
         if saveFilePath is not None:
             instance.save(saveFilePath)
 
@@ -141,11 +142,11 @@ class Map:
 
         logging.info(f"Saved map data to local file: {filePath}")
 
-    def applyTo(self, df: pd.DataFrame, unmappedPrefix: str = "") -> dict[str, pd.DataFrame]:
+    def applyTo(self, df: pd.DataFrame) -> dict[str, pd.DataFrame]:
         eventCollections: dict[str, list[pd.Series]] = {}
 
         for column in df.columns:
-            event, newName, fallbacks = self.translation.get(column, (self._unmappedLabel, f"{unmappedPrefix}{'_' if unmappedPrefix else ''}{column}", []))
+            event, newName, fallbacks = self.translation.get(column, (self._unmappedLabel, f"{self.unmappedPrefix}{'_' if self.unmappedPrefix else ''}{column}", []))
 
             if event not in eventCollections:
                 eventCollections[event] = []
