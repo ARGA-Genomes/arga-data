@@ -124,7 +124,7 @@ class Crawler:
             metadata[self._metaProgress].append(pageData)
 
     def getFileURLs(self, altDLURL: str = "") -> list[str]:
-        metadata = JsonSynchronizer(self.outputDir / self._progressFile)
+        metadata = JsonSynchronizer(self.metadataDir / self._progressFile)
         crawlerProgress: list[dict[str, dict[str, list[str]]]] = metadata.get(self._metaProgress, [])
         return [urllib.parse.urljoin(url if not altDLURL else altDLURL, file) for layer in crawlerProgress for url, urlData in layer.items() for file in urlData.get(self._fileStr, [])]
 

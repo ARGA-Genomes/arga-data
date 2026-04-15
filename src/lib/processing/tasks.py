@@ -32,23 +32,6 @@ class Task:
         self.foldersAsOutputs = foldersAsOutputs
         self._subTasks: list['Task'] = []
 
-    @staticmethod
-    def fromVars(cls: 'Task', workingDir: Path, **kwargs: dict):
-        oldInit = cls.__init__
-        cls.__init__ = lambda *args, **kwargs: None
-
-        instance = cls()
-        super(instance).__init__(workingDir)
-
-        cls.__init__ = oldInit
-        for key, value in kwargs.items():
-            setattr(cls, key, value)
-
-        return instance
-    
-    def addSubTask(self, subTask: 'Task') -> None:
-        self._subTasks.append(subTask)
-
     def _execute(self, overwrite: bool, verbose: bool) -> tuple[bool, dict]:
         return True, {}
 
@@ -62,10 +45,9 @@ class Task:
             success, extraMetadata = self._execute(overwrite, verbose)
         except KeyboardInterrupt:
             logging.info("Cancelling task execution early")
-            return
+            return {}
         
         outputs = [item.name for item in self.workingDir.iterdir() if item not in workingDirFiles and (item.is_file() if not self.foldersAsOutputs else item.is_dir())]
-        logging.info(f"Created outputs: {', '.join(outputs)}")
 
         duration = time.perf_counter() - startTime
         endDate = datetime.now().isoformat()
@@ -80,6 +62,12 @@ class Task:
         }
 
         if not self._subTasks:
+            if not outputs:
+                logging.error("No outputs were created")
+                success = False
+            else:
+                logging.info(f"Created outputs: {', '.join(outputs)}")
+
             if success:
                 metadata |= {
                     Metadata.LAST_SUCCESS_START: startDate,
@@ -90,13 +78,20 @@ class Task:
             return metadata
         
         # Subtasks were generated during execution, run those now
+        logging.info(f"Main task generated {len(self._subTasks)} sub-tasks, running those now...")
+
         metadata[Metadata.TASK_COMPONENTS] = []
         for subTask in self._subTasks:
             subTaskMetadata = subTask.run(overwrite, verbose)
 
+            if not subTaskMetadata:
+                metadata[Metadata.SUCCESS] = False
+                return metadata
+
             metadata[Metadata.OUTPUTS] = metadata[Metadata.OUTPUTS] + subTaskMetadata[Metadata.OUTPUTS]
             metadata[Metadata.SUCCESS] = metadata[Metadata.SUCCESS] & subTaskMetadata[Metadata.SUCCESS]
             metadata[Metadata.TASK_COMPONENTS].append(subTaskMetadata)
+
 
         duration = time.perf_counter() - startTime
         endDate = datetime.now().isoformat()
@@ -117,7 +112,6 @@ class UrlRetrieve(Task):
 
     _url = "url"
     _name = "name"
-    _properties = "properties"
     _auth = "auth"
 
     def __init__(self, workingDir: Path, config: dict, secretLocation: str):
@@ -131,14 +125,16 @@ class UrlRetrieve(Task):
         if self.fileName is None:
             raise Exception("No filename provided to download to") from AttributeError
 
-        self.auth = None # Default value
-        auth = config.get(self._auth, False) # True/False flag
-        if auth:
-            secrets = Secrets(secretLocation)
-            self.auth = secrets.getAuth()
+        self.auth = config.get(self._auth, False) # True/False flag
+        self.secretLocation = secretLocation
 
     def _execute(self, overwrite: bool, verbose: bool) -> tuple[bool, dict]:
-        return dl.download(self.url, self.workingDir / self.fileName, verbose=verbose, auth=self.auth), {}
+        auth = None
+        if self.auth:
+            secrets = Secrets(self.secretLocation)
+            auth = secrets.getAuth()
+    
+        return dl.download(self.url, self.workingDir / self.fileName, verbose=verbose, auth=auth), {}
 
 class CrawlRetrieve(Task):
 
@@ -162,11 +158,8 @@ class CrawlRetrieve(Task):
         self.filenameURLParts = config.get(self._filenameURLParts, 1)
         self.skipFolders = config.get(self._skipFolders, [])
         
-        self.auth = None
-        auth = config.get(self._auth, False)
-        if auth:
-            secrets = Secrets(secretLocation)
-            self.auth = secrets.getAuth()
+        self.auth = config.get(self._auth, False) # True/False flag
+        self.secretLocation = secretLocation
 
     def _execute(self, overwrite: bool, verbose: bool) -> tuple[bool, dict]:
         crawler = Crawler(self.workingDir, self.workingDir.parent, self.auth)
@@ -175,7 +168,13 @@ class CrawlRetrieve(Task):
 
         for url in urlList:
             fileName = "_".join(url.split("/")[-self.filenameURLParts:])
-            self.addSubTask(UrlRetrieve.fromVars(self.workingDir, {"url": url, "fileName": fileName, "auth": self.auth}))
+            downloadConfig = {
+                UrlRetrieve._url: url,
+                UrlRetrieve._name: fileName,
+                UrlRetrieve._auth: self.auth
+            }
+
+            self._subTasks.append(UrlRetrieve(self.workingDir, downloadConfig, self.secretLocation))
 
         return True, {}
 
@@ -187,27 +186,30 @@ class ScriptRunner(Task):
     _inputs = "inputs"
     _args = "args"
     _kwargs = "kwargs"
-    _outputs = "outputs"
 
-    def __init__(self, workingDir: Path, config: dict, dirLookup: dict[str, Path], downloaded: list[list[DataFile]], processed: list[list[DataFile]]):
+    def __init__(self, workingDir: Path, config: dict, dirLookup: dict[str, Path], downloaded: list[list[DataFile]], processed: list[list[DataFile]], _parseConfig: bool = True):
         super().__init__(workingDir)
 
         modulePath = config.get(self._modulePath, "")
         if not modulePath:
             raise Exception("No `path` specified in script config") from AttributeError
 
-        self.modulePath = parse.parsePath(modulePath, workingDir, dirLookup)
+        self.modulePath = parse.parsePath(modulePath, workingDir, dirLookup) if _parseConfig else modulePath
 
         self.functionName = config.get(self._functionName, "")
         if not self.functionName:
             raise Exception("No `function` specified in script config") from AttributeError
 
         inputs = config.get(self._inputs, [])
-        self.inputs = parse.parseInputList(inputs, downloaded, processed)
+        self.inputs = parse.parseInputList(inputs, downloaded, processed) if _parseConfig else inputs
 
         self.args = config.get(self._args, [])
         self.kwargs = config.get(self._kwargs, {})
         self.parallel = config.get(self._parallel, False)
+
+        self._dirLookup = dirLookup
+        self._downloaded = downloaded
+        self._processed = processed
 
     def _execute(self, overwrite: bool, verbose: bool) -> tuple[bool, dict]:
         if not self.parallel:
@@ -216,7 +218,15 @@ class ScriptRunner(Task):
             return success, {}
 
         for input in self.inputs:
-            self.addSubTask(ScriptRunner.fromVars(self.workingDir, {"modulePath": self.modulePath, "functionName": self.functionName, "inputs": [input], "args": self.args, "kwargs": self.kwargs, "parallel": False}))
+            scriptConfig = {
+                ScriptRunner._modulePath: self.modulePath,
+                ScriptRunner._functionName: self.functionName,
+                ScriptRunner._inputs: self.inputs,
+                ScriptRunner._args: self.args,
+                ScriptRunner._kwargs: self._kwargs
+            }
+
+            self._subTasks.append(ScriptRunner(self.workingDir, scriptConfig, self._dirLookup, self._downloaded, self._processed, False))
 
         return True, {}
 
