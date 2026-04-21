@@ -5,6 +5,7 @@ import json
 from pathlib import Path
 import logging
 import lib.common as cmn
+import lib.downloading as dl
 
 class Map:
     _unmappedLabel = "unmapped"
@@ -126,15 +127,7 @@ class Map:
 
     @staticmethod
     def _loadGoogleSheet(documentID: str, sheetID: int) -> pd.DataFrame:
-        webURL = f"https://docs.google.com/spreadsheets/d/{documentID}/edit?gid={sheetID}#gid={sheetID}"
-        retrieveURL = f"https://docs.google.com/spreadsheets/d/{documentID}/export?format=csv&gid={sheetID}"
-
-        logging.info(f"Reading sheet {retrieveURL}")
-        try:
-            return pd.read_csv(retrieveURL, keep_default_na=False)
-        except urllib.error.HTTPError:
-            logging.warning(f"Unable to read sheet. Web URL: {webURL}")
-            return None
+        return dl.getGoogleSheet(documentID, sheetID)
         
     def save(self, filePath: Path) -> None:
         with open(filePath, "w") as fp:
