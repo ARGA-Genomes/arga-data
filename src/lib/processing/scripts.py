@@ -51,6 +51,7 @@ class FunctionScript:
             processFunction = self._importFunction()
         except:
             logging.error(f"Error importing function '{self.functionName}' from path '{self.modulePath}'")
+            logging.error(f"Import Error: {traceback.format_exc()}")
             return False, None
 
         return self._execute(processFunction, verbose, args, kwargs)
