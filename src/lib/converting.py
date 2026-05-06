@@ -29,15 +29,15 @@ class Converter:
 
         for graph in store.named_graphs():
             graphName = _nodeName(graph)
-            if graphName not in self.map:
-                self.map[graphName] = {}
+            if graphName not in self._map:
+                self._map[graphName] = {}
 
-            for quad in reversed(store.quads_for_pattern(None, None, None, graph)):
+            for quad in store.quads_for_pattern(None, None, None, graph):
                 newColumn = _nodeName(quad.subject)
-                if newColumn not in self.map[graphName]:
-                    self.map[graphName][newColumn] = []
+                if newColumn not in self._map[graphName]:
+                    self._map[graphName][newColumn] = []
 
-                self.map[graphName][newColumn].append((_nodeName(quad.predicate), _nodeName(quad.object)))
+                self._map[graphName][newColumn].append((_nodeName(quad.predicate), _nodeName(quad.object)))
 
     def _apply(self, df: pd.DataFrame) -> dict[str, pd.DataFrame]:
         mappedData = {}
@@ -46,14 +46,15 @@ class Converter:
             sectionData = {}
             for newColumn, columnnSources in columnInfo.items():
                 for method, source in columnnSources:
+                    print(source, df.columns)
                     sectionData[newColumn] = df[source] if method == "same" else df[source].apply(self._hash)
 
             mappedData[section] = pd.DataFrame.from_dict(sectionData)
         return mappedData
 
     def convert(self, chunkSize: int, verbose: bool) -> tuple[bool, dict]:
-        map = self._loadMap()
-        writer = StackedDFWriter(self.outputPath, list(map))
+        self._loadMap()
+        writer = StackedDFWriter(self.outputPath, list(self._map))
 
         totalRows = 0
         chunks = self.inputFile.readIterator(chunkSize, low_memory=False)
