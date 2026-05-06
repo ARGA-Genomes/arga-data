@@ -27,6 +27,7 @@ class Settings:
         self.scriptsDir = self.srcDir / "scripts"
         self.logsDir = self.rootDir / "logs"
         self.settingsPath = self.rootDir / "settings.toml"
+        self.mappingDir = self.rootDir / "mapping"
 
         if loadVariables:
             self._load()
