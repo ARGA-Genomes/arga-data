@@ -275,6 +275,6 @@ class Conversion(Task):
     def _execute(self, overwrite: bool, verbose: bool) -> tuple[bool, dict]:
         settings = Settings(False)
         mapPath = settings.mappingDir / self.mapFileName
-        converter = Converter(self.input, self.workingDir / self.fileName, mapPath)
+        converter = Converter(self.input, self.workingDir / self.mapFileName, mapPath)
         
         return converter.convert(self.chunkSize, verbose)
