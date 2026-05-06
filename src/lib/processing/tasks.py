@@ -10,7 +10,7 @@ from lib.secrets import Secrets
 import time
 from datetime import datetime
 from enum import Enum
-from lib.processing.mapping import Map
+from lib.settings import Settings
 import os
 
 class Metadata(Enum):
@@ -254,58 +254,27 @@ class ScriptRunner(Task):
 
 class Conversion(Task):
 
-    _datasetID = "datasetID"
-    _mapID = "mapID"
-    _mapColumnName = "mapColumnName"
+    _mapFileName = "mapFileName"
     _input = "input"
-    _entityEvent = "entityEvent"
-    _entityColumn = "entityColumn"
     _chunkSize = "chunkSize"
 
-    _localMapName = "map.json"
-
-    def __init__(self, workingDir: Path, config: dict, name: str, dataDate: str, unmappedPrefix: str, downloaded: list[list[DataFile]], processed: list[list[DataFile]]):
+    def __init__(self, workingDir: Path, config: dict, downloaded: list[list[DataFile]], processed: list[list[DataFile]]):
         super().__init__(workingDir, True)
 
-        self.datasetID = config.get(self._datasetID, "")
-        if not self.datasetID:
-            raise Exception("No `datasetID` specified") from AttributeError
-
-        self.mapID = config.get(self._mapID, "")
-        self.mapColumnName = config.get(self._mapColumnName, "")
-        if not self.mapID and not self.mapColumnName:
-            raise Exception(f"No `mapID` or `mapColumnName` specified") from AttributeError
+        self.mapFileName = config.get(self._mapFileName, "")
+        if not self.mapFileName:
+            raise Exception(f"No `{self._mapFileName}` specified") from AttributeError
         
         self.input = config.get(self._input, "")
         if not self.input:
-            raise Exception(f"No `input` specified") from AttributeError
+            raise Exception(f"No `{self._input}` specified") from AttributeError
         
         self.input = parse.parseInput(self.input, downloaded, processed)[0] # Singular input
-
-        self.entityEvent = config.get(self._entityEvent, "collection")
-        self.entityColumn = config.get(self._entityColumn, "scientific_name")
         self.chunkSize = config.get(self._chunkSize, 1024)
 
-        self.unmappedPrefix = unmappedPrefix
-        self.fileName = f"{name}_{dataDate}"
-
     def _execute(self, overwrite: bool, verbose: bool) -> tuple[bool, dict]:
-        mapDir = self.workingDir.parent
-        localMapFile = mapDir / self._localMapName
-
-        if not localMapFile.exists() or overwrite:
-            if self.mapColumnName:
-                logging.info("Using updated mapping sheet")
-                map = Map.fromModernSheet(self.mapColumnName, localMapFile)
-            elif self.mapID:
-                logging.info("Using original mapping sheet")
-                map = Map.fromSheets(self.mapID, localMapFile)
-            else: # Should never land here as mapID and mapColumnName are verified to exist in init
-                logging.warning("No mapping found")
-                return False, {}
-        else:
-            logging.info(f"Using local map file {localMapFile}")
-            map = Map.fromFile(localMapFile, self.unmappedPrefix)
-
-        converter = Converter(self.input, self.workingDir / self.fileName)
-        return converter.convert(map, self.chunkSize, self.datasetID, self.entityEvent, self.entityColumn, verbose)
+        settings = Settings(False)
+        mapPath = settings.mappingDir / self.mapFileName
+        converter = Converter(self.input, self.workingDir / self.fileName, mapPath)
+        
+        return converter.convert(self.chunkSize, verbose)

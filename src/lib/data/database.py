@@ -163,7 +163,7 @@ class Database:
         if not self._generateWorkingDirs(historicFolderNum):
             return
 
-        task = tasks.Conversion(self.workingDirs[Step.CONVERSION], conversionConfig, self.name, self._dataDate, self.locationName, self._getFiles(Step.DOWNLOADING), self._getFiles(Step.PROCESSING))
+        task = tasks.Conversion(self.workingDirs[Step.CONVERSION], conversionConfig, self._getFiles(Step.DOWNLOADING), self._getFiles(Step.PROCESSING))
         self._execute(Step.CONVERSION, 0, task, flags)
 
     def update(self) -> None:
