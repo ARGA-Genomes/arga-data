@@ -15,11 +15,18 @@
             "inputs": [
                 "{D^_}"
             ]
+        },
+        {
+            "path": "./taxonomy.py",
+            "function": "getSpecies",
+            "inputs": [
+                "{P^}"
+            ]
         }
     ],
     "conversion": {
-        "datasetID": "ARGA:TL:0002000",
-        "mapID": 240630744,
+        "mapFileName": "ncbi_taxonomy.ttl",
+        "input": "{P^}",
         "chunkSize": 65536
     },
     "updating": {

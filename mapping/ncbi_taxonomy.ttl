@@ -1,0 +1,19 @@
+@base <http://arga.org.au/schemas/fields/>.
+
+@prefix :               <http://arga.org.au/schemas/mapping/>.
+@prefix source:         <http://arga.org.au/source/>.
+@prefix formats:        <http://arga.org.au/source/formats/>.
+@prefix ncbi:           <http://arga.org.au/schemas/maps/ncbi/>.
+
+
+source:ncbi_taxonomy.csv :transforms_into ncbi:names.
+
+
+ncbi:names
+{
+  <entity_id>                  :hash ncbi:scientific_name.
+  <taxon_id>                   :same ncbi:tax_id.
+  <canonical_name>             :same ncbi:canonical_name.
+  <scientific_name>            :same ncbi:scientific_name.
+  <rank>                       :same ncbi:rank.
+}
