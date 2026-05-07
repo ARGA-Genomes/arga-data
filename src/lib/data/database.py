@@ -91,10 +91,13 @@ class Database:
         _generate(historicFolders[historicFolderNum])
         return True
 
-    def _getFiles(self, step: Step) -> list[list[DataFile]]:
+    def _getFiles(self, step: Step, limitIdx: int = -1) -> list[list[DataFile]]:
         files = []
         
-        for stepMetadata in self._metadata.get(step.value, []):
+        for idx, stepMetadata in enumerate(self._metadata.get(step.value, [])):
+            if limitIdx >= 0 and idx < limitIdx: # Valid max position, and must be below the limit
+                break
+
             stepFiles = []
 
             for fileName in stepMetadata.get(tasks.Metadata.OUTPUTS.value):
@@ -131,7 +134,7 @@ class Database:
             elif retrieve == Retrieve.CRAWL:
                 task = tasks.CrawlRetrieve(self.workingDirs[Step.DOWNLOADING], taskConfig, self.locationName)
             elif retrieve == Retrieve.SCRIPT:
-                task = tasks.ScriptRunner(self.workingDirs[Step.DOWNLOADING], taskConfig, self.dirLookup, self._getFiles(Step.DOWNLOADING), [])
+                task = tasks.ScriptRunner(self.workingDirs[Step.DOWNLOADING], taskConfig, self.dirLookup, self._getFiles(Step.DOWNLOADING, idx), [])
             else:
                 raise Exception(f"Unknown retrieve type '{retrieveType}' specified for {self.name}") from AttributeError
             
@@ -146,7 +149,7 @@ class Database:
         processingConfig: list[dict] = self.config.get(Step.PROCESSING.value, [])
 
         for idx, processingStep in enumerate(processingConfig):
-            task = tasks.ScriptRunner(self.workingDirs[Step.PROCESSING], processingStep, self.dirLookup, self._getFiles(Step.DOWNLOADING), self._getFiles(Step.PROCESSING))
+            task = tasks.ScriptRunner(self.workingDirs[Step.PROCESSING], processingStep, self.dirLookup, self._getFiles(Step.DOWNLOADING), self._getFiles(Step.PROCESSING, idx))
 
             if not self._execute(Step.PROCESSING, idx, task, flags):
                 logging.error("Stopped evaluating processing tasks as previous task failed")
@@ -222,7 +225,7 @@ class Database:
                 return True
 
         if outputs:
-            backupDir.mkdir()
+            backupDir.mkdir(exist_ok=True)
 
         for file in outputs:
             file.backUp(backupDir)
@@ -261,8 +264,7 @@ class Database:
             parsedMetadata[key.value] = value
 
         taskMetadata: list[dict] = self._metadata.get(step.value, [])
-        if not isinstance(taskMetadata, list):
-            taskMetadata = []
+        taskMetadata = list(taskMetadata) if isinstance(taskMetadata, list) else [] # Get values if currently a list reference, or set to empty list if not a list
 
         if stepIndex < len(taskMetadata):
             taskMetadata[stepIndex] |= parsedMetadata
