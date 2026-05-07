@@ -11,6 +11,7 @@ import time
 from datetime import datetime
 from enum import Enum
 from lib.processing.mapping import Map
+import os
 
 class Metadata(Enum):
     OUTPUTS = "outputs"
@@ -27,6 +28,12 @@ class Metadata(Enum):
     CUSTOM = ""
 
 class Task:
+
+    _fileSize = "size"
+    _fileAccessTime = "atime",
+    _fileModTime = "mtime"
+    _fileCTime = "ctime"
+
     def __init__(self, workingDir: Path, foldersAsOutputs: bool = False):
         self.workingDir = workingDir
         self.foldersAsOutputs = foldersAsOutputs
@@ -35,11 +42,26 @@ class Task:
     def _execute(self, overwrite: bool, verbose: bool) -> tuple[bool, dict]:
         return True, {}
 
+    def _getWorkingDirFiles(self) -> dict[str, dict[str, int]]:
+        files = {}
+        for item in self.workingDir.iterdir():
+            if self.foldersAsOutputs == item.is_file():
+                continue
+
+            files[item.name] = {
+                self._fileSize: os.stat(item).st_size,
+                self._fileAccessTime: os.stat(item).st_atime_ns,
+                self._fileModTime: os.stat(item).st_mtime_ns,
+                self._fileCTime: os.stat(item).st_ctime_ns
+            }
+
+        return files
+
     def run(self, overwrite: bool, verbose: bool) -> dict:
         startTime = time.perf_counter()
         startDate = datetime.now().isoformat()
 
-        workingDirFiles = [item for item in self.workingDir.iterdir()]
+        beforeFiles = self._getWorkingDirFiles()
 
         try:
             success, extraMetadata = self._execute(overwrite, verbose)
@@ -47,7 +69,7 @@ class Task:
             logging.info("Cancelling task execution early")
             return {}
         
-        outputs = [item.name for item in self.workingDir.iterdir() if item not in workingDirFiles and (item.is_file() if not self.foldersAsOutputs else item.is_dir())]
+        outputs = [name for name, stats in self._getWorkingDirFiles().items() if beforeFiles.get(name, {}) != stats]
 
         duration = time.perf_counter() - startTime
         endDate = datetime.now().isoformat()
