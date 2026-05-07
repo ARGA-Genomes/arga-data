@@ -44,6 +44,10 @@ class FileObject:
         
             backupPath.unlink()
         
+        if not self.path.exists():
+            logging.info("Unable to create backup as original file does not exist")
+            return
+
         self._backupPath = self.path.rename(backupPath)
 
     def restoreBackUp(self) -> None:

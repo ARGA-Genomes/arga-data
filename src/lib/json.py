@@ -9,7 +9,7 @@ class JsonSynchronizer:
         self._load()
 
     def __setitem__(self, key: str, value: any) -> None:
-        if key in self._data and self._data[key] == value:
+        if key in self._data and self._data.get(key) == value:
             return
         
         if isinstance(value, list):
@@ -19,7 +19,7 @@ class JsonSynchronizer:
         self._sync()
 
     def __getitem__(self, key: str) -> any:
-        return self._data[key]
+        return self._data.get(key, None)
     
     def __repr__(self) -> str:
         return str(self)
