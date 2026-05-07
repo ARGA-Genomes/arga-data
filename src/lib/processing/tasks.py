@@ -34,9 +34,8 @@ class Task:
     _fileModTime = "mtime"
     _fileCTime = "ctime"
 
-    def __init__(self, workingDir: Path, foldersAsOutputs: bool = False):
+    def __init__(self, workingDir: Path):
         self.workingDir = workingDir
-        self.foldersAsOutputs = foldersAsOutputs
         self._subTasks: list['Task'] = []
 
     def _execute(self, overwrite: bool, verbose: bool) -> tuple[bool, dict]:
@@ -45,7 +44,7 @@ class Task:
     def _getWorkingDirFiles(self) -> dict[str, dict[str, int]]:
         files = {}
         for item in self.workingDir.iterdir():
-            if self.foldersAsOutputs == item.is_file():
+            if not item.is_file():
                 continue
 
             files[item.name] = {
@@ -86,11 +85,11 @@ class Task:
         if not self._subTasks:
             if not outputs:
                 logging.error("No outputs were created")
-                success = False
+                metadata[Metadata.SUCCESS] = False
             else:
                 logging.info(f"Created outputs: {', '.join(outputs)}")
 
-            if success:
+            if metadata[Metadata.SUCCESS]:
                 metadata |= {
                     Metadata.LAST_SUCCESS_START: startDate,
                     Metadata.LAST_SUCCESS_END: endDate,
@@ -243,7 +242,7 @@ class ScriptRunner(Task):
             scriptConfig = {
                 ScriptRunner._modulePath: self.modulePath,
                 ScriptRunner._functionName: self.functionName,
-                ScriptRunner._inputs: self.inputs,
+                ScriptRunner._inputs: input,
                 ScriptRunner._args: self.args,
                 ScriptRunner._kwargs: self._kwargs
             }
@@ -259,7 +258,7 @@ class Conversion(Task):
     _chunkSize = "chunkSize"
 
     def __init__(self, workingDir: Path, config: dict, downloaded: list[list[DataFile]], processed: list[list[DataFile]]):
-        super().__init__(workingDir, True)
+        super().__init__(workingDir)
 
         self.mapFileName = config.get(self._mapFileName, "")
         if not self.mapFileName:
@@ -274,7 +273,6 @@ class Conversion(Task):
 
     def _execute(self, overwrite: bool, verbose: bool) -> tuple[bool, dict]:
         settings = Settings(False)
-        mapPath = settings.mappingDir / self.mapFileName
-        converter = Converter(self.input, self.workingDir / self.mapFileName, mapPath)
+        converter = Converter(self.input, self.workingDir, settings.mappingDir / self.mapFileName)
         
         return converter.convert(self.chunkSize, verbose)

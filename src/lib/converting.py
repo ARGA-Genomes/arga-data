@@ -46,7 +46,6 @@ class Converter:
             sectionData = {}
             for newColumn, columnnSources in columnInfo.items():
                 for method, source in columnnSources:
-                    print(source, df.columns)
                     sectionData[newColumn] = df[source] if method == "same" else df[source].apply(self._hash)
 
             mappedData[section] = pd.DataFrame.from_dict(sectionData)

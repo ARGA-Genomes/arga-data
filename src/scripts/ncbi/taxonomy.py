@@ -4,6 +4,7 @@ from enum import Enum
 from lib.progressBar import ProgressBar
 from lib.processing.scripts import importableScript
 import lib.zipping as zp
+from lib.processing.files import DataFile
 
 class DumpFile(Enum):
     NODES = "nodes.dmp"
@@ -191,8 +192,12 @@ def parse(outputDir: Path, inputPath: Path) -> None:
             authority = authority[1:-1]
 
         return authority
+    
+    def makeCanonical(scientificName: str, authority: str) -> str:
+        return f"{scientificName}, {authority}"
 
     df["authority"] = df.apply(lambda x: cleanAuthority(x["authority"], x["scientific name"], x["synonym"]), axis=1)
+    df["canonical_name"] = df.apply(lambda x: makeCanonical(x["scientific name"], x["authority"]), axis=1)
 
     df["taxonomic_status"] = ""
     df["nomenclatural_act"] = "names usage"
@@ -201,4 +206,11 @@ def parse(outputDir: Path, inputPath: Path) -> None:
 
     df = df.drop(["in-part"], axis=1)
     df = df.rename({col: col.replace(" ", "_") for col in df.columns}, axis=1)
+    
     df.to_csv(outputDir / "ncbiTaxonomy.csv", index=False)
+
+@importableScript()
+def getSpecies(outputDir: Path, inputFile: DataFile):
+    df = inputFile.read(low_memory=False)
+    df = df[df["rank"] == "species"]
+    df.to_csv(outputDir / "ncbiSpecies.csv", index=False)
