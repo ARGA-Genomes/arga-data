@@ -95,7 +95,7 @@ class Database:
         files = []
         
         for idx, stepMetadata in enumerate(self._metadata.get(step.value, [])):
-            if limitIdx >= 0 and idx < limitIdx: # Valid max position, and must be below the limit
+            if idx == limitIdx: # If limitIdx is < 0, this is never hit
                 break
 
             stepFiles = []
@@ -208,7 +208,7 @@ class Database:
         overwrite = Flag.OVERWRITE in flags
         verbose = Flag.VERBOSE in flags
 
-        logging.info(f"Executing {self} step '{step.name}' with flags: {self._printFlags(flags)}")
+        logging.info(f"Executing {self} step '{step.name}' #{index} with flags: {self._printFlags(flags)}")
 
         workingDir = self.workingDirs[step]
         workingDir.mkdir(parents=True, exist_ok=True)
