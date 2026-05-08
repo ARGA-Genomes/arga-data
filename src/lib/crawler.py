@@ -8,7 +8,7 @@ import logging
 import lib.downloading as dl
 import time
 from lib.progressBar import ProgressBar
-from lib.json import JsonSynchronizer
+from lib.json import JsonSynchroniser
 from requests.adapters import HTTPAdapter, Retry
 
 
@@ -78,7 +78,7 @@ class Crawler:
         if not self.metadataDir.exists():
             self.metadataDir.mkdir(parents=True)
 
-        metadata = JsonSynchronizer(self.metadataDir / self._progressFile)
+        metadata = JsonSynchroniser(self.metadataDir / self._progressFile)
         if ignoreProgress:
             metadata.clear()
 
@@ -124,7 +124,7 @@ class Crawler:
             metadata[self._metaProgress].append(pageData)
 
     def getFileURLs(self, altDLURL: str = "") -> list[str]:
-        metadata = JsonSynchronizer(self.metadataDir / self._progressFile)
+        metadata = JsonSynchroniser(self.metadataDir / self._progressFile)
         crawlerProgress: list[dict[str, dict[str, list[str]]]] = metadata.get(self._metaProgress, [])
         return [urllib.parse.urljoin(url if not altDLURL else altDLURL, file) for layer in crawlerProgress for url, urlData in layer.items() for file in urlData.get(self._fileStr, [])]
 

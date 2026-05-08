@@ -4,7 +4,7 @@ import logging
 import lib.processing.files as files
 from lib.processing.files import DataFormat, DataFile, Folder, StackedFile
 from typing import Iterator
-from lib.json import JsonSynchronizer
+from lib.json import JsonSynchroniser
 
 class DFWriter:
 
@@ -16,7 +16,7 @@ class DFWriter:
         self._chunkFormat = chunkFormat
 
         self.workingDir = Folder(outputFilePath.parent / subDirName, create=True)
-        self.metadata = JsonSynchronizer(self.workingDir.path / "metadata.json")
+        self.metadata = JsonSynchroniser(self.workingDir.path / "metadata.json")
 
         self._sectionFiles: list[DataFile] = []
         self._uniqueColumns: dict[str, None] = {}

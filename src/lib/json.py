@@ -86,7 +86,7 @@ class _SyncDict(_SyncObject, dict):
         super().clear()
         super()._sync()
 
-class JsonSynchronizer(_SyncDict):
+class JsonSynchroniser(_SyncDict):
     def __init__(self, filePath: Path):
         self._path = filePath
 

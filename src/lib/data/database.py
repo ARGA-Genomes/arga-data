@@ -7,7 +7,7 @@ from lib.processing import tasks
 import lib.processing.updating as upd
 from datetime import datetime
 from lib.processing.files import DataFile
-from lib.json import JsonSynchronizer
+from lib.json import JsonSynchroniser
 
 class Flag(Enum):
     VERBOSE   = "quiet" # Verbosity enabled by default, flag is used when silenced
@@ -53,7 +53,7 @@ class Database:
         self.workingDirs: dict[Step, Path] = {}
         self.exampleDir: Path = None
 
-        self._metadata: JsonSynchronizer = None
+        self._metadata: JsonSynchroniser = None
         self._dataDate: str = ""
 
     def __str__(self):
@@ -75,7 +75,7 @@ class Database:
             self.workingDirs = {step: folder / step.value for step in Step}
             self.exampleDir = folder / self._exampleFolderName
 
-            self._metadata = JsonSynchronizer(folder / self._metadataFileName)
+            self._metadata = JsonSynchroniser(folder / self._metadataFileName)
             self._dataDate = folder.name
 
         todaysDataDir = self.dataDir / str(datetime.now().date())   
@@ -190,7 +190,7 @@ class Database:
         
         lastUpdate = None
         for folder in self._getHistoricFolders():
-            historicMetadata = JsonSynchronizer(folder / self._metadataFileName)
+            historicMetadata = JsonSynchroniser(folder / self._metadataFileName)
             lastSuccess = historicMetadata[Step.DOWNLOADING][0].get(tasks.Metadata.LAST_SUCCESS_START, None)
 
             if lastSuccess is not None:
