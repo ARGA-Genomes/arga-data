@@ -263,15 +263,15 @@ class Database:
 
             parsedMetadata[key.value] = value
 
-        taskMetadata: list[dict] = self._metadata.get(step.value, [])
-        taskMetadata = list(taskMetadata) if isinstance(taskMetadata, list) else [] # Get values if currently a list reference, or set to empty list if not a list
-
-        if stepIndex < len(taskMetadata):
-            taskMetadata[stepIndex] |= parsedMetadata
+        if step.value not in self._metadata:
+            self._metadata[step.value] = [parsedMetadata]
+            return
+        
+        previousMetadata: list = self._metadata[step.value]
+        if stepIndex < len(previousMetadata):
+            previousMetadata[stepIndex] |= parsedMetadata
         else:
-            taskMetadata.append(parsedMetadata)
-
-        self._metadata[step.value] = taskMetadata
+            previousMetadata.append(parsedMetadata)
 
 class DatabaseFactory:
     def __init__(self, locationName: str, databaseName: str, config: dict):
