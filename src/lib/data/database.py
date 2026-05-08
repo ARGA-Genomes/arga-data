@@ -7,7 +7,7 @@ from lib.processing import tasks
 import lib.processing.updating as upd
 from datetime import datetime
 from lib.processing.files import DataFile
-from lib.json import JsonSynchronizer
+from lib.json import JsonSynchroniser
 
 class Flag(Enum):
     VERBOSE   = "quiet" # Verbosity enabled by default, flag is used when silenced
@@ -53,7 +53,7 @@ class Database:
         self.workingDirs: dict[Step, Path] = {}
         self.exampleDir: Path = None
 
-        self._metadata: JsonSynchronizer = None
+        self._metadata: JsonSynchroniser = None
         self._dataDate: str = ""
 
     def __str__(self):
@@ -75,7 +75,7 @@ class Database:
             self.workingDirs = {step: folder / step.value for step in Step}
             self.exampleDir = folder / self._exampleFolderName
 
-            self._metadata = JsonSynchronizer(folder / self._metadataFileName)
+            self._metadata = JsonSynchroniser(folder / self._metadataFileName)
             self._dataDate = folder.name
 
         todaysDataDir = self.dataDir / str(datetime.now().date())   
@@ -190,7 +190,7 @@ class Database:
         
         lastUpdate = None
         for folder in self._getHistoricFolders():
-            historicMetadata = JsonSynchronizer(folder / self._metadataFileName)
+            historicMetadata = JsonSynchroniser(folder / self._metadataFileName)
             lastSuccess = historicMetadata[Step.DOWNLOADING][0].get(tasks.Metadata.LAST_SUCCESS_START, None)
 
             if lastSuccess is not None:
@@ -263,15 +263,15 @@ class Database:
 
             parsedMetadata[key.value] = value
 
-        taskMetadata: list[dict] = self._metadata.get(step.value, [])
-        taskMetadata = list(taskMetadata) if isinstance(taskMetadata, list) else [] # Get values if currently a list reference, or set to empty list if not a list
-
-        if stepIndex < len(taskMetadata):
-            taskMetadata[stepIndex] |= parsedMetadata
+        if step.value not in self._metadata:
+            self._metadata[step.value] = [parsedMetadata]
+            return
+        
+        previousMetadata: list = self._metadata[step.value]
+        if stepIndex < len(previousMetadata):
+            previousMetadata[stepIndex] |= parsedMetadata
         else:
-            taskMetadata.append(parsedMetadata)
-
-        self._metadata[step.value] = taskMetadata
+            previousMetadata.append(parsedMetadata)
 
 class DatabaseFactory:
     def __init__(self, locationName: str, databaseName: str, config: dict):
