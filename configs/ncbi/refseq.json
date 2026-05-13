@@ -39,9 +39,8 @@
         }
     ],
     "conversion": {
-        "input": "{P^}",
-        "datasetID": "ARGA:TL:0002002",
-        "mapID": 2003682060
+        "mapFileName": "ncbi_genbank.ttl",
+        "input": "{P^}"
     },
     "updating": {
         "type": "weekly",

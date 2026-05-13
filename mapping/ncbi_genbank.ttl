@@ -1,0 +1,91 @@
+@base <http://arga.org.au/schemas/fields/>.
+
+@prefix :            <http://arga.org.au/schemas/mapping/>.
+@prefix source:      <http://arga.org.au/source/>.
+@prefix formats:     <http://arga.org.au/source/formats/>.
+@prefix ncbi:        <http://arga.org.au/schemas/maps/ncbi/>.
+
+
+source:assembly_summary_genbank.txt :discards_lines  1;
+                                    :format          formats:tsv;
+                                    :transforms_into ncbi:names;
+                                    :transforms_into ncbi:sequencing_runs;
+                                    :transforms_into ncbi:assembly;
+                                    :transforms_into ncbi:annotation;
+                                    :transforms_into ncbi:deposition.
+
+source:assembly_summary_refseq.txt  :discards_lines  1;
+                                    :format          formats:tsv;
+                                    :transforms_into ncbi:names;
+                                    :transforms_into ncbi:sequencing_runs;
+                                    :transforms_into ncbi:assembly;
+                                    :transforms_into ncbi:annotation;
+                                    :transforms_into ncbi:deposition.
+
+
+ncbi:sequencing_runs
+{
+  <entity_id>  :hash ncbi:wgs_master.
+  <extract_id> :same ncbi:biosample.
+
+  <event_date> :same ncbi:seq_rel_date.
+}
+
+
+ncbi:assembly
+{
+  <entity_id>                 :hash ncbi:\#assembly_accession.
+  <assembly_id>               :same ncbi:\#assembly_accession.
+  <sequence_id>               :same ncbi:wgs_master.
+  <taxon_id>                  :same ncbi:taxid.
+
+  <scientific_name>           :same ncbi:organism_name.
+
+  <event_date>                :same ncbi:seq_rel_date.
+  <name>                      :same ncbi:asm_name.
+  <type>                      :same ncbi:refseq_category.
+
+  <size>                      :same ncbi:genome_size.
+  <size_ungapped>             :same ncbi:genome_size_ungapped.
+  <number_of_scaffolds>       :same ncbi:scaffold_count.
+  <number_of_contigs>         :same ncbi:contig_count.
+  <number_of_replicons>       :same ncbi:replicon_count.
+  <guanine_cytosine_percent>  :same ncbi:gc_percent.
+
+  <assembled_by>              :same ncbi:asm_submitter.
+  <level>                     :same ncbi:assembly_level.
+  <representation>            :same ncbi:genome_rep.
+  <file_url>                  :same ncbi:ftp_path.
+}
+
+
+ncbi:annotation
+{
+  <entity_id>                :hash ncbi:\#assembly_accession.
+  <assembly_id>              :same ncbi:\#assembly_accession.
+
+  <name>                     :same ncbi:annotation_name.
+                             # :ignores "na".
+
+  <provider>                 :same ncbi:annotation_provider.
+                             # :ignores "na".
+
+  <event_date>               :same ncbi:annotation_date.
+
+  <number_of_genes>          :same ncbi:total_gene_count.
+                             # :ignores "na".
+
+  <number_of_coding_proteins> :same ncbi:protein_coding_gene_count.
+                             # :ignores "na".
+}
+
+
+ncbi:deposition
+{
+  <entity_id>   :hash ncbi:\#assembly_accession.
+  <assembly_id> :same ncbi:\#assembly_accession.
+
+  <event_date>  :same ncbi:seq_rel_date.
+  <url>         :same ncbi:ftp_path.
+  <institution> :same ncbi:asm_submitter.
+}

@@ -28,7 +28,7 @@ def getStats(outputDir: Path, summaryFile: DataFile):
     df = summaryFile.read(dtype=object, usecols=[accessionCol], header=1)
     totalAccessions = df.size
 
-    writer = RecordWriter(outputDir / summaryFile.path.name, recordsPerSubsection)
+    writer = RecordWriter(outputDir / f"{summaryFile.path.stem}.csv", recordsPerSubsection)
     startingAccession = writer.writtenFileCount() * recordsPerSubsection
     accessionsPerProcess = ((totalAccessions - startingAccession) / processes).__ceil__()
 
@@ -63,7 +63,7 @@ def getStats(outputDir: Path, summaryFile: DataFile):
 
         return
 
-    writer.combine(removeParts=False, index=False)
+    writer.combine(removeParts=True, index=False)
 
 @importableScript(inputCount=2)
 def merge(outputDir: Path, summaryFile: DataFile, statsFile: DataFile, fileName: str) -> None:
@@ -78,8 +78,8 @@ def merge(outputDir: Path, summaryFile: DataFile, statsFile: DataFile, fileName:
     df = summaryFile.read(header=1, low_memory=False)
     df2 = statsFile.read(low_memory=False)
 
-    df = df.merge(df2, how="outer", left_on="#assembly_accession", right_on="current_accession")
-    df.to_csv(outputDir / fileName, index=False)
+    df = df.merge(df2, how="outer", left_on="#assembly_accession", right_on="accession")
+    df.to_csv(outputDir / f"{fileName}.csv", index=False)
 
 @importableScript()
 def cleanData(outputDir: Path, mergedData: DataFile, fileName: str) -> None:
@@ -91,4 +91,4 @@ def cleanData(outputDir: Path, mergedData: DataFile, fileName: str) -> None:
         df[column] = df[column].fillna(df["#assembly_accession"])
 
     df = df.rename({"biosample": "dna_extract_id"}, axis=1)
-    df.to_csv(outputDir / fileName, index=False)
+    df.to_csv(outputDir / f"cleaned_{fileName}.csv", index=False)
