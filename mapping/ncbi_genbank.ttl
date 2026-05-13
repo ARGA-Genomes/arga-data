@@ -26,7 +26,7 @@ source:assembly_summary_refseq.txt  :discards_lines  1;
 ncbi:sequencing_runs
 {
   <entity_id>  :hash ncbi:wgs_master.
-  <extract_id> :same ncbi:biosample.
+  <extract_id> :same ncbi:biosample_accession.
 
   <event_date> :same ncbi:seq_rel_date.
 }
