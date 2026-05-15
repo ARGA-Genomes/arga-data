@@ -169,9 +169,9 @@ class Database:
         task = self._conversionTask(historicFolderNum)
         self._execute(Step.CONVERSION, 0, task, flags)
 
-    def getConversionInput(self, historicFolderNum: int = 0) -> DataFile:
+    def getConversionInfo(self, historicFolderNum: int = 0) -> tuple[DataFile, Path]:
         task = self._conversionTask(historicFolderNum)
-        return task.input
+        return task.input, task.getMapPath()
 
     def update(self) -> None:
         updateConfig: dict = self.config.get("updating", {})

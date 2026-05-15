@@ -276,8 +276,11 @@ class Conversion(Task):
         self.input = parse.parseInput(self.input, downloaded, processed)[0] # Singular input
         self.chunkSize = config.get(self._chunkSize, 1024)
 
-    def _execute(self, overwrite: bool, verbose: bool) -> tuple[bool, dict]:
+    def getMapPath(self) -> Path:
         settings = Settings(False)
-        converter = Converter(self.input, self.workingDir, settings.mappingDir / self.mapFileName)
+        return settings.mappingDir / self.mapFileName
+
+    def _execute(self, overwrite: bool, verbose: bool) -> tuple[bool, dict]:
+        converter = Converter(self.input, self.workingDir, self.getMapPath())
         
         return converter.convert(self.chunkSize, verbose)

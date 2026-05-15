@@ -55,7 +55,7 @@ if __name__ == '__main__':
     entryLimit = args.entries
 
     for source in sources:
-        inputFile = source.getConversionInput()
+        inputFile, _ = source.getConversionInfo()
         outputDir = source.exampleDir
 
         if not outputDir.exists():

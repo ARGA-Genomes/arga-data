@@ -146,22 +146,3 @@ def combineDataFiles(outputFilePath: Path, dataFiles: list[DataFile], chunkSize:
         logging.info(f"Cleaning up old sections of combined file")
         for dataFile in dataFiles:
             dataFile.delete()
-
-class StackedDFWriter:
-    def __init__(self, outputPath: Path, subsections: list[str], chunkFormat: DataFormat = DataFormat.PARQUET):
-        self.outputFile = StackedFile(outputPath)
-        self._subWriters = {subsection: DFWriter(outputPath / f"{subsection}.csv", chunkFormat=chunkFormat, subDirName=subsection) for subsection in subsections}
-
-    def uniqueColumns(self, subsection: str) -> list[str]:
-        return self._subWriters[subsection].uniqueColumns()
-
-    def write(self, dfSections: dict[str, pd.DataFrame], index: int = -1) -> None:
-        for sectionName, df in dfSections.items():
-            self._subWriters[sectionName].write(df, index=index)
-
-    def combine(self, removeParts: bool = False) -> None:
-        for writer in self._subWriters.values():
-            writer.combine(removeParts=removeParts)
-
-    def completedCount(self) -> int:
-        return min(writer.writtenFileCount() for writer in self._subWriters.values())

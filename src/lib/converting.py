@@ -1,63 +1,73 @@
 from lib.processing.files import DataFile
 import pandas as pd
 import logging
-from lib.bigFiles import StackedDFWriter
+from lib.bigFiles import DFWriter
 import gc
 from pathlib import Path
 from pyoxigraph import Store, RdfFormat, NamedNode
 import hashlib
 
-class Converter:
-    def __init__(self, inputFile: DataFile, outputPath: Path, mapPath: Path):
-        self.inputFile = inputFile
-        self.outputPath = outputPath
-        self.mapPath = mapPath
-
-        self._map: dict[str, dict[str, list[tuple[str, str]]]] = {}
+class Map:
+    def __init__(self):
+        self._data = {}
 
     @staticmethod
     def _hash(value: any) -> str:
         return hashlib.md5(str(value).encode("utf-8")).hexdigest()
 
-    def _loadMap(self) -> None:
-        def _nodeName(node: NamedNode):
-            return node.value.rsplit("/", 1)[-1]
-        
+    @staticmethod
+    def _getNodeName(node: NamedNode) -> str:
+        return node.value.rsplit("/", 1)[-1]
+    
+    def load(self, path: Path) -> list[str]:
         store = Store()
-        with open(self.mapPath, "rb") as fp:
+        with open(path, "rb") as fp:
             store.load(fp, RdfFormat.TRIG)
 
         for graph in store.named_graphs():
-            graphName = _nodeName(graph)
-            if graphName not in self._map:
-                self._map[graphName] = {}
+            graphName = self._getNodeName(graph)
+            if graphName not in self._data:
+                self._data[graphName] = {}
 
             for quad in store.quads_for_pattern(None, None, None, graph):
-                newColumn = _nodeName(quad.subject)
-                if newColumn not in self._map[graphName]:
-                    self._map[graphName][newColumn] = []
+                newColumn = self._getNodeName(quad.subject)
+                if newColumn not in self._data[graphName]:
+                    self._data[graphName][newColumn] = []
 
-                self._map[graphName][newColumn].append((_nodeName(quad.predicate), _nodeName(quad.object)))
+                self._data[graphName][newColumn].append((self._getNodeName(quad.predicate), self._getNodeName(quad.object)))
 
-    def _apply(self, df: pd.DataFrame) -> dict[str, pd.DataFrame]:
+    def apply(self, df: pd.DataFrame) -> dict[str, pd.DataFrame]:
         mappedData = {}
-        for section, columnInfo in self._map.items():
-
+        for graph, columnInfo in self._data.items():
             sectionData = {}
             for newColumn, columnnSources in columnInfo.items():
                 for method, source in columnnSources:
                     sectionData[newColumn] = df[source] if method == "same" else df[source].apply(self._hash)
 
-            mappedData[section] = pd.DataFrame.from_dict(sectionData)
+            mappedData[graph] = pd.DataFrame.from_dict(sectionData)
+
         return mappedData
 
+    def getGraphs(self) -> list[str]:
+        return list(self._data)
+
+class Converter:
+    def __init__(self, inputFile: DataFile, outputDir: Path, mapPath: Path):
+        self.inputFile = inputFile
+        self.outputDir = outputDir
+        self.mapPath = mapPath
+
     def convert(self, chunkSize: int, verbose: bool) -> tuple[bool, dict]:
-        self._loadMap()
-        writer = StackedDFWriter(self.outputPath, list(self._map))
+        map = Map()
+        map.load(self.mapPath)
+        
+        writers: dict[str, DFWriter] = {}
+        for graph in map.getGraphs():
+            writers[graph] = DFWriter(self.outputDir / f"{graph}.csv", subDirName=graph)
 
         totalRows = 0
         chunks = self.inputFile.readIterator(chunkSize, low_memory=False)
-        completed = writer.completedCount()
+        completed = min(writer.writtenFileCount() for writer in writers.values())
 
         if completed > 0:
             logging.info(f"Already completed {completed} chunks, resuming...")
@@ -70,16 +80,18 @@ class Converter:
                 if verbose:
                     print(f"At chunk: {idx}", end='\r')
 
-                processedSections = self._apply(df)
+                processedSections = map.apply(df)
                 if not processedSections:
                     return False, {}
 
-                writer.write(processedSections, idx-1)
+                for graph, df in processedSections.items():
+                    writers[graph].write(df, index=(idx-1))
 
             del df
             gc.collect()
 
-        writer.combine(removeParts=True)
+        for writer in writers.values():
+            writer.combine(removeParts=True)
 
         metadata = {
             "total columns": len(self.inputFile.getColumns()),
