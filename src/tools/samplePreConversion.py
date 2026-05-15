@@ -1,6 +1,5 @@
 import pandas as pd
 from lib.data.argParser import ArgParser
-from lib.processing.files import Step
 import random
 import logging
 import lib.dataframes as dff
@@ -48,7 +47,7 @@ if __name__ == '__main__':
     parser.addArgument('-e', '--entries', type=int, default=50, help="Number of unique entries to get")
     parser.addArgument('-i', '--ignoreRecord', action="store_true", help="Ignore records, searching for unique values")
     parser.addArgument('-c', '--chunksize', type=int, default=1024, help="File chunk size to read at a time")
-    parser.addArgument('-s', '--seed', type=int, default=-1, help="Specify seed to run")
+    parser.addArgument('-d', '--seed', type=int, default=-1, help="Specify seed to run")
     parser.addArgument('-f', '--firstrow', type=int, default=0, help="First row offset for reading data")
     parser.addArgument('-r', '--rows', type=int, help="Maximum amount of rows to read from file")
 
@@ -56,22 +55,17 @@ if __name__ == '__main__':
     entryLimit = args.entries
 
     for source in sources:
+        inputFile = source.getConversionInput()
         outputDir = source.exampleDir
+
         if not outputDir.exists():
             outputDir.mkdir()
-
-        source._prepare(Step.PROCESSING, flags)
-        stageFile = source.processingManager.getLatestNodeFile() # Should be singular stage file before DwC
-
-        if not stageFile.exists():
-            print(f"File {stageFile.path} does not exist, please run all required downloading/processing.")
-            continue
 
         seed = args.seed if args.seed >= 0 else random.randrange(2**32 - 1) # Max value for pandas seed
         random.seed(seed)
         outputPath = outputDir / f"{source.name}_{'fields' if args.ignoreRecord else 'records'}_{args.chunksize}_{seed}.tsv"
 
-        dfIterator = stageFile.readIterator(args.chunksize, on_bad_lines="skip", low_memory=False)
+        dfIterator = inputFile.readIterator(args.chunksize, on_bad_lines="skip", low_memory=False)
         df = _collectFields(dfIterator, args.entries, seed) if args.ignoreRecord else _collectRecords(dfIterator, args.entries, seed)
 
         df = dff.removeSpaces(df)
