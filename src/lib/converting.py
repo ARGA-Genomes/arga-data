@@ -9,15 +9,25 @@ import hashlib
 
 class Map:
     def __init__(self):
-        self._data = {}
-
-    @staticmethod
-    def _hash(value: any) -> str:
-        return hashlib.md5(str(value).encode("utf-8")).hexdigest()
+        self._data: dict[str, dict[str, list[tuple[str, str]]]] = {}
 
     @staticmethod
     def _getNodeName(node: NamedNode) -> str:
         return node.value.rsplit("/", 1)[-1]
+    
+    @staticmethod
+    def _translate(source: pd.Series, method: str) -> pd.Series:
+        if method == "same":
+            return source
+        
+        if method == "hash":
+            def _hash(value: any) -> str:
+                return hashlib.md5(str(value).encode("utf-8")).hexdigest()
+    
+            return source.apply(_hash)
+        
+        logging.error(f"Unhandled translation method: {method}")
+        return source
     
     def load(self, path: Path) -> list[str]:
         store = Store()
@@ -38,11 +48,11 @@ class Map:
 
     def apply(self, df: pd.DataFrame) -> dict[str, pd.DataFrame]:
         mappedData = {}
-        for graph, columnInfo in self._data.items():
+        for graph, columnMapping in self._data.items():
             sectionData = {}
-            for newColumn, columnnSources in columnInfo.items():
-                for method, source in columnnSources:
-                    sectionData[newColumn] = df[source] if method == "same" else df[source].apply(self._hash)
+            for newColumn, mapMethods in columnMapping.items():
+                for method, source in mapMethods:
+                    sectionData[newColumn] = self._translate(df[source], method)
 
             mappedData[graph] = pd.DataFrame.from_dict(sectionData)
 
