@@ -123,7 +123,7 @@ class Database:
             logging.error(f"Invalid step character {stepChar}. Should be one of {list(stepCharMap)}")
             return []
         
-        if not self._generateWorkingDirs():
+        if not self._generateWorkingDirs(0):
             return []
 
         stepMetadata = self._metadata.get(step.value, [])
@@ -136,7 +136,7 @@ class Database:
             logging.error(f"Metadata has no recorded outputs for step {step.value} at task number {taskNum}")
             return []
         
-        return outputs
+        return [DataFile(self.workingDirs[step] / output) for output in outputs]
 
     def download(self, flags: list[Flag]) -> None:
         downloadConfig: dict = self.config.get(Step.DOWNLOADING.value, {})

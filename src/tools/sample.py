@@ -51,8 +51,8 @@ if __name__ == '__main__':
     }
 
     parser = ArgParser(description="Get column examples of pre-Conversion files")
-    parser.addArgument("step", type=str, default="p", choices=list(nameMap), help="Config step to target")
-    parser.addArgument("task", type=int, default=-1, help="Task within config step to sample")
+    parser.addArgument("step", type=str, default="p", choices=list(nameMap), nargs="?", help="Config step to target")
+    parser.addArgument("task", type=int, default=-1, nargs="?", help="Task within config step to sample")
 
     parser.addArgument('-e', '--entries', type=int, default=50, help="Number of unique entries to get")
     parser.addArgument('-i', '--ignoreRecord', action="store_true", help="Ignore records, searching for unique values")
