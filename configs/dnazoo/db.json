@@ -9,8 +9,8 @@
         ]
     },
     "conversion": {
-        "datasetID": "ARGA:TL:0000181",
-        "mapID": 570069681
+        "mapFileName": "dnazoo.ttl",
+        "input": "{D^}"
     },
     "updating": {
         "type": "weekly",

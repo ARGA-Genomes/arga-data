@@ -1,0 +1,38 @@
+@base <http://arga.org.au/schemas/fields/>.
+
+@prefix :        <http://arga.org.au/schemas/mapping/>.
+@prefix source:  <http://arga.org.au/source/>.
+@prefix formats: <http://arga.org.au/source/formats/>.
+@prefix dnazoo:  <http://arga.org.au/schemas/maps/dnazoo/>.
+
+source:metadata.jsonl :format          formats:jsonl;
+                      :transforms_into dnazoo:assembly.
+
+
+dnazoo:assembly
+{
+  <entity_id>                              :hash dnazoo:chromlengthAssembly_name.
+  <assembly_id>                            :same dnazoo:chromlengthAssembly_name.
+
+  <scientific_name>                        :same dnazoo:organism_binomial.
+  # <canonical_name>                         :same dnazoo:arga_curation.canonical_name.
+
+  <name>                                   :same dnazoo:chromlengthAssembly_name.
+  <type>                                   :same dnazoo:chromlengthAssembly_type.
+  # <method>                                 :same dnazoo:arga_curation.assembly_method.
+  <assembled_by>                           :same dnazoo:credits_assembly.
+
+  # <ncbi_accession>                         :same dnazoo:draftAssembly_ncbiAccession.
+  <details>                                :same dnazoo:draftAssembly_reference.
+  <file_url>                               :same dnazoo:links_all.
+
+  # assembly statistics
+  <number_of_scaffolds>                    :same dnazoo:chromlengthAssembly_numberOfScaffolds.
+  <number_of_contigs>                      :same dnazoo:chromlengthAssembly_numberOfContigs.
+  <contig_n50>                             :same dnazoo:chromlengthAssembly_contigN50.
+  <scaffold_n50>                           :same dnazoo:chromlengthAssembly_scaffoldN50.
+  <longest_contig>                         :same dnazoo:chromlengthAssembly_longestContig.
+  <longest_scaffold>                       :same dnazoo:chromlengthAssembly_longestScaffold.
+  <total_contig_size>                      :same dnazoo:chromlengthAssembly_totalContigLength.
+  <total_scaffold_size>                    :same dnazoo:chromlengthAssembly_totalScaffoldLength.
+}
