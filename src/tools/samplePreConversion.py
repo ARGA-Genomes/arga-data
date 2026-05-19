@@ -50,6 +50,7 @@ if __name__ == '__main__':
     parser.addArgument('-d', '--seed', type=int, default=-1, help="Specify seed to run")
     parser.addArgument('-f', '--firstrow', type=int, default=0, help="First row offset for reading data")
     parser.addArgument('-r', '--rows', type=int, help="Maximum amount of rows to read from file")
+    parser.addArgument('-t', '--csv', action="store_true", help="Output as a csv instead of tsv")
 
     sources, flags, args = parser.parseArgs()
     entryLimit = args.entries
@@ -63,7 +64,7 @@ if __name__ == '__main__':
 
         seed = args.seed if args.seed >= 0 else random.randrange(2**32 - 1) # Max value for pandas seed
         random.seed(seed)
-        outputPath = outputDir / f"{source.name}_{'fields' if args.ignoreRecord else 'records'}_{args.chunksize}_{seed}.tsv"
+        outputPath = outputDir / f"{source.name}_{'fields' if args.ignoreRecord else 'records'}_{args.chunksize}_{seed}.{'csv' if args.csv else 'tsv'}"
 
         dfIterator = inputFile.readIterator(args.chunksize, on_bad_lines="skip", low_memory=False)
         df = _collectFields(dfIterator, args.entries, seed) if args.ignoreRecord else _collectRecords(dfIterator, args.entries, seed)
@@ -75,5 +76,5 @@ if __name__ == '__main__':
         if unknownColumn in df.columns:
             df = df.drop([unknownColumn], axis=1)
 
-        df.to_csv(outputPath, sep="\t", index_label="Example #")
+        df.to_csv(outputPath, sep="," if args.csv else "\t", index_label="Example #")
         logging.info(f"Created file {outputPath}")
