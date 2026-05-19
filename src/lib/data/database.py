@@ -102,7 +102,7 @@ class Database:
 
             for fileName in stepMetadata.get(tasks.Metadata.OUTPUTS.value):
                 if fileName is None:
-                    logging.warning(f"Metadata has no recorded outputs from step {step.value}")
+                    logging.warning(f"Metadata has no recorded outputs from step {step.value} at task number {idx}")
                     continue
 
                 stepFiles.append(DataFile(self.workingDirs[step] / fileName))
@@ -110,6 +110,33 @@ class Database:
             files.append(stepFiles)
             
         return files
+
+    def getStepOutputs(self, stepChar: str, taskNum: int) -> list[DataFile]:
+        stepCharMap = {
+            "d": Step.DOWNLOADING,
+            "p": Step.PROCESSING,
+            "c": Step.CONVERSION
+        }
+
+        step = stepCharMap.get(stepChar)
+        if step is None:
+            logging.error(f"Invalid step character {stepChar}. Should be one of {list(stepCharMap)}")
+            return []
+        
+        if not self._generateWorkingDirs():
+            return []
+
+        stepMetadata = self._metadata.get(step.value, [])
+        if abs(taskNum) > len(stepMetadata):
+            logging.error(f"Invalid task number {taskNum} as it is out of range of task length ({len(stepMetadata)})")
+            return []
+        
+        outputs = stepMetadata[taskNum].get(tasks.Metadata.OUTPUTS.value)
+        if outputs is None:
+            logging.error(f"Metadata has no recorded outputs for step {step.value} at task number {taskNum}")
+            return []
+        
+        return outputs
 
     def download(self, flags: list[Flag]) -> None:
         downloadConfig: dict = self.config.get(Step.DOWNLOADING.value, {})
@@ -155,7 +182,7 @@ class Database:
                 logging.error("Stopped evaluating processing tasks as previous task failed")
                 break
 
-    def _conversionTask(self, historicFolderNum: int) -> tasks.Conversion:
+    def convert(self, flags: list[Flag], historicFolderNum: int) -> None:
         conversionConfig: dict = self.config.get(Step.CONVERSION.value, {})
         if not conversionConfig:
             raise Exception(f"No conversion config specified as required for {self.name}") from AttributeError
@@ -163,15 +190,8 @@ class Database:
         if not self._generateWorkingDirs(historicFolderNum):
             return
 
-        return tasks.Conversion(self.workingDirs[Step.CONVERSION], conversionConfig, self._getFiles(Step.DOWNLOADING), self._getFiles(Step.PROCESSING))
-
-    def convert(self, flags: list[Flag], historicFolderNum: int) -> None:
-        task = self._conversionTask(historicFolderNum)
+        task = tasks.Conversion(self.workingDirs[Step.CONVERSION], conversionConfig, self._getFiles(Step.DOWNLOADING), self._getFiles(Step.PROCESSING))
         self._execute(Step.CONVERSION, 0, task, flags)
-
-    def getConversionInfo(self, historicFolderNum: int = 0) -> tuple[DataFile, Path]:
-        task = self._conversionTask(historicFolderNum)
-        return task.input, task.getMapPath()
 
     def update(self) -> None:
         updateConfig: dict = self.config.get("updating", {})

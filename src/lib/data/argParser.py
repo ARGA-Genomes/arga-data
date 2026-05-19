@@ -1,6 +1,6 @@
 from argparse import ArgumentParser, Namespace, _MutuallyExclusiveGroup
 from lib.data.sources import SourceManager
-from lib.data.database import Database, Flag, Step
+from lib.data.database import Database, Flag
 
 class ArgParser:
     def __init__(self, description: str = "", reprepareHelp: str = "Force redoing source preparation", overwriteHelp: str = "Force overwriting all output"):
