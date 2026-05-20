@@ -8,8 +8,9 @@ from pyoxigraph import Store, RdfFormat, NamedNode
 import hashlib
 
 class Map:
-    def __init__(self):
+    def __init__(self, loadPath: Path):
         self._data: dict[str, dict[str, list[tuple[str, str]]]] = {}
+        self.load(loadPath)
 
     @staticmethod
     def _getNodeName(node: NamedNode) -> str:
@@ -39,20 +40,21 @@ class Map:
             if graphName not in self._data:
                 self._data[graphName] = {}
 
-            for quad in store.quads_for_pattern(None, None, None, graph):
-                newColumn = self._getNodeName(quad.subject)
-                if newColumn not in self._data[graphName]:
-                    self._data[graphName][newColumn] = []
+            quads = [quad for quad in  store.quads_for_pattern(None, None, None, graph)][::-1] # Reverse order of quads as they are read bottom to top
+            for quad in quads:
+                oldColumn = self._getNodeName(quad.object)
+                if oldColumn not in self._data[graphName]:
+                    self._data[graphName][oldColumn] = []
 
-                self._data[graphName][newColumn].append((self._getNodeName(quad.predicate), self._getNodeName(quad.object)))
+                self._data[graphName][oldColumn].append((self._getNodeName(quad.predicate), self._getNodeName(quad.subject)))
 
     def apply(self, df: pd.DataFrame) -> dict[str, pd.DataFrame]:
         mappedData = {}
         for graph, columnMapping in self._data.items():
             sectionData = {}
-            for newColumn, mapMethods in columnMapping.items():
-                for method, source in mapMethods:
-                    sectionData[newColumn] = self._translate(df[source], method)
+            for oldColumn, mapMethods in columnMapping.items():
+                for method, target in mapMethods:
+                    sectionData[target] = self._translate(df[oldColumn], method)
 
             mappedData[graph] = pd.DataFrame.from_dict(sectionData)
 
@@ -60,6 +62,15 @@ class Map:
 
     def getGraphs(self) -> list[str]:
         return list(self._data)
+    
+    def getTargets(self, columnName: str) -> dict[str, list[tuple[str, str]]]:
+        found = {}
+
+        for graph, columnMapping in self._data.items():
+            if columnName in columnMapping:
+                found[graph] = columnMapping[columnName]
+
+        return found
 
 class Converter:
     def __init__(self, inputFile: DataFile, outputDir: Path, mapPath: Path):
@@ -68,8 +79,7 @@ class Converter:
         self.mapPath = mapPath
 
     def convert(self, chunkSize: int, verbose: bool) -> tuple[bool, dict]:
-        map = Map()
-        map.load(self.mapPath)
+        map = Map(self.mapPath)
         
         writers: dict[str, DFWriter] = {}
         for graph in map.getGraphs():

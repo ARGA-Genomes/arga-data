@@ -182,15 +182,22 @@ class Database:
                 logging.error("Stopped evaluating processing tasks as previous task failed")
                 break
 
-    def convert(self, flags: list[Flag], historicFolderNum: int) -> None:
+    def _generateConversionTask(self, historicFolderNum: int) -> tasks.Conversion:
         conversionConfig: dict = self.config.get(Step.CONVERSION.value, {})
         if not conversionConfig:
             raise Exception(f"No conversion config specified as required for {self.name}") from AttributeError
         
         if not self._generateWorkingDirs(historicFolderNum):
             return
+        
+        return tasks.Conversion(self.workingDirs[Step.CONVERSION], conversionConfig, self._getFiles(Step.DOWNLOADING), self._getFiles(Step.PROCESSING))
 
-        task = tasks.Conversion(self.workingDirs[Step.CONVERSION], conversionConfig, self._getFiles(Step.DOWNLOADING), self._getFiles(Step.PROCESSING))
+    def getConversionInfo(self) -> tuple[DataFile, Path]:
+        task = self._generateConversionTask(0)
+        return task.input, task.getMapPath()
+
+    def convert(self, flags: list[Flag], historicFolderNum: int) -> None | tasks.Conversion:
+        task = self._generateConversionTask(historicFolderNum)
         self._execute(Step.CONVERSION, 0, task, flags)
 
     def update(self) -> None:
