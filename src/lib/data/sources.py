@@ -44,7 +44,7 @@ class SourceManager:
         location = self.locations.get(locationName, None)
         if location is None:
             logging.error(f"Invalid location '{locationName}'")
-            return []
+            return {}
         
         return {locationName: location.getDatabases(databaseName, subsection)}
 

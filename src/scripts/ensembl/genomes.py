@@ -25,7 +25,8 @@ def download(url: str, outputDir: Path, overwrite: bool = False) -> Path:
     
     return localFile
 
-def speciesDownload(outputFilePath: Path) -> None:
+@importableScript(inputCount=0)
+def speciesDownload(outputDir: Path) -> None:
     url = "https://rest.ensembl.org/info/species?"
     request = requests.get(url, headers={ "Content-Type" : "application/json"})
  
@@ -35,7 +36,7 @@ def speciesDownload(outputFilePath: Path) -> None:
     
     data = request.json()
     df = pd.DataFrame.from_records(data["species"])
-    df.to_csv(outputFilePath, index=False)
+    df.to_csv(outputDir / "species.csv", index=False)
 
 @importableScript()
 def flatten(outputDir: Path, inputPath: Path) -> None:
@@ -101,7 +102,8 @@ def combine(outputDir: Path, metadataFile: DataFile, statsFile: DataFile) -> Non
     uniqueColumns = stats.columns.difference(metadata.columns)
     pd.merge(metadata, stats[uniqueColumns], how="outer", left_on="display_name", right_on="#name").to_csv(outputDir / "combined.csv", index=False)
 
-def collectVGP(outputFilePath: Path):
+@importableScript(inputCount=0)
+def collectVGP(outputDir: Path):
     def cleanText(text: str) -> str:
         return text.strip(" \n")
     
@@ -138,7 +140,7 @@ def collectVGP(outputFilePath: Path):
 
         rowData.append(data)
 
-    pd.DataFrame.from_records(rowData).to_csv(outputFilePath, index=False)
+    pd.DataFrame.from_records(rowData).to_csv(outputDir / "vgp.csv", index=False)
 
 def collectStats(url: str) -> dict:
     pageData = requests.get(url)
