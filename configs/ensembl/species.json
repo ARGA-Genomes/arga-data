@@ -3,14 +3,8 @@
         "retrieveType": "script",
         "tasks": [
             {
-                "path": "sourceProcessing/ensembl.py",
-                "function": "speciesDownload",
-                "args": [
-                    "{OUT-PATH}"
-                ],
-                "outputs": [
-                    "species.csv"
-                ]
+                "path": "./genomes.py",
+                "function": "speciesDownload"
             }
         ]
     },

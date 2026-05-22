@@ -3,13 +3,13 @@ import pandas as pd
 from pathlib import Path
 from lib.processing.scripts import importableScript
 
-@importableScript
+@importableScript(inputCount=0)
 def build(outputDir: Path) -> None:
     url = "http://download.cncb.ac.cn/gsa/"
     regexMatch = ".*\\.gz"
 
-    crawler = Crawler(outputDir, url, regexMatch)
-    files, leftoverFolders = crawler.crawl()
+    crawler = Crawler(outputDir)
+    crawler.run(url, regexMatch)
 
     if leftoverFolders:
         print("Exited early, writing file/folder progress to file")

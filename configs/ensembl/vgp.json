@@ -3,14 +3,9 @@
         "retrieveType": "script",
         "tasks": [
             {
-                "path": "sourceProcessing/ensembl.py",
-                "function": "collectVGP",
-                "args": [
-                    "{OUT-PATH}"
-                ],
-                "outputs": [
-                    "vgp.csv"
-                ]
+                "path": "./genomes.py",
+                "function": "collectVGP"
+
             }
         ]
     },
