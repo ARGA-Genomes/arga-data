@@ -1,0 +1,297 @@
+@base <http://arga.org.au/schemas/fields/>.
+
+@prefix :               <http://arga.org.au/schemas/mapping/>.
+@prefix source:         <http://arga.org.au/source/>.
+@prefix formats:        <http://arga.org.au/source/formats/>.
+@prefix tsi:            <http://arga.org.au/schemas/maps/tsi/>.
+
+
+source:arga_tsi.csv :format          formats:jsonl;
+                    :transforms_into tsi:organisms;
+                    :transforms_into tsi:collecting;
+                    :transforms_into tsi:tissues;
+                    :transforms_into tsi:curators;
+                    :transforms_into tsi:registrations;
+                    :transforms_into tsi:subsamples;
+                    :transforms_into tsi:extractions;
+                    :transforms_into tsi:data_products.
+
+
+tsi:organisms
+{
+  # multiple sources contribute to the same organism model so we
+  # use the first entity_id found which should be the same across all datasets.
+  # NB: this must be order independent, otherwise use something like hash_first.
+  <entity_id>              :hash tsi:organism:organism_id.
+  <entity_id>              :hash tsi:Livestate:Livestate_identifier.
+
+  <organism_id>            :same tsi:organism:organism_id.
+  <livestate_id>           :same tsi:Livestate:Livestate_identifier.
+
+  <scientific_name>        :same tsi:organism:scientific_name.
+  <sex>                    :same tsi:organism:sex.
+  <genotypic_sex>          :same tsi:organism:genotypic_sex.
+  <phenotypic_sex>         :same tsi:Livestate:sex_phenotypic.
+  <life_stage>             :same tsi:organism:life_stage.
+  <reproductive_condition> :same tsi:organism:reproductive_condition.
+  <behavior>               :same tsi:organism:behavior.
+  <live_state>             :same tsi:organism:livestate.
+  <remarks>                :same tsi:organism:remarks.
+
+  <identified_by>          :same tsi:Livestate:identified_by.
+  <identification_date>    :same tsi:Livestate:identification_date.
+  <disposition>            :same tsi:Livestate:disposed_as.
+  <first_observed_at>      :same tsi:Livestate:date_first_observed.
+  <last_known_alive_at>    :same tsi:Livestate:last_known_alive.
+
+  <biome>                  :same tsi:Livestate:biome_ENVO.
+  <habitat>                :same tsi:Livestate:habitat_ENVO.
+  <bioregion>              :same tsi:Livestate:bioregion_ENVO.
+  <ibra_imcra>             :same tsi:Livestate:bioregion_IBRA_IMCRA.
+
+  <latitude>               :same tsi:Livestate:source_location_latitude.
+  <longitude>              :same tsi:Livestate:source_location_longitude.
+  <coordinate_system>      :same tsi:Livestate:coordinate_system.
+  <location_source>        :same tsi:Livestate:geocoods_source.
+  <holding>                :same tsi:Livestate:holding.
+  <holding_id>             :same tsi:Livestate:holding_ID.
+  <holding_permit>         :same tsi:Livestate:holding_permit.
+
+  <doi>                    :same tsi:livestate:source_URL.
+  <citation>               :same tsi:livestate:data_source.
+
+  <curator>                :same tsi:Record:Curator.
+  <curator_orcid>          :same tsi:Record:CuratorID.
+  <created_at>             :same tsi:Record:created.
+  <updated_at>             :same tsi:Record:modified.
+
+  <publication_entity_id> :hash_first (<doi> <citation>).
+}
+
+
+tsi:collecting {
+  <entity_id>          :hash tsi:collecting:specimen_id.
+  <material_sample_id> :same tsi:collecting:specimen_id.
+
+  <scientific_name>     :same tsi:collecting:scientific_name.
+  <organism_id>         :same tsi:collecting:organism_id.
+  <field_collecting_id> :same tsi:collecting:field_collecting_id.
+
+  <event_date>             :same tsi:collecting:event_date.
+  <event_time>             :same tsi:collecting:event_time.
+  <collected_by>           :same tsi:collecting:collected_by.
+  <remarks>                :same tsi:collecting:collection_remarks.
+  <identified_by>          :same tsi:collecting:identified_by.
+  <identification_remarks> :same tsi:collecting:identification_remarks.
+
+  <locality>                 :same tsi:collecting:locality.
+  <country>                  :same tsi:collecting:country.
+  <country_code>             :same tsi:collecting:country_code.
+  <state_province>           :same tsi:collecting:state_province.
+  <county>                   :same tsi:collecting:county.
+  <municipality>             :same tsi:collecting:municipality.
+  <latitude>                 :same tsi:collecting:latitude.
+  <longitude>                :same tsi:collecting:longitude.
+  <location_generalisation>  :same tsi:collecting:location_generalisation.
+  <elevation>                :same tsi:collecting:elevation.
+  <depth>                    :same tsi:collecting:depth.
+  <elevation_accuracy>       :same tsi:collecting:elevation_accuracy.
+  <depth_accuracy>           :same tsi:collecting:depth_accuracy.
+  <location_source>          :same tsi:collecting:location_source.
+
+  <preparation>              :same tsi:collecting:preparation.
+  <environment_broad_scale>  :same tsi:collecting:environment_broad_scale.
+  <environment_local_scale>  :same tsi:collecting:environment_local_scale.
+  <environment_medium>       :same tsi:collecting:environment_medium.
+  <habitat>                  :same tsi:collecting:habitat.
+  <specific_host>            :same tsi:collecting:specific_host.
+  <individual_count>         :same tsi:collecting:individual_count.
+  <organism_quantity>        :same tsi:collecting:organism_quantity.
+  <organism_quantity_type>   :same tsi:collecting:organism_quantity_type.
+  <strain>                   :same tsi:collecting:strain.
+  <isolate>                  :same tsi:collecting:isolate.
+  <permit>                   :same tsi:Collecting:permit.
+  <sampling_protocol>        :same tsi:Collecting:sampling_protocol.
+  <organism_killed>          :same tsi:Collecting:organism_killed.
+  <organism_kill_method>     :same tsi:Collecting:organism_kill_method.
+  <field_sample_disposition> :same tsi:Collecting:field_sample_disposition.
+  <field_notes>              :same tsi:Collecting:field_notes.
+
+  <citation>                 :same tsi:collecting:data_source.
+  <source_url>               :same tsi:collecting:source_URL.
+  <doi>                      :same tsi:collecting:source_URL.
+}
+
+
+
+# tissues
+tsi:tissues {
+  <entity_id>               :hash tsi:tissues:tissue_id.
+
+  <tissue_id>               :same tsi:tissues:tissue_id.
+  <organism_id>             :same tsi:tissues:organism_id.
+  <material_sample_id>      :same tsi:tissues:material_sample_id.
+  <original_catalogue_name> :same tsi:tissues:original_catalogue_name.
+  <current_catalogue_name>  :same tsi:tissues:current_catalogue_name.
+
+  <identification_verified> :same tsi:tissues:identification_verified.
+  <reference_material>      :same tsi:tissues:reference_material.
+  <registered_by>           :same tsi:tissues:registered_by.
+  <registration_date>       :same tsi:tissues:registration_date.
+
+  <custodian>               :same tsi:tissues:tissue_custodian.
+  <institution>             :same tsi:tissues:institution.
+  <institution_code>        :same tsi:tissues:institution_code.
+  <collection>              :same tsi:tissues:collection.
+  <collection_code>         :same tsi:tissues:collection_code.
+
+  <status>                  :same tsi:tissues:specimen_status.
+  <current_status>          :same tsi:tissues:current_specimen_status.
+  <sampling_protocol>       :same tsi:tissues:sampling_protocol.
+  <tissue_type>             :same tsi:tissues:tissue_type.
+  <disposition>             :same tsi:tissues:tissue_disposition.
+  <fixation>                :same tsi:tissues:tissue_fixation.
+  <storage>                 :same tsi:tissues:tissue_storage.
+
+  <citation>                :same tsi:tissues:source.
+  <source_url>              :same tsi:tissues:source_URL.
+  <doi>                     :same tsi:tissues:source_URL.
+}
+
+
+tsi:curators {
+  <curator>       :same tsi:Record:Curator.
+  <curator_orcid> :same tsi:Record:CuratorID.
+}
+
+
+tsi:registrations {
+  <entity_id>               :hash (<organism_id> <institution_code> <collection> <collection_code>).
+  <specimen_id>             :hash_first (<tissue_id> <material_sample_id> <organism_id>).
+  <organism_id>             :same tsi:registrations:organism_id.
+  <catalogue_id>            :same tsi:registrations:catalogue_id.
+  <field_id>                :same tsi:registrations:field_id.
+
+  <scientific_name>         :same tsi:registrations:current_catalogue_name.
+
+  <registered_by>           :same tsi:registrations:registered_by.
+  <registered_by_orcid>     :same tsi:registrations:registered_by_ID.
+  <registration_date>       :same tsi:registrations:registration_date.
+  <institution>             :same tsi:registrations:institution.
+  <institution_code>        :same tsi:registrations:institution_code.
+  <collection>              :same tsi:registrations:collection.
+  <collection_code>         :same tsi:registrations:collection_code.
+  <specimen_status>         :same tsi:registrations:specimen_status.
+
+  <reference_material>      :same tsi:reference_material.
+  <identification_verified> :same tsi:identification_verified.
+
+  <specimen_type>           :same tsi:registrations:specimen_type.
+  <disposition>             :same tsi:registrations:specimen_disposition.
+  <fixation>                :same tsi:registrations:specimen_fixation.
+  <storage>                 :same tsi:registrations:specimen_storage.
+
+  <citation>                :same tsi:registrations:source.
+  <source_url>              :same tsi:registrations:source_URL.
+  <doi>                     :same tsi:registrations:source_URL.
+}
+
+
+tsi:subsamples {
+  <entity_id>                        :hash tsi:lab_sample:sample_id.
+
+  <organism_id>                      :same tsi:organism:entity_id.
+  <tissue_id>                        :same tsi:tissues:tissue_id.
+  <subsample_id>                     :same tsi:lab_sample:sample_id.
+
+  <sample_type>                      :same tsi:lab_sample:sample_type.
+  <institution>                      :same tsi:lab_sample:sample_repository.
+  <institution_code>                 :same tsi:lab_sample:sample_repository_code.
+  <name>                             :same tsi:lab_sample:sample_name.
+  <custodian>                        :same tsi:lab_sample:sample_custodian.
+  <description>                      :same tsi:lab_sample:sample_description.
+  <notes>                            :same tsi:lab_sample:sample_notes.
+
+  <culture_method>                   :same tsi:lab_sample:culture_method.
+  <culture_media>                    :same tsi:lab_sample:culture_media.
+  <weight_or_vol>                    :same tsi:lab_sample:sample_weight_or_vol.
+  <preservation_method>              :same tsi:lab_sample:sample_preservation_method.
+  <preservation_temperature>         :same tsi:lab_sample:sample_preservation_temperature.
+  <preservation_duration>            :same tsi:lab_sample:sample_preservation_duration.
+  <quality>                          :same tsi:lab_sample:sample_quality.
+  <cell_type>                        :same tsi:lab_sample:sample_cell_type.
+  <cell_line>                        :same tsi:lab_sample:cell_line.
+  <clone_name>                       :same tsi:lab_sample:clone_name.
+  <lab_host>                         :same tsi:lab_sample:lab_host.
+  <sample_processing>                :same tsi:lab_sample:sample_processing.
+  <sample_pooling>                   :same tsi:lab_sample:sample_pooling.
+}
+
+
+tsi:extractions {
+  <entity_id>                        :hash tsi:lab_sample:extract_id.
+
+  <organism_id>                      :same tsi:organism:entity_id.
+  <tissue_id>                        :same tsi:tissues:tissue_id.
+  <subsample_id>                     :same tsi:lab_sample:sample_id.
+  <extract_id>                       :same tsi:lab_sample:extract_id.
+
+  <extracted_by>                     :same tsi:lab_sample:extracted_by.
+  <extracted_by_orcid>               :same tsi:lab_sample:extracted_by_ID.
+  <extraction_date>                  :same tsi:lab_sample:extraction_date.
+
+  <nucleic_acid_type>                :same tsi:lab_sample:nucleic_acid_type.
+  <nucleic_acid_conformation>        :same tsi:lab_sample:nucleic_acid_conformation.
+  <nucleic_acid_preservation_method> :same tsi:lab_sample:nucleic_acid_preservation_method.
+  <nucleic_acid_concentration>       :same tsi:lab_sample:nucleic_acid_concentration.
+  <nucleic_acid_quantification>      :same tsi:lab_sample:nucleic_acid_quantification.
+
+  <concentration_unit>               :same tsi:lab_sample:extract_concentration_unit.
+  <absorbance_260_230_ratio>         :same tsi:lab_sample:absorbance_260_230_ratio.
+  <absorbance_260_280_ratio>         :same tsi:lab_sample:absorbance_260_280_ratio.
+  <cell_lysis_method>                :same tsi:lab_sample.cell_lysis_method.
+  <material_extracted_by>            :same tsi:lab_sample.material_extracted_by.
+  <material_extracted_by_orcid>      :same tsi:lab_sample.material_extracted_by_ID.
+  <action_extracted>                 :same tsi:lab_sample:action_extracted.
+  <extraction_method>                :same tsi:lab_sample:extraction_method.
+  <number_of_extracts_pooled>        :same tsi:lab_sample:n_extracts_pooled.
+
+  <citation>                         :same tsi:lab_sample:source.
+  <source_url>                       :same tsi:lab_sample:source_URL.
+  <doi>                              :same tsi:lab_sample:source_URL.
+
+  # use orcids as the globally unique identifier for agents when available, otherwise fall back
+  # to the full name which should be little more than a name due to it's lack of uniqueness
+  <extracted_by_entity_id>          :hash_first (<extracted_by_orcid> <extracted_by>).
+  <material_extracted_by_entity_id> :hash_first (<material_extracted_by_orcid> <material_extracted_by>).
+
+  <publication_entity_id>           :hash_first (<doi> <citation>).
+}
+
+
+tsi:data_products
+{
+  <entity_id>              :hash tsi:data:sequencing_analysis_ID.
+  <organism_id>            :same tsi:organism:entity_id.
+  <extract_id>             :same tsi:lab_sample:extract_id.
+  <sequence_run_id>        :same tsi:data:sequencing_run_ID.
+
+  <sequence_sample_id>     :same tsi:data:sequencing_sample_id.
+  <sequence_analysis_id>   :same tsi:data:sequencing_analysis_ID.
+  <notes>                  :same tsi:data:sequencing_note.
+  <context>                :same tsi:data:data_context.
+  <type>                   :same tsi:data:raw_data_type.
+  <file_type>              :same tsi:data:raw_data_file_type.
+  <url>                    :same tsi:data:raw_data_URL.
+  <licence>                :same tsi:data:licence.
+  <access>                 :same tsi:data:access.
+
+  <custodian>              :same tsi:data:data_custodian.
+  <custodian_orcid>        :same tsi:data:data_custodian_ID.
+
+  <citation>               :same tsi:data:source.
+  <source_url>             :same tsi:data:source_URL.
+
+  <custodian_entity_id>    :hash_first (<custodian_orcid> <custodian>).
+  <publication_entity_id>  :hash_first (<source_url> <citation>).
+}

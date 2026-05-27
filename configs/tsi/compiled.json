@@ -7,5 +7,9 @@
                 "function": "collectFromSheets"
             }
         ]
+    },
+    "conversion": {
+        "mapFileName": "arga_tsi.ttl",
+        "input": "{D^}"
     }
 }
