@@ -184,7 +184,12 @@ class CrawlRetrieve(Task):
         self.secretLocation = secretLocation
 
     def _execute(self, overwrite: bool, verbose: bool) -> tuple[bool, dict]:
-        crawler = Crawler(self.workingDir, self.workingDir.parent, self.auth)
+        auth = None
+        if self.auth:
+            secrets = Secrets(self.secretLocation)
+            auth = secrets.getAuth()
+
+        crawler = Crawler(self.workingDir, self.workingDir.parent, auth)
         crawler.run(self.url, self.regex, self.maxDepth, self.skipFolders, overwrite)
         urlList = crawler.getFileURLs(self.link)
 
