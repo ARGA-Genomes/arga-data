@@ -266,7 +266,7 @@ class Database:
 
         metadata = task.run(overwrite, verbose)
         self.updateMetadata(step, index, metadata)
-        runSuccess = metadata[tasks.Metadata.SUCCESS]
+        runSuccess = metadata.get(tasks.Metadata.SUCCESS, False)
 
         if not runSuccess:
             if outputs:

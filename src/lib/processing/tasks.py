@@ -12,6 +12,7 @@ from datetime import datetime
 from enum import Enum
 from lib.settings import Settings
 import os
+import traceback
 
 class Metadata(Enum):
     OUTPUTS = "outputs"
@@ -66,6 +67,10 @@ class Task:
             success, extraMetadata = self._execute(overwrite, verbose)
         except KeyboardInterrupt:
             logging.info("Cancelling task execution early")
+            return {}
+        except:
+            logging.error("Error occurred when executing tasks")
+            logging.error(traceback.format_exc())
             return {}
         
         outputs = [name for name, stats in self._getWorkingDirFiles().items() if beforeFiles.get(name, {}) != stats]

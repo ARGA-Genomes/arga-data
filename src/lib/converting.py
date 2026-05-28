@@ -40,7 +40,7 @@ class Map:
             if graphName not in self._data:
                 self._data[graphName] = {}
 
-            quads = [quad for quad in  store.quads_for_pattern(None, None, None, graph)][::-1] # Reverse order of quads as they are read bottom to top
+            quads = [quad for quad in  store.quads_for_pattern(None, None, None, graph)] # Quads are read in reverse order so column mapping is reversed
             for quad in quads:
                 oldColumn = self._getNodeName(quad.object)
                 if oldColumn not in self._data[graphName]:
@@ -56,7 +56,7 @@ class Map:
                 for method, target in mapMethods:
                     sectionData[target] = self._translate(df[oldColumn], method)
 
-            mappedData[graph] = pd.DataFrame.from_dict(sectionData)
+            mappedData[graph] = pd.DataFrame.from_dict(dict(reversed(sectionData.items()))) # Reverse output dict as column mapping is reversed
 
         return mappedData
 
